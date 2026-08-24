@@ -1,4 +1,5 @@
 import { signInWithGoogle } from '@/lib/actions/auth'
+import { PasswordLoginForm } from '@/components/features/auth/PasswordLoginForm'
 
 const ERROR_MESSAGES: Record<string, string> = {
   oauth_init_failed: 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
@@ -43,9 +44,15 @@ export default async function LoginPage({
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-neutral-400">
-          ¿Eres restaurante o repartidor? Contacta al administrador para recibir tu invitación por correo.
-        </p>
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-stone-200" />
+          <span className="text-xs text-neutral-400">
+            restaurantes y repartidores
+          </span>
+          <div className="h-px flex-1 bg-stone-200" />
+        </div>
+
+        <PasswordLoginForm />
       </div>
     </main>
   )
