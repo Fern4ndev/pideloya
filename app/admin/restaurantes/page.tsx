@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/db/server'
 import { approveRestaurant } from '@/lib/actions/admin'
-import { InviteRestaurantDialog } from '@/components/features/admin/InviteRestaurantDialog'
 import { ApproveButton } from '@/components/features/admin/ApproveButton'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -15,28 +14,23 @@ import {
 export default async function AdminRestaurantsPage() {
   const supabase = await createClient()
 
-  // Nested select: trae, por cada restaurante, el nombre del dueño a
-  // través de restaurant_members → profiles. Requiere las FKs ya creadas
-  // en 0001 y las policies de 0004.
   const { data: restaurants, error } = await supabase
     .from('restaurants')
     .select(
-      'id, name, slug, address_text, is_approved, is_active, restaurant_members(profiles(full_name))'
+      'id, name, slug, address_text, whatsapp, food_type, is_approved, is_active, restaurant_members(profiles(full_name))'
     )
     .order('created_at', { ascending: false })
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Restaurantes
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Aprueba negocios nuevos para que aparezcan en el catálogo público.
-          </p>
-        </div>
-        <InviteRestaurantDialog />
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Restaurantes
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Revisa y aprueba los negocios que se registraron desde la página
+          principal.
+        </p>
       </div>
 
       {error && (
@@ -51,7 +45,8 @@ export default async function AdminRestaurantsPage() {
             <TableRow>
               <TableHead>Negocio</TableHead>
               <TableHead>Dueño</TableHead>
-              <TableHead>Dirección</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>WhatsApp</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acción</TableHead>
             </TableRow>
@@ -65,7 +60,10 @@ export default async function AdminRestaurantsPage() {
                   <TableCell className="font-medium">{r.name}</TableCell>
                   <TableCell>{ownerName}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {r.address_text}
+                    {r.food_type ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {r.whatsapp ?? '—'}
                   </TableCell>
                   <TableCell>
                     {r.is_approved ? (
@@ -88,7 +86,7 @@ export default async function AdminRestaurantsPage() {
 
       {!error && restaurants && restaurants.length === 0 && (
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Todavía no invitaste a ningún restaurante.
+          Todavía no hay restaurantes registrados.
         </p>
       )}
     </div>
