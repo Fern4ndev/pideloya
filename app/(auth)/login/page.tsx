@@ -1,5 +1,6 @@
 import { signInWithGoogle } from '@/lib/actions/auth'
 import { PasswordLoginForm } from '@/components/features/auth/PasswordLoginForm'
+import { Logo } from '@/components/shared/Logo'
 
 const ERROR_MESSAGES: Record<string, string> = {
   oauth_init_failed: 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
@@ -21,15 +22,21 @@ export default async function LoginPage({
   const signInWithGoogleForPath = signInWithGoogle.bind(null, next)
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-neutral-900">Ingresa a PideloYa</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Pide en tus negocios favoritos de Abancay
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-sm">
+        <div className="flex justify-center">
+          <Logo className="mb-4" height={60} />
+        </div>
+
+        <h1 className="text-xl font-semibold text-card-foreground text-center">
+          Iniciar sesión
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground text-center">
+          Pide lo que quieras, cuando quieras...
         </p>
 
         {errorMessage && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          <p className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {errorMessage}
           </p>
         )}
@@ -37,7 +44,7 @@ export default async function LoginPage({
         <form action={signInWithGoogleForPath} className="mt-6">
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-card-foreground transition hover:bg-accent"
           >
             <GoogleIcon />
             Continuar con Google
@@ -45,11 +52,11 @@ export default async function LoginPage({
         </form>
 
         <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-stone-200" />
-          <span className="text-xs text-neutral-400">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">
             restaurantes y repartidores
           </span>
-          <div className="h-px flex-1 bg-stone-200" />
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         <PasswordLoginForm />

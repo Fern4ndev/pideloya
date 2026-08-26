@@ -33,7 +33,7 @@
   --muted-foreground: oklch(0.556 0 0);
 
   /* Único acento de color del sistema: azul, uso moderado (links, focus, badges de estado) */
-  --accent: oklch(0.551 0.183 258.3);
+  --accent: oklch(93.354% 0.00183 249.164);
   --accent-foreground: oklch(0.985 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
