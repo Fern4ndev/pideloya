@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type SubmitEvent } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { createAddress } from '@/lib/actions/addresses'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ const AddressMapPicker = dynamic(() => import('./AddressMapPicker'), {
 })
 
 export function AddressForm({ onCreated }: { onCreated?: () => void }) {
+  const router = useRouter()
   const [label, setLabel] = useState('')
   const [addressText, setAddressText] = useState('')
   const [reference, setReference] = useState('')
@@ -63,6 +65,7 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
         setAddressText('')
         setReference('')
         setCoords(null)
+        router.refresh()
         onCreated?.()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
