@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
+import { useCartStore, cartItemCount } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -22,6 +23,8 @@ const NAV_LINKS = [
 
 export function CustomerHeader({ fullName }: { fullName: string }) {
   const pathname = usePathname()
+  const items = useCartStore((state) => state.items)
+  const itemCount = cartItemCount(items)
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
 
   return (
@@ -46,6 +49,19 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
               </Button>
             )
           })}
+          <Button
+            render={<Link href="/cliente/carrito" />}
+            variant={pathname === '/cliente/carrito' ? 'default' : 'ghost'}
+            size="sm"
+            className="relative rounded-full"
+          >
+            Carrito
+            {itemCount > 0 && (
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
+                {itemCount}
+              </span>
+            )}
+          </Button>
         </nav>
 
         <DropdownMenu>
@@ -93,6 +109,19 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
             </Button>
           )
         })}
+        <Button
+          render={<Link href="/cliente/carrito" />}
+          variant={pathname === '/cliente/carrito' ? 'default' : 'ghost'}
+          size="sm"
+          className="relative shrink-0 rounded-full"
+        >
+          Carrito
+          {itemCount > 0 && (
+            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
+              {itemCount}
+            </span>
+          )}
+        </Button>
       </nav>
     </header>
   )
