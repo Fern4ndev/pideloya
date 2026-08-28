@@ -1,7 +1,120 @@
-export default function RestauranteDetailPage() {
+import { notFound } from 'next/navigation'
+import Image from 'next/image'
+import { createClient } from '@/lib/db/server'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ProductOrderCard } from '@/components/features/products/ProductOrderCard'
+
+export default async function RestaurantMenuPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  const supabase = await createClient()
+
+  // La policy RLS "restaurants_select_public" ya filtra por
+  // is_approved=true e is_active=true — si no cumple, esto viene null.
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select(
+      'id, name, description, logo_url, address_text, whatsapp, food_type'
+    )
+    .eq('slug', slug)
+    .maybeSingle()
+
+  if (!restaurant) {
+    notFound()
+  }
+
+  const { data: products } = await supabase
+    .from('products')
+    .select('id, name, description, price, image_url')
+    .eq('restaurant_id', restaurant.id)
+    .eq('available', true)
+    .order('created_at', { ascending: false })
+
+  const whatsappLink = restaurant.whatsapp
+    ? `https://wa.me/51${restaurant.whatsapp}?text=${encodeURIComponent(
+        `Hola, quiero hacer un pedido en ${restaurant.name} desde PideloYa`
+      )}`
+    : null
+
   return (
-    <main>
-      <h1>Restaurante</h1>
-    </main>
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      <div className="flex gap-4">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
+          {restaurant.logo_url ? (
+            <Image
+              src={restaurant.logo_url}
+              alt={restaurant.name}
+              fill
+              sizes="80px"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-muted-foreground">
+              {restaurant.name.charAt(0)}
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {restaurant.name}
+          </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {restaurant.food_type && (
+              <Badge variant="secondary">{restaurant.food_type}</Badge>
+            )}
+            {restaurant.address_text && (
+              <span className="text-sm text-muted-foreground">
+                {restaurant.address_text}
+              </span>
+            )}
+          </div>
+          {restaurant.description && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {restaurant.description}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {whatsappLink && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          render={
+            <a href={whatsappLink} target="_blank" rel="noopener noreferrer" />
+          }
+        >
+          Pedir por WhatsApp
+        </Button>
+      )}
+
+      <div className="mt-8 space-y-3">
+        {products && products.length > 0 ? (
+          products.map((p) => (
+            <ProductOrderCard
+              key={p.id}
+              product={{
+                id: p.id,
+                name: p.name,
+                description: p.description,
+                price: Number(p.price),
+                imageUrl: p.image_url,
+              }}
+              restaurant={{ id: restaurant.id, name: restaurant.name }}
+            />
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Este negocio todavía no tiene productos publicados.
+          </p>
+        )}
+      </div>
+    </div>
   )
 }
