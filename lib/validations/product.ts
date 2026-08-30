@@ -10,6 +10,7 @@ export const productSchema = z.object({
     .optional()
     .or(z.literal('')),
   available: z.boolean(),
+  categoryId: z.string().uuid().optional().or(z.literal('')),
 })
 
 export type ProductInput = z.infer<typeof productSchema>

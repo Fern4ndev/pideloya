@@ -29,7 +29,7 @@ export function PublicHeader() {
               </span>
             )}
           </Button>
-          <Button render={<Link href="/login" />} size="sm">
+          <Button render={<Link href="/login" />} nativeButton={false} size="sm">
             Ingresar
           </Button>
         </div>

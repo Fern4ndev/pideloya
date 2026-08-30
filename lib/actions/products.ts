@@ -48,6 +48,7 @@ export async function createProduct(input: ProductInput) {
     price: data.price,
     image_url: data.imageUrl || null,
     available: data.available,
+    category_id: data.categoryId || null,
   })
 
   if (error) throw new Error(error.message)
@@ -71,6 +72,7 @@ export async function updateProduct(productId: string, input: ProductInput) {
       price: data.price,
       image_url: data.imageUrl || null,
       available: data.available,
+      category_id: data.categoryId || null,
     })
     .eq('id', productId)
 

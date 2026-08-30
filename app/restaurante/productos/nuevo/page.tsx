@@ -1,6 +1,14 @@
+import { createClient } from '@/lib/db/server'
 import { ProductForm } from '@/components/features/products/ProductForm'
 
-export default function NewProductPage() {
+export default async function NewProductPage() {
+  const supabase = await createClient()
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, name')
+    .order('sort_order', { ascending: true })
+
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">
@@ -12,7 +20,7 @@ export default function NewProductPage() {
       </p>
 
       <div className="mt-6">
-        <ProductForm />
+        <ProductForm categories={categories ?? []} />
       </div>
     </div>
   )

@@ -15,13 +15,18 @@ export default async function EditProductPage({
   // basta con chequear !product para cubrir "no existe" Y "no es tuyo".
   const { data: product } = await supabase
     .from('products')
-    .select('id, name, description, price, image_url, available')
+    .select('id, name, description, price, image_url, available, category_id')
     .eq('id', id)
     .single()
 
   if (!product) {
     notFound()
   }
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, name')
+    .order('sort_order', { ascending: true })
 
   return (
     <div>
@@ -32,12 +37,14 @@ export default async function EditProductPage({
       <div className="mt-6">
         <ProductForm
           productId={product.id}
+          categories={categories ?? []}
           initialData={{
             name: product.name,
             description: product.description ?? '',
             price: String(product.price),
             imageUrl: product.image_url ?? '',
             available: product.available,
+            categoryId: product.category_id ?? '',
           }}
         />
       </div>

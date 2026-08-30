@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 const NAV_LINKS = [
   { href: '/restaurante', label: 'Dashboard' },
   { href: '/restaurante/productos', label: 'Productos' },
+  { href: '/restaurante/categorias', label: 'Categorías' },
   { href: '/restaurante/negocio', label: 'Mi negocio' },
   { href: '/restaurante/perfil', label: 'Perfil' },
 ]

@@ -29,10 +29,25 @@ export default async function RestaurantMenuPage({
 
   const { data: products } = await supabase
     .from('products')
-    .select('id, name, description, price, image_url')
+    .select('id, name, description, price, image_url, category_id')
     .eq('restaurant_id', restaurant.id)
     .eq('available', true)
     .order('created_at', { ascending: false })
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, name')
+    .eq('restaurant_id', restaurant.id)
+    .order('sort_order', { ascending: true })
+
+  // Agrupa los productos por categoría, y deja un grupo aparte para los
+  // que no tienen ninguna asignada.
+  const productsByCategory = (categories ?? []).map((category) => ({
+    category,
+    products: (products ?? []).filter((p) => p.category_id === category.id),
+  })).filter((group) => group.products.length > 0)
+
+  const uncategorized = (products ?? []).filter((p) => !p.category_id)
 
   const whatsappLink = restaurant.whatsapp
     ? `https://wa.me/51${restaurant.whatsapp}?text=${encodeURIComponent(
@@ -94,21 +109,57 @@ export default async function RestaurantMenuPage({
         </Button>
       )}
 
-      <div className="mt-8 space-y-3">
+      <div className="mt-8 space-y-8">
         {products && products.length > 0 ? (
-          products.map((p) => (
-            <ProductOrderCard
-              key={p.id}
-              product={{
-                id: p.id,
-                name: p.name,
-                description: p.description,
-                price: Number(p.price),
-                imageUrl: p.image_url,
-              }}
-              restaurant={{ id: restaurant.id, name: restaurant.name }}
-            />
-          ))
+          <>
+            {productsByCategory.map(({ category, products: categoryProducts }) => (
+              <div key={category.id}>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {category.name}
+                </h2>
+                <div className="mt-3 space-y-3">
+                  {categoryProducts.map((p) => (
+                    <ProductOrderCard
+                      key={p.id}
+                      product={{
+                        id: p.id,
+                        name: p.name,
+                        description: p.description,
+                        price: Number(p.price),
+                        imageUrl: p.image_url,
+                      }}
+                      restaurant={{ id: restaurant.id, name: restaurant.name }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {uncategorized.length > 0 && (
+              <div>
+                {productsByCategory.length > 0 && (
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Otros
+                  </h2>
+                )}
+                <div className="mt-3 space-y-3">
+                  {uncategorized.map((p) => (
+                    <ProductOrderCard
+                      key={p.id}
+                      product={{
+                        id: p.id,
+                        name: p.name,
+                        description: p.description,
+                        price: Number(p.price),
+                        imageUrl: p.image_url,
+                      }}
+                      restaurant={{ id: restaurant.id, name: restaurant.name }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-sm text-muted-foreground">
             Este negocio todavía no tiene productos publicados.

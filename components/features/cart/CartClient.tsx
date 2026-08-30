@@ -85,7 +85,7 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
         <p className="mt-1 text-sm text-muted-foreground">
           Ve a un negocio y agrega productos para empezar tu pedido.
         </p>
-        <Button className="mt-6" render={<Link href="/cliente" />}>
+        <Button className="mt-6" render={<Link href="/cliente" />} nativeButton={false}>
           Ver negocios
         </Button>
       </div>

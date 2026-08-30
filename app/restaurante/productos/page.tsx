@@ -31,7 +31,7 @@ export default async function RestaurantProductsPage() {
             Lo que ven tus clientes en tu carta.
           </p>
         </div>
-        <Button render={<Link href="/restaurante/productos/nuevo" />}>
+        <Button render={<Link href="/restaurante/productos/nuevo" />} nativeButton={false}>
           Nuevo producto
         </Button>
       </div>
