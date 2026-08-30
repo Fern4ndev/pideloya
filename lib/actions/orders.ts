@@ -13,6 +13,38 @@ function toFriendlyMessage(err: unknown): string {
   return 'Algo salió mal'
 }
 
+/**
+ * Cancela un pedido. El cliente solo puede hacerlo mientras esté
+ * PENDING (RLS "orders_update_own_customer_cancel" lo exige a nivel de
+ * base de datos, no solo aquí). El admin puede cancelar en cualquier
+ * momento vía su propia policy "orders_all_admin".
+ */
+export async function cancelOrder(orderId: string) {
+  const supabase = await createClient()
+
+  // IMPORTANTE: encadenamos select().single() a propósito. Si RLS
+  // bloquea el update (porque el pedido ya no está PENDING, o no es
+  // del cliente que llama), Supabase actualiza 0 filas SIN devolver
+  // un error — solo .single() lo detecta, al no encontrar ninguna
+  // fila para devolver.
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status: 'CANCELLED' })
+    .eq('id', orderId)
+    .select('id')
+    .single()
+
+  if (error || !data) {
+    throw new Error(
+      'No se pudo cancelar. Es posible que un repartidor ya haya aceptado este pedido.'
+    )
+  }
+
+  revalidatePath('/cliente/pedidos')
+  revalidatePath(`/cliente/pedidos/${orderId}`)
+  return { success: true }
+}
+
 export async function createOrder(input: CreateOrderInput) {
   let data: CreateOrderInput
   try {

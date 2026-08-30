@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: '/restaurante', label: 'Dashboard' },
   { href: '/restaurante/productos', label: 'Productos' },
   { href: '/restaurante/negocio', label: 'Mi negocio' },
+  { href: '/restaurante/perfil', label: 'Perfil' },
 ]
 
 export function RestaurantSidebar() {

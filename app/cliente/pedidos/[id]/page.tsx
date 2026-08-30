@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { OrderStatusTimeline } from '@/components/features/orders/OrderStatusTimeline'
+import { CancelOrderButton } from '@/components/features/orders/CancelOrderButton'
 
 export default async function OrderDetailPage({
   params,
@@ -40,6 +41,12 @@ export default async function OrderDetailPage({
       <div className="mt-6">
         <OrderStatusTimeline status={order.status} />
       </div>
+
+      {order.status === 'PENDING' && (
+        <div className="mt-6">
+          <CancelOrderButton orderId={order.id} />
+        </div>
+      )}
 
       <div className="mt-8 space-y-2 border-t pt-4">
         <h2 className="text-sm font-medium">Productos</h2>

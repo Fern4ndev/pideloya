@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: '/repartidor', label: 'Dashboard' },
   { href: '/repartidor/disponibles', label: 'Disponibles' },
   { href: '/repartidor/pedidos', label: 'Mis entregas' },
+  { href: '/repartidor/perfil', label: 'Perfil' },
 ]
 
 export function DeliverySidebar() {

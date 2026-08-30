@@ -3,6 +3,7 @@
 import { useTransition } from 'react'
 import { advanceOrderStatus } from '@/lib/actions/deliveries'
 import { Button } from '@/components/ui/button'
+import type { OrderStatus } from '@/types/order'
 
 const NEXT_LABEL: Record<string, string> = {
   ASSIGNED: 'Marcar como recogido',
@@ -15,7 +16,7 @@ export function AdvanceStatusButton({
   currentStatus,
 }: {
   orderId: string
-  currentStatus: string
+  currentStatus: OrderStatus
 }) {
   const [isPending, startTransition] = useTransition()
   const label = NEXT_LABEL[currentStatus]

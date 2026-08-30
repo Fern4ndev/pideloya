@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/db/server'
 import { ProfileForm } from '@/components/features/profile/ProfileForm'
 
-export default async function RestauranteProfilePage() {
+export default async function AdminProfilePage() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -16,10 +16,6 @@ export default async function RestauranteProfilePage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tus datos personales como responsable de la cuenta. Para editar la
-        información del negocio, ve a `Mi negocio`.
-      </p>
       <div className="mt-6">
         <ProfileForm
           email={user!.email ?? ''}

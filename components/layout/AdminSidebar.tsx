@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/restaurantes', label: 'Restaurantes' },
   { href: '/admin/repartidores', label: 'Repartidores' },
+  { href: '/admin/perfil', label: 'Perfil' },
 ]
 
 export function AdminSidebar() {
@@ -27,7 +28,6 @@ export function AdminSidebar() {
             <Button
               key={link.href}
               render={<Link href={link.href} />}
-              nativeButton={false}
               variant={active ? 'default' : 'ghost'}
               size="sm"
               className="justify-start"
