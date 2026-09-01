@@ -18,6 +18,7 @@ export function PublicHeader() {
         <div className="flex items-center gap-2">
           <Button
             render={<Link href="/cliente/carrito" />}
+            nativeButton={false}
             variant="outline"
             size="sm"
             className="relative"

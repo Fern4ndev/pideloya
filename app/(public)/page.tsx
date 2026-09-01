@@ -14,8 +14,14 @@ export default function HomePage() {
           y clientes que quieren pedir sin salir de casa.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Button render={<Link href="/login" />} nativeButton={false}>Pedir ahora</Button>
-          <Button variant="outline" render={<Link href="#unete" />} nativeButton={false}>
+          <Button render={<Link href="/login" />} nativeButton={false}>
+            Pedir ahora
+          </Button>
+          <Button
+            variant="outline"
+            render={<Link href="#unete" />}
+            nativeButton={false}
+          >
             Únete como negocio o repartidor
           </Button>
         </div>

@@ -104,6 +104,7 @@ export default async function RestaurantMenuPage({
           render={
             <a href={whatsappLink} target="_blank" rel="noopener noreferrer" />
           }
+          nativeButton={false}
         >
           Pedir por WhatsApp
         </Button>

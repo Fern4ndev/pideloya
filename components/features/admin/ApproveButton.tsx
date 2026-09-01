@@ -19,7 +19,11 @@ export function ApproveButton({
       size="sm"
       variant="outline"
       disabled={isPending}
-      onClick={() => startTransition(() => { action(id) })}
+      onClick={() =>
+        startTransition(() => {
+          action(id)
+        })
+      }
     >
       {isPending ? 'Aprobando…' : label}
     </Button>

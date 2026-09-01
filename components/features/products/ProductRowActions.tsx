@@ -15,14 +15,18 @@ export function ProductRowActions({
   const [isPending, startTransition] = useTransition()
 
   function handleToggle() {
-    startTransition(() => { toggleProductAvailability(productId, !available) })
+    startTransition(() => {
+      toggleProductAvailability(productId, !available)
+    })
   }
 
   function handleDelete() {
     if (!confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
       return
     }
-    startTransition(() => { deleteProduct(productId) })
+    startTransition(() => {
+      deleteProduct(productId)
+    })
   }
 
   return (
@@ -39,6 +43,7 @@ export function ProductRowActions({
         size="sm"
         variant="ghost"
         render={<Link href={`/restaurante/productos/${productId}`} />}
+        nativeButton={false}
       >
         Editar
       </Button>

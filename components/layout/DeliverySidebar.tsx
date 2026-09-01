@@ -31,6 +31,7 @@ export function DeliverySidebar() {
             <Button
               key={link.href}
               render={<Link href={link.href} />}
+              nativeButton={false}
               variant={active ? 'default' : 'ghost'}
               size="sm"
               className="justify-start"

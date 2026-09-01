@@ -41,6 +41,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
               <Button
                 key={link.href}
                 render={<Link href={link.href} />}
+                nativeButton={false}
                 variant={active ? 'default' : 'ghost'}
                 size="sm"
                 className="rounded-full"
@@ -51,6 +52,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           })}
           <Button
             render={<Link href="/cliente/carrito" />}
+            nativeButton={false}
             variant={pathname === '/cliente/carrito' ? 'default' : 'ghost'}
             size="sm"
             className="relative rounded-full"
@@ -77,7 +79,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
               {fullName}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/cliente/perfil" />}>
+            <DropdownMenuItem render={<Link href="/cliente/perfil" />} nativeButton={false}>
               Mi perfil
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -101,6 +103,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
             <Button
               key={link.href}
               render={<Link href={link.href} />}
+              nativeButton={false}
               variant={active ? 'default' : 'ghost'}
               size="sm"
               className="shrink-0 rounded-full"
@@ -111,6 +114,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
         })}
         <Button
           render={<Link href="/cliente/carrito" />}
+          nativeButton={false}
           variant={pathname === '/cliente/carrito' ? 'default' : 'ghost'}
           size="sm"
           className="relative shrink-0 rounded-full"

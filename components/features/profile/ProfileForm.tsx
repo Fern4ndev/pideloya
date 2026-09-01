@@ -19,9 +19,9 @@ const VEHICLE_TYPES = ['Moto', 'Mototaxi', 'Bicicleta', 'A pie', 'Auto']
 export interface ProfileFormData {
   fullName: string
   phone: string
-  documentType?: string | null
-  documentNumber?: string | null
-  vehicleType?: string | null
+  documentType?: string
+  documentNumber?: string
+  vehicleType?: string
 }
 
 export function ProfileForm({
@@ -95,7 +95,7 @@ export function ProfileForm({
                 <Select
                   value={form.documentType ?? ''}
                   onValueChange={(value) =>
-                    setForm((f) => ({ ...f, documentType: value }))
+                    setForm((f) => ({ ...f, documentType: value ?? '' }))
                   }
                 >
                   <SelectTrigger id="documentType" className="w-full">
@@ -127,7 +127,7 @@ export function ProfileForm({
               <Select
                 value={form.vehicleType ?? ''}
                 onValueChange={(value) =>
-                  setForm((f) => ({ ...f, vehicleType: value }))
+                  setForm((f) => ({ ...f, vehicleType: value ?? '' }))
                 }
               >
                 <SelectTrigger id="vehicleType" className="w-full">

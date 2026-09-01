@@ -160,7 +160,7 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
             para poder continuar.
           </p>
         ) : (
-          <Select value={addressId} onValueChange={(v) => setAddressId(v ?? '')}>
+          <Select value={addressId} onValueChange={(value) => setAddressId(value ?? '')}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Elige una dirección" />
             </SelectTrigger>
