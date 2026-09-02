@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
@@ -24,7 +25,7 @@ const NAV_LINKS = [
 export function CustomerHeader({ fullName }: { fullName: string }) {
   const pathname = usePathname()
   const items = useCartStore((state) => state.items)
-  const itemCount = cartItemCount(items)
+  const itemCount = useMemo(() => cartItemCount(items), [items])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
 
   return (

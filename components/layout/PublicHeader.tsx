@@ -1,38 +1,33 @@
-'use client'
-
 import Link from 'next/link'
-import { useCartStore, cartItemCount } from '@/lib/hooks/use-cart'
-import { Button } from '@/components/ui/button'
+import { Icon } from '@iconify-icon/react'
+import { SearchBar } from '@/components/features/home/SearchBar'
 
 export function PublicHeader() {
-  const items = useCartStore((state) => state.items)
-  const itemCount = cartItemCount(items)
-
   return (
-    <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-base font-semibold tracking-tight">
-          PideloYa
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-border">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
+            <Icon icon="lucide:plus" width="20" height="20" className="text-white" />
+          </div>
+          <span className="text-lg font-bold tracking-tight">PideloYa</span>
         </Link>
 
-        <div className="flex items-center gap-2">
-          <Button
-            render={<Link href="/cliente/carrito" />}
-            nativeButton={false}
-            variant="outline"
-            size="sm"
-            className="relative"
+        <SearchBar />
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2"
           >
-            Carrito
-            {itemCount > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
-                {itemCount}
-              </span>
-            )}
-          </Button>
-          <Button render={<Link href="/login" />} nativeButton={false} size="sm">
             Ingresar
-          </Button>
+          </Link>
+          <Link
+            href="/login"
+            className="btn-brand text-sm font-semibold text-white px-5 py-2.5 rounded-full"
+          >
+            Pedir ahora
+          </Link>
         </div>
       </div>
     </header>
