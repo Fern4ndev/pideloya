@@ -49,3 +49,29 @@ export async function deleteAddress(addressId: string) {
   revalidatePath('/cliente/direcciones')
   return { success: true }
 }
+
+export async function updateAddress(addressId: string, input: AddressInput) {
+  const data = addressSchema.parse(input)
+  const supabase = await createClient()
+
+  // RLS "addresses_update_own" ya garantiza que solo el dueño puede
+  // tocar sus direcciones — el update fallará silenciosamente si no
+  // le pertenece, así que verificamos con select().single().
+  const { data: updated, error } = await supabase
+    .from('addresses')
+    .update({
+      label: data.label || null,
+      address_text: data.addressText,
+      reference: data.reference || null,
+      latitude: data.latitude,
+      longitude: data.longitude,
+    })
+    .eq('id', addressId)
+    .select('id')
+    .single()
+
+  if (error || !updated) throw new Error('No se pudo actualizar la dirección')
+
+  revalidatePath('/cliente/direcciones')
+  return { success: true }
+}

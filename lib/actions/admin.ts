@@ -65,3 +65,104 @@ export async function approveDeliveryPerson(profileId: string) {
   revalidatePath('/admin/repartidores')
   return { success: true }
 }
+
+export async function deactivateRestaurant(restaurantId: string) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const { error } = await adminClient
+    .from('restaurants')
+    .update({ is_active: false })
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  // Desactiva también a todos los miembros vinculados.
+  const { data: members } = await adminClient
+    .from('restaurant_members')
+    .select('user_id')
+    .eq('restaurant_id', restaurantId)
+
+  if (members && members.length > 0) {
+    await adminClient
+      .from('profiles')
+      .update({ is_active: false })
+      .in('id', members.map((m) => m.user_id))
+  }
+
+  revalidatePath('/admin/restaurantes')
+  return { success: true }
+}
+
+export async function deleteRestaurant(restaurantId: string) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const { data: members } = await adminClient
+    .from('restaurant_members')
+    .select('user_id')
+    .eq('restaurant_id', restaurantId)
+
+  // Borrar el restaurante primero (los FKs de categorías/productos
+  // están definidos con cascada en las migraciones).
+  const { error } = await adminClient
+    .from('restaurants')
+    .delete()
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  if (members && members.length > 0) {
+    const userIds = members.map((m) => m.user_id)
+    await adminClient
+      .from('profiles')
+      .update({ is_active: false })
+      .in('id', userIds)
+  }
+
+  revalidatePath('/admin/restaurantes')
+  return { success: true }
+}
+
+export async function deactivateUser(profileId: string) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const { error } = await adminClient
+    .from('profiles')
+    .update({ is_active: false })
+    .eq('id', profileId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/usuarios')
+  revalidatePath('/admin/repartidores')
+  return { success: true }
+}
+
+export async function deleteUser(profileId: string) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('auth_id')
+    .eq('id', profileId)
+    .single()
+
+  if (!profile) throw new Error('Perfil no encontrado')
+
+  // Eliminar el perfil primero; el FK con auth.users es
+  // "on delete cascade" (ver migración de profiles).
+  await adminClient.from('profiles').delete().eq('id', profileId)
+
+  if (profile.auth_id) {
+    const { error: authError } =
+      await adminClient.auth.admin.deleteUser(profile.auth_id as string)
+    if (authError) throw new Error(authError.message)
+  }
+
+  revalidatePath('/admin/usuarios')
+  revalidatePath('/admin/repartidores')
+  return { success: true }
+}

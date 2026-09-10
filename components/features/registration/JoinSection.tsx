@@ -8,8 +8,8 @@ import { DeliveryRegisterForm } from './DeliveryRegisterForm'
 export function JoinSection() {
   return (
     <section id="unete" className="relative py-28 px-6 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-brand-500/5 rounded-full blur-3xl" />
+      <div className="absolute inset-0 bg-linear-to-b from-background via-muted/30 to-background" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-brand-500/5 rounded-full blur-3xl" />
 
       <div className="relative max-w-5xl mx-auto">
         <div className="text-center mb-14">
@@ -19,7 +19,7 @@ export function JoinSection() {
           </div>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
             Haz parte de{' '}
-            <span className="bg-gradient-to-r from-brand-500 to-orange-500 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-brand-500 to-orange-500 bg-clip-text text-transparent">
               PideloYa
             </span>
           </h2>
