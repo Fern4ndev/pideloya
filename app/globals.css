@@ -3,12 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ============================================================================
-   PideloYa — Design tokens
-   Dirección: Apple / Vercel — neutro, tipografía como protagonista, un solo
-   acento de color usado con moderación (azul, para acciones/enlaces),
-   bordes finos, radios moderados, sin ruido decorativo.
-   ============================================================================ */
 
 :root {
   --radius: 0.65rem;
