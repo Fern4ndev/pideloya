@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@animateicons/react": "^0.5.0",
     "@base-ui/react": "^1.7.0",
     "@iconify-icon/react": "^3.0.3",
     "@supabase/ssr": "^0.12.4",

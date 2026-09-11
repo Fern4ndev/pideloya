@@ -1,32 +1,41 @@
+import Image from 'next/image'
 import Link from 'next/link'
-import { Icon } from '@iconify-icon/react'
-import { SearchBar } from '@/components/features/home/SearchBar'
+
+const navItems = [
+  { label: 'Cómo funciona', href: '#como-funciona' },
+  { label: 'Categorías', href: '#categorias' },
+  { label: 'Negocios', href: '#unete' },
+]
 
 export function PublicHeader() {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-border">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-            <Icon icon="lucide:plus" width="20" height="20" className="text-white" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">PideloYa</span>
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#0c0c0e]/95 px-[5vw] py-[16px] backdrop-blur-[14px]">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between">
+        <Link href="/" className="text-2xl font-extrabold tracking-[-0.5px] text-white">
+          <Image src="/icons/logo-pideloya.svg" alt="PideloYa" width={160} height={40} />
         </Link>
 
-        <SearchBar />
+        <div className="hidden items-center gap-8 text-sm text-white/70 md:flex">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="transition-colors duration-200 hover:text-lime"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
 
         <div className="flex items-center gap-3">
           <Link
             href="/login"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2"
+            className="px-4 py-2 text-sm font-medium text-white/80 transition-colors duration-200 hover:text-lime"
           >
             Ingresar
           </Link>
-          <Link
-            href="/login"
-            className="btn-brand text-sm font-semibold text-white px-5 py-2.5 rounded-full"
-          >
-            Pedir ahora
+          <Link href="/registro" className="button-lime">
+            Regístrate
           </Link>
         </div>
       </div>
