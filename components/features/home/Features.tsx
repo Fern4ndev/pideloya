@@ -37,7 +37,7 @@ const FEATURES = [
 
 export function Features() {
   return (
-    <section className="py-24 px-6">
+    <section id="categorias" className="py-24 px-6">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <span className="inline-block text-sm font-semibold text-brand-600 tracking-wide uppercase mb-4">
@@ -50,7 +50,7 @@ export function Features() {
           {FEATURES.map((feature) => (
             <div
               key={feature.title}
-              className={`bg-gradient-to-br ${feature.gradient} rounded-4xl p-8 border ${feature.border} transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]`}
+              className={`bg-linear-to-br ${feature.gradient} rounded-4xl p-8 border ${feature.border} transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]`}
             >
               <div
                 className={`w-12 h-12 rounded-xl ${feature.iconBg} flex items-center justify-center mb-5`}

@@ -8,8 +8,14 @@ import { DeliveryRegisterForm } from './DeliveryRegisterForm'
 export function JoinSection() {
   return (
     <section id="unete" className="relative py-28 px-6 overflow-hidden">
-      <div className="absolute inset-0 bg-linear-to-b from-background via-muted/30 to-background" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-brand-500/5 rounded-full blur-3xl" />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-linear-to-b from-background via-muted/30 to-background"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-brand-500/5 rounded-full blur-3xl"
+      />
 
       <div className="relative max-w-5xl mx-auto">
         <div className="text-center mb-14">
@@ -29,18 +35,18 @@ export function JoinSection() {
         </div>
 
         <Tabs defaultValue="restaurante" className="max-w-4xl mx-auto">
-          <div className="flex justify-center mb-8">
-            <TabsList className="inline-flex h-12 p-1 bg-muted/60 backdrop-blur-sm rounded-2xl border border-border/50">
+          <div className="flex justify-center mb-8 overflow-x-auto px-4">
+            <TabsList className="inline-flex h-12 shrink-0 p-1 bg-muted/60 backdrop-blur-sm rounded-2xl border border-border/50">
               <TabsTrigger
                 value="restaurante"
-                className="inline-flex items-center gap-2 rounded-xl px-7 py-2.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground transition-all duration-200"
+                className="inline-flex items-center gap-2 rounded-xl px-4 sm:px-7 py-2.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground transition-all duration-200"
               >
                 <Icon icon="lucide:store" width="16" height="16" className="text-brand-500" />
                 Soy restaurante
               </TabsTrigger>
               <TabsTrigger
                 value="repartidor"
-                className="inline-flex items-center gap-2 rounded-xl px-7 py-2.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground transition-all duration-200"
+                className="inline-flex items-center gap-2 rounded-xl px-4 sm:px-7 py-2.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground transition-all duration-200"
               >
                 <Icon icon="lucide:zap" width="16" height="16" className="text-emerald-500" />
                 Soy repartidor

@@ -3,7 +3,7 @@ import { ChevronRightIcon } from "@animateicons/react/huge";
 
 export function HeroSection() {
   return (
-    <header className="hero-section">
+    <section className="hero-section" aria-label="Presentación">
       <div className="hero-blob hero-blob-coral" />
       <div className="hero-blob hero-blob-violet" />
 
@@ -103,6 +103,6 @@ export function HeroSection() {
         <div className="floating-tag tag-time">⚡ Llega en 8 min</div>
         <div className="floating-tag tag-delivery">🛵 Marco está en camino</div>
       </div>
-    </header>
+    </section>
   )
 }

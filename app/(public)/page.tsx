@@ -5,7 +5,7 @@ import { JoinSection } from '@/components/features/registration/JoinSection'
 
 export default function HomePage() {
   return (
-    <main>
+    <>
       <HeroSection />
       <div className="section-divider max-w-6xl mx-auto" />
       <HowItWorks />
@@ -13,6 +13,6 @@ export default function HomePage() {
       <Features />
       <div className="section-divider max-w-6xl mx-auto" />
       <JoinSection />
-    </main>
+    </>
   )
 }
