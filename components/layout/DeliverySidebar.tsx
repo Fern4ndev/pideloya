@@ -1,6 +1,7 @@
 'use client'
 
 import { Sidebar } from './Sidebar'
+import { SidebarBrand } from './SidebarBrand'
 import { LayoutDashboardIcon, MapPinIcon, PackageIcon, UserIcon } from 'lucide-react'
 
 const DELIVERY_LINKS = [
@@ -13,7 +14,7 @@ const DELIVERY_LINKS = [
 export function DeliverySidebar() {
   return (
     <Sidebar
-      brand={<>PideloYa <span className="text-muted-foreground">· Reparto</span></>}
+      brand={<SidebarBrand section="Reparto" />}
       homeHref="/repartidor"
       links={DELIVERY_LINKS}
     />

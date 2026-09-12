@@ -3,15 +3,13 @@
 import { useState, useTransition, type SubmitEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createProduct, updateProduct } from '@/lib/actions/products'
-import {
-  ImageUploader,
-  type UploadedImage,
-} from '@/components/features/restaurants/ImageUploader'
+import { ImageUploader } from '@/components/features/restaurants/ImageUploader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -86,116 +84,141 @@ export function ProductForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md space-y-4">
-      <div className="space-y-1">
-        <Label htmlFor="name">Nombre</Label>
-        <Input
-          id="name"
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          placeholder="Pollo a la brasa 1/4"
-          required
-        />
-      </div>
+    <Card className="mx-auto w-full max-w-xl">
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* La foto va primero y centrada: es lo primero que ve el
+              cliente en la carta, así que aquí también debe sentirse
+              como lo principal del formulario. */}
+          <div className="border-b pb-6">
+            <ImageUploader
+              label="Foto del producto"
+              currentUrl={form.imageUrl || null}
+              folder={`/restaurants/${restaurantId}/products`}
+              onUploaded={(image) =>
+                setForm((f) => ({
+                  ...f,
+                  imageUrl: image.url,
+                  imageFileId: image.fileId,
+                }))
+              }
+              onRemove={() =>
+                setForm((f) => ({ ...f, imageUrl: '', imageFileId: '' }))
+              }
+              size="lg"
+              align="center"
+              helpText="Se muestra en tu carta pública · JPG, PNG o WEBP, máx. 3MB"
+            />
+          </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="description">Descripción</Label>
-        <Textarea
-          id="description"
-          value={form.description}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, description: e.target.value }))
-          }
-          placeholder="Con papas, ensalada y cremas"
-          rows={3}
-        />
-      </div>
+          <div className="space-y-1">
+            <Label htmlFor="name">Nombre</Label>
+            <Input
+              id="name"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Pollo a la brasa 1/4"
+              required
+            />
+          </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="price">Precio (S/)</Label>
-        <Input
-          id="price"
-          type="number"
-          step="0.10"
-          min="0"
-          value={form.price}
-          onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-          required
-        />
-      </div>
+          <div className="space-y-1">
+            <Label htmlFor="description">Descripción</Label>
+            <Textarea
+              id="description"
+              value={form.description}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, description: e.target.value }))
+              }
+              placeholder="Con papas, ensalada y cremas"
+              rows={3}
+            />
+          </div>
 
-      <ImageUploader
-        label="Foto del producto"
-        currentUrl={form.imageUrl || null}
-        folder={`/restaurants/${restaurantId}/products`}
-        onUploaded={(image: UploadedImage) =>
-          setForm((f) => ({ ...f, imageUrl: image.url, imageFileId: image.fileId }))
-        }
-      />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="price">Precio (S/)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.10"
+                min="0"
+                value={form.price}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, price: e.target.value }))
+                }
+                required
+              />
+            </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="categoryId">
-          Categoría{' '}
-          <span className="font-normal text-muted-foreground">(opcional)</span>
-        </Label>
-        <Select
-          value={form.categoryId || 'none'}
-          onValueChange={(value) =>
-            setForm((f) => ({
-              ...f,
-              categoryId: !value || value === 'none' ? '' : value,
-            }))
-          }
-          items={[
-            { value: 'none', label: 'Sin categoría' },
-            ...categories.map((c) => ({ value: c.id, label: c.name })),
-          ]}
-        >
-          <SelectTrigger id="categoryId" className="w-full">
-            <SelectValue placeholder="Sin categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sin categoría</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <div className="space-y-1">
+              <Label htmlFor="categoryId">
+                Categoría{' '}
+                <span className="font-normal text-muted-foreground">
+                  (opcional)
+                </span>
+              </Label>
+              <Select
+                value={form.categoryId || 'none'}
+                onValueChange={(value) =>
+                  setForm((f) => ({
+                    ...f,
+                    categoryId: !value || value === 'none' ? '' : value,
+                  }))
+                }
+                items={[
+                  { value: 'none', label: 'Sin categoría' },
+                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              >
+                <SelectTrigger id="categoryId" className="w-full">
+                  <SelectValue placeholder="Sin categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin categoría</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-        <Label htmlFor="available" className="cursor-pointer">
-          Disponible para pedir
-        </Label>
-        <Switch
-          id="available"
-          checked={form.available}
-          onCheckedChange={(checked) =>
-            setForm((f) => ({ ...f, available: checked }))
-          }
-        />
-      </div>
+          <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+            <Label htmlFor="available" className="cursor-pointer">
+              Disponible para pedir
+            </Label>
+            <Switch
+              id="available"
+              checked={form.available}
+              onCheckedChange={(checked) =>
+                setForm((f) => ({ ...f, available: checked }))
+              }
+            />
+          </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isPending}>
-          {isPending
-            ? 'Guardando…'
-            : productId
-              ? 'Guardar cambios'
-              : 'Crear producto'}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => router.push('/restaurante/productos')}
-        >
-          Cancelar
-        </Button>
-      </div>
-    </form>
+          <div className="flex gap-2 pt-1">
+            <Button type="submit" disabled={isPending} className="flex-1">
+              {isPending
+                ? 'Guardando…'
+                : productId
+                  ? 'Guardar cambios'
+                  : 'Crear producto'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => router.push('/restaurante/productos')}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { RestaurantHoursForm } from '@/components/features/restaurants/RestaurantHoursForm'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
 
 export default async function HorariosPage() {
   const supabase = await createClient()
@@ -33,14 +35,15 @@ export default async function HorariosPage() {
     .order('day_of_week')
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Horarios</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Define los horarios de atención de tu restaurante.
-      </p>
+    <PageContainer size="md">
+      <PageHeader
+        title="Horarios"
+        description="Define los horarios de atención de tu restaurante."
+      />
+
       <div className="mt-6">
         <RestaurantHoursForm initialHours={hours ?? []} />
       </div>
-    </div>
+    </PageContainer>
   )
 }

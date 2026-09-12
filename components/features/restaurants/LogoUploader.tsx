@@ -28,6 +28,9 @@ export function LogoUploader({
       currentUrl={currentLogoUrl}
       folder={`/restaurants/${restaurantId}/logo`}
       onUploaded={handleUploaded}
+      size="lg"
+      align="center"
+      helpText="Se muestra en tu carta pública. JPG, PNG o WEBP · máx. 3MB"
     />
   )
 }

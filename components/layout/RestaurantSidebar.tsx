@@ -1,7 +1,15 @@
 'use client'
 
 import { Sidebar } from './Sidebar'
-import { LayoutDashboardIcon, PackageIcon, TagsIcon, StoreIcon, ClockIcon, UserIcon } from 'lucide-react'
+import { SidebarBrand } from './SidebarBrand'
+import {
+  LayoutDashboardIcon,
+  PackageIcon,
+  TagsIcon,
+  StoreIcon,
+  ClockIcon,
+  UserIcon,
+} from 'lucide-react'
 
 const RESTAURANT_LINKS = [
   { href: '/restaurante', label: 'Dashboard', icon: LayoutDashboardIcon },
@@ -15,7 +23,7 @@ const RESTAURANT_LINKS = [
 export function RestaurantSidebar() {
   return (
     <Sidebar
-      brand={<>PideloYa <span className="text-muted-foreground">· Negocio</span></>}
+      brand={<SidebarBrand section="Negocio" />}
       homeHref="/restaurante"
       links={RESTAURANT_LINKS}
     />

@@ -11,6 +11,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ProductRowActions } from '@/components/features/products/ProductRowActions'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
+import { PlusIcon } from 'lucide-react'
 
 export default async function RestaurantProductsPage() {
   const supabase = await createClient()
@@ -23,18 +26,17 @@ export default async function RestaurantProductsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Productos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Lo que ven tus clientes en tu carta.
-          </p>
-        </div>
-        <Button render={<Link href="/restaurante/productos/nuevo" />} nativeButton={false}>
-          Nuevo producto
-        </Button>
-      </div>
+    <PageContainer size="lg">
+      <PageHeader
+        title="Productos"
+        description="Lo que ven tus clientes en tu carta."
+        action={
+          <Button render={<Link href="/restaurante/productos/nuevo" />} nativeButton={false}>
+            <PlusIcon />
+            Nuevo producto
+          </Button>
+        }
+      />
 
       {error && (
         <p className="mt-6 text-sm text-destructive">
@@ -43,34 +45,50 @@ export default async function RestaurantProductsPage() {
       )}
 
       {!error && products && products.length > 0 && (
-        <Table className="mt-6">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Producto</TableHead>
-              <TableHead>Precio</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>S/ {Number(p.price).toFixed(2)}</TableCell>
-                <TableCell>
-                  {p.available ? (
-                    <Badge variant="secondary">Disponible</Badge>
-                  ) : (
-                    <Badge variant="outline">No disponible</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <ProductRowActions productId={p.id} available={p.available} />
-                </TableCell>
+        <div className="mt-6 overflow-hidden rounded-2xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Producto</TableHead>
+                <TableHead>Precio</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {products.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        {p.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.image_url}
+                            alt={p.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      {p.name}
+                    </div>
+                  </TableCell>
+                  <TableCell>S/ {Number(p.price).toFixed(2)}</TableCell>
+                  <TableCell>
+                    {p.available ? (
+                      <Badge variant="secondary">Disponible</Badge>
+                    ) : (
+                      <Badge variant="outline">No disponible</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <ProductRowActions productId={p.id} available={p.available} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {!error && products && products.length === 0 && (
@@ -81,6 +99,6 @@ export default async function RestaurantProductsPage() {
           </p>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

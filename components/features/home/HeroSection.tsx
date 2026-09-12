@@ -53,22 +53,6 @@ export function HeroSection() {
           </button>
         </div>
 
-        <div className="hero-stats">
-          <div>
-            <strong>12 min</strong>
-            <span>entrega promedio</span>
-          </div>
-
-          <div>
-            <strong>2.4k+</strong>
-            <span>negocios aliados</span>
-          </div>
-
-          <div>
-            <strong>4.9★</strong>
-            <span>calificación</span>
-          </div>
-        </div>
       </div>
 
       <div className="hero-stage">

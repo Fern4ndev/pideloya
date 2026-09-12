@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { ProductForm } from '@/components/features/products/ProductForm'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
 
 export default async function EditProductPage({
   params,
@@ -31,10 +33,8 @@ export default async function EditProductPage({
     .order('sort_order', { ascending: true })
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">
-        Editar {product.name}
-      </h1>
+    <PageContainer size="md">
+      <PageHeader title={`Editar ${product.name}`} />
 
       <div className="mt-6">
         <ProductForm
@@ -52,6 +52,6 @@ export default async function EditProductPage({
           }}
         />
       </div>
-    </div>
+    </PageContainer>
   )
 }

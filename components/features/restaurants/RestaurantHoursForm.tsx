@@ -78,7 +78,7 @@ export function RestaurantHoursForm({
   }
 
   return (
-    <Card className="max-w-lg">
+    <Card className="mx-auto w-full max-w-lg">
       <CardHeader>
         <CardTitle className="text-base">Horarios de atención</CardTitle>
       </CardHeader>

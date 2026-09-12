@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/db/server'
 import { BusinessInfoForm } from '@/components/features/restaurants/BusinessInfoForm'
 import { LogoUploader } from '@/components/features/restaurants/LogoUploader'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
+import { Card, CardContent } from '@/components/ui/card'
 
 export default async function BusinessInfoPage() {
   const supabase = await createClient()
@@ -29,28 +32,33 @@ export default async function BusinessInfoPage() {
     .single()
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Mi negocio</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Esta información aparece en tu carta pública.
-      </p>
+    <PageContainer size="sm">
+      <PageHeader
+        title="Mi negocio"
+        description="Esta información aparece en tu carta pública."
+      />
 
-      <div className="mt-6 max-w-md space-y-8">
-        <LogoUploader
-          currentLogoUrl={restaurant?.logo_url ?? null}
-          restaurantId={member!.restaurant_id}
-        />
-        <BusinessInfoForm
-          initialData={{
-            name: restaurant?.name ?? '',
-            description: restaurant?.description ?? '',
-            addressText: restaurant?.address_text ?? '',
-            whatsapp: restaurant?.whatsapp ?? '',
-            foodType: restaurant?.food_type ?? '',
-            isActive: restaurant?.is_active ?? true,
-          }}
-        />
-      </div>
-    </div>
+      <Card className="mt-6">
+        <CardContent className="space-y-8">
+          <div className="border-b pb-6">
+            <LogoUploader
+              currentLogoUrl={restaurant?.logo_url ?? null}
+              restaurantId={member!.restaurant_id}
+            />
+          </div>
+
+          <BusinessInfoForm
+            initialData={{
+              name: restaurant?.name ?? '',
+              description: restaurant?.description ?? '',
+              addressText: restaurant?.address_text ?? '',
+              whatsapp: restaurant?.whatsapp ?? '',
+              foodType: restaurant?.food_type ?? '',
+              isActive: restaurant?.is_active ?? true,
+            }}
+          />
+        </CardContent>
+      </Card>
+    </PageContainer>
   )
 }
