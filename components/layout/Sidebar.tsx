@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
+import { LogOutIcon } from 'lucide-react'
 
 type SidebarLink = {
   href: string
   label: string
+  icon: React.ComponentType<{ className?: string }>
 }
 
 export function Sidebar({
@@ -33,6 +35,7 @@ export function Sidebar({
       <nav className="flex flex-1 flex-col gap-1">
         {links.map((link) => {
           const active = pathname === link.href
+          const Icon = link.icon
           return (
             <Button
               key={link.href}
@@ -40,8 +43,9 @@ export function Sidebar({
               nativeButton={false}
               variant={active ? 'default' : 'ghost'}
               size="sm"
-              className="justify-start"
+              className="justify-start gap-2"
             >
+              <Icon className="h-4 w-4" />
               {link.label}
             </Button>
           )
@@ -53,8 +57,9 @@ export function Sidebar({
           type="submit"
           variant="ghost"
           size="sm"
-          className="w-full justify-start"
+          className="w-full justify-start gap-2"
         >
+          <LogOutIcon className="h-4 w-4" />
           Cerrar sesión
         </Button>
       </form>

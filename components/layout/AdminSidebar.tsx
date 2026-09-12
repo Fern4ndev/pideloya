@@ -1,11 +1,14 @@
+'use client'
+
 import Image from 'next/image'
 import { Sidebar } from './Sidebar'
+import { LayoutDashboardIcon, StoreIcon, TruckIcon, UserIcon } from 'lucide-react'
 
 const ADMIN_LINKS = [
-  { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/restaurantes', label: 'Restaurantes' },
-  { href: '/admin/repartidores', label: 'Repartidores' },
-  { href: '/admin/perfil', label: 'Perfil' },
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboardIcon },
+  { href: '/admin/restaurantes', label: 'Restaurantes', icon: StoreIcon },
+  { href: '/admin/repartidores', label: 'Repartidores', icon: TruckIcon },
+  { href: '/admin/perfil', label: 'Perfil', icon: UserIcon },
 ]
 
 export function AdminSidebar() {
