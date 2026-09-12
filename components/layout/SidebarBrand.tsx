@@ -15,7 +15,7 @@ export function SidebarBrand({
   className?: string
 }) {
   return (
-    <span className={cn('flex items-center gap-1.5', className)}>
+    <span className={cn('flex flex-col items-center gap-0.5', className)}>
       <Image
         src="/icons/logo-pideloya.svg"
         width={140}
@@ -26,7 +26,7 @@ export function SidebarBrand({
       />
       {section && (
         <span className="translate-y-px text-sm font-medium text-muted-foreground">
-          · {section}
+          {section}
         </span>
       )}
     </span>
