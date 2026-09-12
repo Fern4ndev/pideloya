@@ -1,6 +1,4 @@
 import { createClient } from '@/lib/db/server'
-import { approveDeliveryPerson } from '@/lib/actions/admin'
-import { ApproveButton } from '@/components/features/admin/ApproveButton'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -10,13 +8,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { DeliveryRowActions } from '@/components/features/admin/DeliveryRowActions'
 
 export default async function AdminDeliveryPage() {
   const supabase = await createClient()
 
   const { data: deliveryPeople, error } = await supabase
     .from('profiles')
-    .select('id, full_name, phone, document_type, document_number, vehicle_type, is_active')
+    .select(
+      'id, full_name, phone, document_type, document_number, vehicle_type, is_active, created_at'
+    )
     .eq('role', 'DELIVERY')
     .order('created_at', { ascending: false })
 
@@ -27,7 +28,7 @@ export default async function AdminDeliveryPage() {
           Repartidores
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Revisa y aprueba a los repartidores que se registraron desde la
+          Revisa y administra a los repartidores que se registraron desde la
           página principal.
         </p>
       </div>
@@ -47,36 +48,59 @@ export default async function AdminDeliveryPage() {
               <TableHead>Vehículo</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acción</TableHead>
+              <TableHead className="text-right">Registro</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {deliveryPeople.map((d) => (
-              <TableRow key={d.id}>
-                <TableCell className="font-medium">{d.full_name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {d.document_type ? `${d.document_type} ${d.document_number}` : '—'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {d.vehicle_type ?? '—'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {d.phone ?? '—'}
-                </TableCell>
-                <TableCell>
-                  {d.is_active ? (
-                    <Badge variant="secondary">Activo</Badge>
-                  ) : (
-                    <Badge variant="outline">Pendiente</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {!d.is_active && (
-                    <ApproveButton id={d.id} action={approveDeliveryPerson} />
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {deliveryPeople.map((d) => {
+              const createdAt = new Date(d.created_at)
+
+              return (
+                <TableRow key={d.id}>
+                  <TableCell className="font-medium">{d.full_name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.document_type
+                      ? `${d.document_type} ${d.document_number}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.vehicle_type ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.phone ?? '—'}
+                  </TableCell>
+                  <TableCell>
+                    {d.is_active ? (
+                      <Badge variant="secondary">Activo</Badge>
+                    ) : (
+                      <Badge variant="outline">Pendiente</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {createdAt.toLocaleDateString('es-PE', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <DeliveryRowActions
+                      id={d.id}
+                      isActive={d.is_active}
+                      deliveryPerson={{
+                        id: d.id,
+                        full_name: d.full_name,
+                        phone: d.phone,
+                        document_type: d.document_type,
+                        document_number: d.document_number,
+                        vehicle_type: d.vehicle_type,
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       )}

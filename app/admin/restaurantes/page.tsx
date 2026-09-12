@@ -1,6 +1,4 @@
 import { createClient } from '@/lib/db/server'
-import { approveRestaurant } from '@/lib/actions/admin'
-import { ApproveButton } from '@/components/features/admin/ApproveButton'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -10,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { RestaurantRowActions } from '@/components/features/admin/RestaurantRowActions'
 
 export default async function AdminRestaurantsPage() {
   const supabase = await createClient()
@@ -17,7 +16,7 @@ export default async function AdminRestaurantsPage() {
   const { data: restaurants, error } = await supabase
     .from('restaurants')
     .select(
-      'id, name, slug, address_text, whatsapp, food_type, is_approved, is_active, restaurant_members(profiles(full_name))'
+      'id, name, slug, address_text, whatsapp, food_type, is_approved, is_active, created_at, restaurant_members(profiles(full_name))'
     )
     .order('created_at', { ascending: false })
 
@@ -28,7 +27,7 @@ export default async function AdminRestaurantsPage() {
           Restaurantes
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Revisa y aprueba los negocios que se registraron desde la página
+          Revisa y administra los negocios que se registraron desde la página
           principal.
         </p>
       </div>
@@ -48,13 +47,16 @@ export default async function AdminRestaurantsPage() {
               <TableHead>Tipo</TableHead>
               <TableHead>WhatsApp</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acción</TableHead>
+              <TableHead className="text-right">Registro</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {restaurants.map((r) => {
               const ownerName =
                 r.restaurant_members?.[0]?.profiles?.full_name ?? '—'
+              const createdAt = new Date(r.created_at)
+
               return (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.name}</TableCell>
@@ -72,10 +74,27 @@ export default async function AdminRestaurantsPage() {
                       <Badge variant="outline">Pendiente</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {!r.is_approved && (
-                      <ApproveButton id={r.id} action={approveRestaurant} />
-                    )}
+                  <TableCell className="text-right text-muted-foreground">
+                    {createdAt.toLocaleDateString('es-PE', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <RestaurantRowActions
+                      id={r.id}
+                      name={r.name}
+                      isApproved={r.is_approved}
+                      isActive={r.is_active}
+                      restaurant={{
+                        id: r.id,
+                        name: r.name,
+                        food_type: r.food_type,
+                        whatsapp: r.whatsapp,
+                        address_text: r.address_text,
+                      }}
+                    />
                   </TableCell>
                 </TableRow>
               )

@@ -140,6 +140,42 @@ export async function deactivateUser(profileId: string) {
   return { success: true }
 }
 
+export async function updateRestaurant(
+  restaurantId: string,
+  data: { name?: string; food_type?: string; whatsapp?: string; address_text?: string }
+) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const { error } = await adminClient
+    .from('restaurants')
+    .update(data)
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/restaurantes')
+  return { success: true }
+}
+
+export async function updateDeliveryPerson(
+  profileId: string,
+  data: { full_name?: string; phone?: string; document_type?: string; document_number?: string; vehicle_type?: string }
+) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const { error } = await adminClient
+    .from('profiles')
+    .update(data)
+    .eq('id', profileId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/repartidores')
+  return { success: true }
+}
+
 export async function deleteUser(profileId: string) {
   await assertIsAdmin()
   const adminClient = createServiceRoleClient()

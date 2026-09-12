@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
+import Image from 'next/image'
 
 const NAV_LINKS = [
   { href: '/admin', label: 'Dashboard' },
@@ -18,7 +19,7 @@ export function AdminSidebar() {
   return (
     <aside className="flex h-screen w-56 shrink-0 flex-col border-r bg-background px-3 py-4">
       <Link href="/admin" className="px-2 pb-4 text-base font-semibold tracking-tight">
-        PideloYa <span className="text-muted-foreground">· Admin</span>
+        <Image src="/icons/logo-pideloya.svg" width="160" height="40" alt="logo-pideloya"/>
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">

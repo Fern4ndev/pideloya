@@ -1,10 +1,11 @@
+import Image from "next/image"
+
 export default function AdminLoading() {
   return (
     <div className="flex h-screen">
       <aside className="flex h-screen w-56 shrink-0 flex-col border-r bg-background px-3 py-4">
-        <div className="px-2 pb-4 text-base font-semibold tracking-tight">
-          PideloYa <span className="text-muted-foreground">· Admin</span>
-        </div>
+        <Image src="/icons/logo-pideloya.svg" width="160" height="40" alt="logo-pideloya" />
+        <span className="text-muted-foreground">· Admin</span>
         <nav className="flex flex-1 flex-col gap-1">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-8 rounded-md bg-muted animate-pulse" />
