@@ -4,6 +4,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { LogOutIcon } from 'lucide-react'
 
 type SidebarLink = {
@@ -52,17 +63,34 @@ export function Sidebar({
         })}
       </nav>
 
-      <form action={signOut}>
-        <Button
-          type="submit"
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2"
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2"
+            />
+          }
         >
           <LogOutIcon className="h-4 w-4" />
           Cerrar sesión
-        </Button>
-      </form>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tu sesión se cerrará y serás redirigido al inicio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => signOut()}>
+              Cerrar sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   )
 }
