@@ -146,6 +146,10 @@ export function ProductForm({
               categoryId: !value || value === 'none' ? '' : value,
             }))
           }
+          items={[
+            { value: 'none', label: 'Sin categoría' },
+            ...categories.map((c) => ({ value: c.id, label: c.name })),
+          ]}
         >
           <SelectTrigger id="categoryId" className="w-full">
             <SelectValue placeholder="Sin categoría" />
