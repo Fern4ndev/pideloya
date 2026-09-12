@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/db/server'
+import { headers } from 'next/headers'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 
 export default async function AdminLayout({
@@ -7,21 +7,11 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const h = await headers()
+  const role = h.get('x-user-role')
+  const isActive = h.get('x-user-active')
 
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, is_active')
-    .eq('auth_id', user.id)
-    .single()
-
-  // El proxy ya protege esta ruta, esto es la red de seguridad del layout.
-  if (!profile || profile.role !== 'ADMIN' || !profile.is_active) redirect('/login')
+  if (role !== 'ADMIN' || isActive !== 'true') redirect('/login')
 
   return (
     <div className="flex min-h-screen">

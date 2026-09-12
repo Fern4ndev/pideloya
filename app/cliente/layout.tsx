@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/db/server'
+import { headers } from 'next/headers'
 import { CustomerHeader } from '@/components/layout/CustomerHeader'
 
 export default async function ClienteLayout({
@@ -7,30 +7,16 @@ export default async function ClienteLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const h = await headers()
+  const role = h.get('x-user-role')
+  const isActive = h.get('x-user-active')
+  const fullName = h.get('x-user-name') || 'Cliente'
 
-  // El middleware ya protege esta ruta, pero un layout nunca debe asumir
-  // que el usuario existe — se vuelve a verificar aquí como red de seguridad.
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, is_active, full_name')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'CUSTOMER' || !profile.is_active) {
-    redirect('/login')
-  }
+  if (role !== 'CUSTOMER' || isActive !== 'true') redirect('/login')
 
   return (
     <div className="min-h-screen bg-background">
-      <CustomerHeader fullName={profile?.full_name ?? 'Cliente'} />
+      <CustomerHeader fullName={fullName} />
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
     </div>
   )

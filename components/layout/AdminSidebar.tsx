@@ -2,12 +2,12 @@
 
 import Image from 'next/image'
 import { Sidebar } from './Sidebar'
-import { LayoutDashboardIcon, StoreIcon, TruckIcon, UserIcon } from 'lucide-react'
+import { LayoutDashboardIcon, StoreIcon, Motorbike , UserIcon } from 'lucide-react'
 
 const ADMIN_LINKS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboardIcon },
   { href: '/admin/restaurantes', label: 'Restaurantes', icon: StoreIcon },
-  { href: '/admin/repartidores', label: 'Repartidores', icon: TruckIcon },
+  { href: '/admin/repartidores', label: 'Repartidores', icon: Motorbike },
   { href: '/admin/perfil', label: 'Perfil', icon: UserIcon },
 ]
 

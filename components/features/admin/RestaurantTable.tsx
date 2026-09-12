@@ -65,9 +65,9 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">N°</TableHead>
-              <TableHead>Negocio</TableHead>
-              <TableHead>Dueño</TableHead>
-              <TableHead>Tipo</TableHead>
+              <TableHead className='w-28'>Negocio</TableHead>
+              <TableHead className='w-28'>Dueño</TableHead>
+              <TableHead className='w-28'>Tipo</TableHead>
               <TableHead className="w-28">WhatsApp</TableHead>
               <TableHead className="w-24">Estado</TableHead>
               <TableHead className="w-28 text-center">Registro</TableHead>

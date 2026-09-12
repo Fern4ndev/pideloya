@@ -66,7 +66,7 @@ export async function proxy(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_active')
+    .select('role, is_active, full_name')
     .eq('auth_id', user.id)
     .single()
 
@@ -82,6 +82,11 @@ export async function proxy(request: NextRequest) {
   if (role !== requiredRole) {
     return NextResponse.redirect(new URL(ROLE_HOME[role], request.url))
   }
+
+  response.headers.set('x-user-role', role)
+  response.headers.set('x-user-active', String(profile.is_active))
+  response.headers.set('x-user-id', user.id)
+  response.headers.set('x-user-name', profile.full_name ?? '')
 
   return response
 }

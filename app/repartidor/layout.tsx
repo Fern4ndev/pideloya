@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/db/server'
+import { headers } from 'next/headers'
 import { DeliverySidebar } from '@/components/layout/DeliverySidebar'
 
 export default async function RepartidorLayout({
@@ -7,20 +7,11 @@ export default async function RepartidorLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const h = await headers()
+  const role = h.get('x-user-role')
+  const isActive = h.get('x-user-active')
 
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, is_active')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'DELIVERY' || !profile.is_active) redirect('/login')
+  if (role !== 'DELIVERY' || isActive !== 'true') redirect('/login')
 
   return (
     <div className="flex min-h-screen">
