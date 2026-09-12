@@ -1,6 +1,8 @@
 import { signInWithGoogle } from '@/lib/actions/auth'
 import { Logo } from '@/components/shared/Logo'
+import { createClient } from '@/lib/db/server'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 const ERROR_MESSAGES: Record<string, string> = {
   oauth_init_failed: 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
@@ -14,6 +16,29 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string; error?: string }>
 }) {
   const params = await searchParams
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('auth_id', user.id)
+      .single()
+
+    const ROLE_HOME: Record<string, string> = {
+      CUSTOMER: '/cliente',
+      RESTAURANT: '/restaurante',
+      DELIVERY: '/repartidor',
+      ADMIN: '/admin',
+    }
+
+    redirect(ROLE_HOME[profile?.role ?? 'CUSTOMER'])
+  }
+
   const next = params.next ?? '/cliente'
   const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null
 

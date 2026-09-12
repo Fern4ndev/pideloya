@@ -6,7 +6,7 @@ import { Logo } from '@/components/shared/Logo'
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'El correo o la contraseña no son correctos.',
-  account_inactive: 'Tu cuenta aún no ha sido aprobada por el administrador.',
+  account_inactive: 'Tu cuenta aún no ha sido aprobada.',
 }
 
 const ROLE_HOME: Record<string, string> = {
@@ -16,7 +16,7 @@ const ROLE_HOME: Record<string, string> = {
   ADMIN: '/admin',
 }
 
-export default async function TeamLoginPage({
+export default async function AdminLoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>
@@ -48,10 +48,10 @@ export default async function TeamLoginPage({
         </div>
 
         <h1 className="text-center text-xl font-semibold text-card-foreground">
-          Iniciar sesión — Equipo
+          Iniciar sesión — Administrador
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
-          Accede a tu panel de restaurante o repartidor
+          Gestiona tu plataforma PideloYa
         </p>
 
         {errorMessage && (

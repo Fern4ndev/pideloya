@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -76,17 +77,20 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-              {fullName}
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
+                {fullName}
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/cliente/perfil" />} nativeButton={false}>
+            <DropdownMenuItem render={<Link href="/cliente/perfil" />}>
               Mi perfil
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <form action={signOut}>
               <DropdownMenuItem
                 render={<button type="submit" className="w-full text-left" />}
+                nativeButton={true}
                 variant="destructive"
               >
                 Cerrar sesión

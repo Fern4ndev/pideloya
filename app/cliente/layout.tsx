@@ -20,9 +20,13 @@ export default async function ClienteLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('role, is_active, full_name')
     .eq('auth_id', user.id)
     .single()
+
+  if (!profile || profile.role !== 'CUSTOMER' || !profile.is_active) {
+    redirect('/login')
+  }
 
   return (
     <div className="min-h-screen bg-background">

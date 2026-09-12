@@ -16,12 +16,12 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('auth_id', user.id)
     .single()
 
   // El proxy ya protege esta ruta, esto es la red de seguridad del layout.
-  if (profile?.role !== 'ADMIN') redirect('/login')
+  if (!profile || profile.role !== 'ADMIN' || !profile.is_active) redirect('/login')
 
   return (
     <div className="flex min-h-screen">

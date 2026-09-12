@@ -16,11 +16,11 @@ export default async function RepartidorLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('auth_id', user.id)
     .single()
 
-  if (profile?.role !== 'DELIVERY') redirect('/login')
+  if (!profile || profile.role !== 'DELIVERY' || !profile.is_active) redirect('/login')
 
   return (
     <div className="flex min-h-screen">
