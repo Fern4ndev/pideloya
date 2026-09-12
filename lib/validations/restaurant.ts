@@ -12,6 +12,7 @@ export const restaurantSchema = z.object({
     .optional()
     .or(z.literal('')),
   foodType: z.string().min(1, 'Selecciona un tipo de comida'),
+  isActive: z.boolean().optional(),
 })
 
 export const restaurantCreateSchema = restaurantSchema.extend({

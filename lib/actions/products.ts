@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
 import { productSchema, type ProductInput } from '@/lib/validations/product'
+import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
 
 /**
  * Resuelve a qué restaurante pertenece el usuario actual.
@@ -47,6 +48,7 @@ export async function createProduct(input: ProductInput) {
     description: data.description || null,
     price: data.price,
     image_url: data.imageUrl || null,
+    image_file_id: data.imageFileId || null,
     available: data.available,
     category_id: data.categoryId || null,
   })
@@ -61,6 +63,12 @@ export async function updateProduct(productId: string, input: ProductInput) {
   const data = productSchema.parse(input)
   const { supabase } = await getMyRestaurantId()
 
+  const { data: current } = await supabase
+    .from('products')
+    .select('image_file_id')
+    .eq('id', productId)
+    .single()
+
   // No filtramos por restaurant_id a mano — la policy RLS
   // "products_update_owner" ya garantiza que solo puede tocar
   // productos de SU PROPIO restaurante.
@@ -71,12 +79,18 @@ export async function updateProduct(productId: string, input: ProductInput) {
       description: data.description || null,
       price: data.price,
       image_url: data.imageUrl || null,
+      image_file_id: data.imageFileId || null,
       available: data.available,
       category_id: data.categoryId || null,
     })
     .eq('id', productId)
 
   if (error) throw new Error(error.message)
+
+  // Si se reemplazó la imagen, borra la anterior de ImageKit.
+  if (current?.image_file_id && current.image_file_id !== data.imageFileId) {
+    await deleteImageKitFileSafe(current.image_file_id)
+  }
 
   revalidatePath('/restaurante/productos')
   return { success: true }
@@ -102,9 +116,17 @@ export async function toggleProductAvailability(
 export async function deleteProduct(productId: string) {
   const { supabase } = await getMyRestaurantId()
 
+  const { data: current } = await supabase
+    .from('products')
+    .select('image_file_id')
+    .eq('id', productId)
+    .single()
+
   const { error } = await supabase.from('products').delete().eq('id', productId)
 
   if (error) throw new Error(error.message)
+
+  await deleteImageKitFileSafe(current?.image_file_id)
 
   revalidatePath('/restaurante/productos')
   return { success: true }

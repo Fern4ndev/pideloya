@@ -15,7 +15,9 @@ export default async function EditProductPage({
   // basta con chequear !product para cubrir "no existe" Y "no es tuyo".
   const { data: product } = await supabase
     .from('products')
-    .select('id, name, description, price, image_url, available, category_id')
+    .select(
+      'id, name, description, price, image_url, image_file_id, available, category_id, restaurant_id'
+    )
     .eq('id', id)
     .single()
 
@@ -38,11 +40,13 @@ export default async function EditProductPage({
         <ProductForm
           productId={product.id}
           categories={categories ?? []}
+          restaurantId={product.restaurant_id}
           initialData={{
             name: product.name,
             description: product.description ?? '',
             price: String(product.price),
             imageUrl: product.image_url ?? '',
+            imageFileId: product.image_file_id ?? '',
             available: product.available,
             categoryId: product.category_id ?? '',
           }}

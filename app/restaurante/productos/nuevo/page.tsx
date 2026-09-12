@@ -3,6 +3,21 @@ import { ProductForm } from '@/components/features/products/ProductForm'
 
 export default async function NewProductPage() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('auth_id', user!.id)
+    .single()
+
+  const { data: member } = await supabase
+    .from('restaurant_members')
+    .select('restaurant_id')
+    .eq('user_id', profile!.id)
+    .single()
 
   const { data: categories } = await supabase
     .from('categories')
@@ -20,7 +35,10 @@ export default async function NewProductPage() {
       </p>
 
       <div className="mt-6">
-        <ProductForm categories={categories ?? []} />
+        <ProductForm
+          categories={categories ?? []}
+          restaurantId={member!.restaurant_id}
+        />
       </div>
     </div>
   )

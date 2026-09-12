@@ -12,6 +12,8 @@
     "@animateicons/react": "^0.5.0",
     "@base-ui/react": "^1.7.0",
     "@iconify-icon/react": "^3.0.3",
+    "@imagekit/next": "^2.1.5",
+    "@imagekit/nodejs": "^7.11.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "class-variance-authority": "^0.7.1",

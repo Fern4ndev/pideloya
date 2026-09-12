@@ -3,6 +3,10 @@
 import { useState, useTransition, type SubmitEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createProduct, updateProduct } from '@/lib/actions/products'
+import {
+  ImageUploader,
+  type UploadedImage,
+} from '@/components/features/restaurants/ImageUploader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +25,7 @@ export interface ProductFormData {
   description: string
   price: string
   imageUrl: string
+  imageFileId: string
   available: boolean
   categoryId: string
 }
@@ -30,6 +35,7 @@ const EMPTY_FORM: ProductFormData = {
   description: '',
   price: '',
   imageUrl: '',
+  imageFileId: '',
   available: true,
   categoryId: '',
 }
@@ -38,10 +44,12 @@ export function ProductForm({
   productId,
   initialData,
   categories = [],
+  restaurantId,
 }: {
   productId?: string
   initialData?: ProductFormData
   categories?: { id: string; name: string }[]
+  restaurantId: string
 }) {
   const router = useRouter()
   const [form, setForm] = useState<ProductFormData>(initialData ?? EMPTY_FORM)
@@ -59,6 +67,7 @@ export function ProductForm({
           description: form.description,
           price: Number(form.price),
           imageUrl: form.imageUrl,
+          imageFileId: form.imageFileId,
           available: form.available,
           categoryId: form.categoryId,
         }
@@ -115,20 +124,14 @@ export function ProductForm({
         />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="imageUrl">
-          URL de la imagen{' '}
-          <span className="font-normal text-muted-foreground">(opcional)</span>
-        </Label>
-        <Input
-          id="imageUrl"
-          value={form.imageUrl}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, imageUrl: e.target.value }))
-          }
-          placeholder="https://…"
-        />
-      </div>
+      <ImageUploader
+        label="Foto del producto"
+        currentUrl={form.imageUrl || null}
+        folder={`/restaurants/${restaurantId}/products`}
+        onUploaded={(image: UploadedImage) =>
+          setForm((f) => ({ ...f, imageUrl: image.url, imageFileId: image.fileId }))
+        }
+      />
 
       <div className="space-y-1">
         <Label htmlFor="categoryId">

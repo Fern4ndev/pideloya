@@ -6,6 +6,7 @@ import {
   restaurantSchema,
   type RestaurantInput,
 } from '@/lib/validations/restaurant'
+import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
 
 /**
  * Resuelve el restaurant_id que administra el usuario actual.
@@ -84,6 +85,7 @@ export async function updateRestaurant(input: RestaurantInput) {
       whatsapp: data.whatsapp || null,
       food_type: data.foodType,
       slug,
+      is_active: data.isActive,
     })
     .eq('id', restaurantId)
 
@@ -92,5 +94,28 @@ export async function updateRestaurant(input: RestaurantInput) {
   revalidatePath(`/restaurantes/${slug}`)
   revalidatePath(`/public/restaurantes/${slug}`)
   revalidatePath('/restaurante')
+  return { success: true }
+}
+
+export async function saveRestaurantLogo(image: { url: string; fileId: string }) {
+  const { supabase, restaurantId } = await getMyRestaurantId()
+
+  const { data: current } = await supabase
+    .from('restaurants')
+    .select('logo_file_id')
+    .eq('id', restaurantId)
+    .single()
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ logo_url: image.url, logo_file_id: image.fileId })
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  await deleteImageKitFileSafe(current?.logo_file_id)
+
+  revalidatePath('/restaurante/negocio')
+  revalidatePath('/restaurantes')
   return { success: true }
 }

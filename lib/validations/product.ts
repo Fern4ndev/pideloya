@@ -9,6 +9,7 @@ export const productSchema = z.object({
     .url('URL de imagen inválida')
     .optional()
     .or(z.literal('')),
+  imageFileId: z.string().optional().or(z.literal('')),
   available: z.boolean(),
   categoryId: z.string().uuid().optional().or(z.literal('')),
 })
