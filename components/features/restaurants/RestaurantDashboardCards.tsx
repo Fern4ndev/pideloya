@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package, Tags, ShoppingBag, Clock } from 'lucide-react'
+import { StatCardGrid, type StatCardData } from '@/components/features/dashboard/StatCard'
+import { PackageIcon, TagsIcon, ShoppingBagIcon, ClockIcon } from 'lucide-react'
 
 async function getMyRestaurantId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -58,51 +58,40 @@ export async function RestaurantDashboardCards() {
       .gte('created_at', getWeekStart()),
   ])
 
-  const cards = [
+  const availabilityRate = totalProducts
+    ? Math.round(((availableProducts ?? 0) / totalProducts) * 100)
+    : 0
+
+  const cards: StatCardData[] = [
     {
       title: 'Total productos',
       value: totalProducts ?? 0,
-      icon: Package,
+      icon: PackageIcon,
       description: `${availableProducts ?? 0} disponibles`,
     },
     {
       title: 'Categorías',
       value: totalCategories ?? 0,
-      icon: Tags,
+      icon: TagsIcon,
       description: 'Organiza tu menú',
+      tone: totalCategories === 0 ? 'warning' : 'default',
     },
     {
       title: 'Pedidos esta semana',
       value: ordersThisWeek ?? 0,
-      icon: ShoppingBag,
+      icon: ShoppingBagIcon,
       description: 'Con tus productos',
     },
     {
       title: 'Disponibilidad',
-      value: `${totalProducts ? Math.round(((availableProducts ?? 0) / totalProducts) * 100) : 0}%`,
-      icon: Clock,
+      value: `${availabilityRate}%`,
+      icon: ClockIcon,
       description: 'Productos activos',
+      tone: totalProducts && availabilityRate < 50 ? 'warning' : 'default',
     },
   ]
 
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => (
-        <Card key={card.title}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {card.title}
-            </CardTitle>
-            <card.icon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{card.value}</div>
-            <p className="text-xs text-muted-foreground">{card.description}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
+  return <StatCardGrid cards={cards} />
 }
 
 function getWeekStart(): string {

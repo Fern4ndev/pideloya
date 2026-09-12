@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/db/server'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
+import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
 
 export default async function DeliveryOrdersPage() {
   const supabase = await createClient()
@@ -20,11 +23,11 @@ export default async function DeliveryOrdersPage() {
     .order('created_at', { ascending: true })
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Mis entregas</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Pedidos que tienes asignados ahora mismo.
-      </p>
+    <PageContainer size="md">
+      <PageHeader
+        title="Mis entregas"
+        description="Pedidos que tienes asignados ahora mismo."
+      />
 
       {error && (
         <p className="mt-6 text-sm text-destructive">
@@ -36,37 +39,27 @@ export default async function DeliveryOrdersPage() {
         <div className="mt-6 space-y-3">
           {orders.map((order) => {
             const restaurant = order.order_items[0]?.restaurants
+            const itemsSummary = order.order_items
+              .map((i) => `${i.quantity}x ${i.product_name}`)
+              .join(', ')
+
             return (
-              <div key={order.id} className="rounded-xl border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">
-                      {restaurant?.name ?? 'Restaurante'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Recoger en: {restaurant?.address_text}
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Entregar en: {order.addresses?.address_text}
-                    </p>
-                    {order.addresses?.reference && (
-                      <p className="text-xs text-muted-foreground">
-                        {order.addresses.reference}
-                      </p>
-                    )}
-                  </div>
-                  <OrderStatusBadge status={order.status} />
-                </div>
-                <div className="mt-3 flex items-center justify-between border-t pt-3">
-                  <span className="text-sm font-semibold">
-                    S/ {Number(order.total).toFixed(2)}
-                  </span>
+              <DeliveryOrderCard
+                key={order.id}
+                restaurantName={restaurant?.name ?? 'Restaurante'}
+                pickupAddress={restaurant?.address_text}
+                itemsSummary={itemsSummary}
+                deliveryAddress={order.addresses?.address_text}
+                deliveryReference={order.addresses?.reference}
+                total={Number(order.total)}
+                badge={<OrderStatusBadge status={order.status} />}
+                action={
                   <AdvanceStatusButton
                     orderId={order.id}
                     currentStatus={order.status}
                   />
-                </div>
-              </div>
+                }
+              />
             )
           })}
         </div>
@@ -80,6 +73,6 @@ export default async function DeliveryOrdersPage() {
           </p>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

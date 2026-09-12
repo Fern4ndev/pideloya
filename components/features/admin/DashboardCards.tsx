@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, Store, Truck, ShoppingBag } from 'lucide-react'
+import { StatCardGrid, type StatCardData } from '@/components/features/dashboard/StatCard'
+import { UsersIcon, StoreIcon, TruckIcon, ShoppingBagIcon } from 'lucide-react'
 
 export async function DashboardCards() {
   const supabase = await createClient()
@@ -21,49 +21,39 @@ export async function DashboardCards() {
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'DELIVERY').eq('is_active', true),
   ])
 
-  const cards = [
+  const cards: StatCardData[] = [
     {
       title: 'Total usuarios',
       value: totalUsers ?? 0,
-      icon: Users,
+      icon: UsersIcon,
       description: 'Todos los roles',
     },
     {
       title: 'Restaurantes pendientes',
       value: pendingRestaurants ?? 0,
-      icon: Store,
+      icon: StoreIcon,
       description: `${activeRestaurants ?? 0} activos`,
+      tone: (pendingRestaurants ?? 0) > 0 ? 'warning' : 'default',
     },
     {
       title: 'Repartidores pendientes',
       value: pendingDelivery ?? 0,
-      icon: Truck,
+      icon: TruckIcon,
       description: `${activeDelivery ?? 0} activos`,
+      tone: (pendingDelivery ?? 0) > 0 ? 'warning' : 'default',
     },
     {
       title: 'Pedidos hoy',
       value: ordersToday ?? 0,
-      icon: ShoppingBag,
-      description: new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      icon: ShoppingBagIcon,
+      description: new Date().toLocaleDateString('es-PE', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
     },
   ]
 
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => (
-        <Card key={card.title}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {card.title}
-            </CardTitle>
-            <card.icon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{card.value}</div>
-            <p className="text-xs text-muted-foreground">{card.description}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
+  return <StatCardGrid cards={cards} />
 }

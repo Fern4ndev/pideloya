@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/db/server'
 import { AcceptOrderButton } from '@/components/features/deliveries/AcceptOrderButton'
+import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
 
 export default async function AvailableOrdersPage() {
   const supabase = await createClient()
@@ -15,13 +18,11 @@ export default async function AvailableOrdersPage() {
     .order('created_at', { ascending: true })
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">
-        Pedidos disponibles
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Acepta un pedido para empezar a repartirlo.
-      </p>
+    <PageContainer size="md">
+      <PageHeader
+        title="Pedidos disponibles"
+        description="Acepta un pedido para empezar a repartirlo."
+      />
 
       {error && (
         <p className="mt-6 text-sm text-destructive">
@@ -38,30 +39,15 @@ export default async function AvailableOrdersPage() {
               .join(', ')
 
             return (
-              <div key={order.id} className="rounded-xl border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">
-                      {restaurant?.name ?? 'Restaurante'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Recoger en: {restaurant?.address_text}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {itemsSummary}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Entregar en: {order.addresses?.address_text}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold">
-                      S/ {Number(order.total).toFixed(2)}
-                    </p>
-                    <AcceptOrderButton orderId={order.id} />
-                  </div>
-                </div>
-              </div>
+              <DeliveryOrderCard
+                key={order.id}
+                restaurantName={restaurant?.name ?? 'Restaurante'}
+                pickupAddress={restaurant?.address_text}
+                itemsSummary={itemsSummary}
+                deliveryAddress={order.addresses?.address_text}
+                total={Number(order.total)}
+                action={<AcceptOrderButton orderId={order.id} />}
+              />
             )
           })}
         </div>
@@ -75,6 +61,6 @@ export default async function AvailableOrdersPage() {
           </p>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
