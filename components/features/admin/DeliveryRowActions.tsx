@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   approveDeliveryPerson,
-  deactivateUser,
   deleteUser,
 } from '@/lib/actions/admin'
 import { RowActions } from './RowActions'
@@ -34,10 +33,8 @@ export function DeliveryRowActions({
   return (
     <>
       <RowActions
-        isActive={isActive}
         onApprove={!isActive ? () => approveDeliveryPerson(id) : undefined}
         onEdit={() => setEditOpen(true)}
-        onToggleActive={() => deactivateUser(id)}
         onDelete={() => deleteUser(id)}
         entityName="repartidor"
       />

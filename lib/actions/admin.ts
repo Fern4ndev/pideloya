@@ -94,6 +94,45 @@ export async function deactivateRestaurant(restaurantId: string) {
   return { success: true }
 }
 
+export async function toggleRestaurantActive(restaurantId: string) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  // Obtener estado actual
+  const { data: restaurant } = await adminClient
+    .from('restaurants')
+    .select('is_active')
+    .eq('id', restaurantId)
+    .single()
+
+  if (!restaurant) throw new Error('Restaurante no encontrado')
+
+  const newActiveState = !restaurant.is_active
+
+  const { error } = await adminClient
+    .from('restaurants')
+    .update({ is_active: newActiveState })
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  // Actualizar también los miembros vinculados
+  const { data: members } = await adminClient
+    .from('restaurant_members')
+    .select('user_id')
+    .eq('restaurant_id', restaurantId)
+
+  if (members && members.length > 0) {
+    await adminClient
+      .from('profiles')
+      .update({ is_active: newActiveState })
+      .in('id', members.map((m) => m.user_id))
+  }
+
+  revalidatePath('/admin/restaurantes')
+  return { success: true, is_active: newActiveState }
+}
+
 export async function deleteRestaurant(restaurantId: string) {
   await assertIsAdmin()
   const adminClient = createServiceRoleClient()
@@ -138,6 +177,32 @@ export async function deactivateUser(profileId: string) {
   revalidatePath('/admin/usuarios')
   revalidatePath('/admin/repartidores')
   return { success: true }
+}
+
+export async function toggleDeliveryPersonActive(profileId: string) {
+  await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  // Obtener estado actual
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('is_active')
+    .eq('id', profileId)
+    .single()
+
+  if (!profile) throw new Error('Repartidor no encontrado')
+
+  const newActiveState = !profile.is_active
+
+  const { error } = await adminClient
+    .from('profiles')
+    .update({ is_active: newActiveState })
+    .eq('id', profileId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/repartidores')
+  return { success: true, is_active: newActiveState }
 }
 
 export async function updateRestaurant(

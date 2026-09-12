@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DeliveryRowActions } from '@/components/features/admin/DeliveryRowActions'
+import { ActiveSwitch } from '@/components/features/admin/ActiveSwitch'
 
 export default async function AdminDeliveryPage() {
   const supabase = await createClient()
@@ -43,21 +44,26 @@ export default async function AdminDeliveryPage() {
         <Table className="mt-6">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">N°</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Vehículo</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Registro</TableHead>
+              <TableHead className="w-28">Teléfono</TableHead>
+              <TableHead className="w-24">Estado</TableHead>
+              <TableHead className="w-16">Activo</TableHead>
+              <TableHead className="w-20 text-right">Registro</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {deliveryPeople.map((d) => {
+            {deliveryPeople.map((d, index) => {
               const createdAt = new Date(d.created_at)
 
               return (
                 <TableRow key={d.id}>
+                  <TableCell className="text-muted-foreground">
+                    {index + 1}
+                  </TableCell>
                   <TableCell className="font-medium">{d.full_name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {d.document_type
@@ -76,6 +82,13 @@ export default async function AdminDeliveryPage() {
                     ) : (
                       <Badge variant="outline">Pendiente</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <ActiveSwitch
+                      id={d.id}
+                      type="delivery"
+                      initialActive={d.is_active}
+                    />
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {createdAt.toLocaleDateString('es-PE', {

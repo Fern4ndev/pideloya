@@ -2,27 +2,25 @@
 
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
-import { PencilIcon, TrashIcon, CheckIcon, XIcon } from 'lucide-react'
+import { PencilIcon, TrashIcon, CheckIcon } from 'lucide-react'
 import { ConfirmDialog } from './ConfirmDialog'
 
 type RowActionsProps = {
-  isActive: boolean
   isApproved?: boolean
   onApprove?: () => Promise<{ success: boolean }>
   onEdit: () => void
-  onToggleActive: () => Promise<{ success: boolean }>
   onDelete: () => Promise<{ success: boolean }>
   entityName: string
+  renderSwitch?: React.ReactNode
 }
 
 export function RowActions({
-  isActive,
   isApproved,
   onApprove,
   onEdit,
-  onToggleActive,
   onDelete,
   entityName,
+  renderSwitch,
 }: RowActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -33,19 +31,6 @@ export function RowActions({
     action: () => Promise<{ success: boolean }>
   } | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  function handleToggleActive() {
-    setConfirmConfig({
-      title: isActive ? `Desactivar ${entityName}` : `Activar ${entityName}`,
-      description: isActive
-        ? `¿Estás seguro de desactivar este ${entityName}? No podrá acceder al panel.`
-        : `¿Estás seguro de activar este ${entityName}? Podrá acceder al panel nuevamente.`,
-      confirmLabel: isActive ? 'Desactivar' : 'Activar',
-      variant: isActive ? 'destructive' : 'default',
-      action: onToggleActive,
-    })
-    setConfirmOpen(true)
-  }
 
   function handleDelete() {
     setConfirmConfig({
@@ -68,6 +53,7 @@ export function RowActions({
   return (
     <>
       <div className="flex items-center gap-1">
+        {renderSwitch}
         {onApprove && !isApproved && (
           <Button
             variant="ghost"
@@ -86,19 +72,6 @@ export function RowActions({
           title="Editar"
         >
           <PencilIcon className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={handleToggleActive}
-          disabled={isPending}
-          title={isActive ? 'Desactivar' : 'Activar'}
-        >
-          {isActive ? (
-            <XIcon className="h-4 w-4 text-orange-500" />
-          ) : (
-            <CheckIcon className="h-4 w-4 text-green-600" />
-          )}
         </Button>
         <Button
           variant="ghost"

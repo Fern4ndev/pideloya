@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   approveRestaurant,
-  deactivateRestaurant,
   deleteRestaurant,
 } from '@/lib/actions/admin'
 import { RowActions } from './RowActions'
 import { EditRestaurantDialog } from './EditRestaurantDialog'
+import { ActiveSwitch } from './ActiveSwitch'
 
 type Restaurant = {
   id: string
@@ -37,13 +37,18 @@ export function RestaurantRowActions({
   return (
     <>
       <RowActions
-        isActive={isActive}
         isApproved={isApproved}
         onApprove={() => approveRestaurant(id)}
         onEdit={() => setEditOpen(true)}
-        onToggleActive={() => deactivateRestaurant(id)}
         onDelete={() => deleteRestaurant(id)}
         entityName="restaurante"
+        renderSwitch={
+          <ActiveSwitch
+            id={id}
+            type="restaurant"
+            initialActive={isActive}
+          />
+        }
       />
       <EditRestaurantDialog
         open={editOpen}
