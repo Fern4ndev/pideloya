@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
@@ -15,7 +16,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <Script
+          src="https://cdn.jsdelivr.net/npm/iconify-icon@3/dist/iconify-icon.min.js"
+          strategy="beforeInteractive"
+        />
+        {children}
+      </body>
     </html>
   )
 }
