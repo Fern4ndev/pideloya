@@ -37,8 +37,8 @@ const FEATURES = [
 
 export function Features() {
   return (
-    <section id="categorias" className="py-24 px-6">
-      <div className="max-w-6xl mx-auto">
+    <section id="categorias" className="relative py-24 px-6">
+      <div className="relative z-10 max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <span className="inline-block text-sm font-semibold text-brand-600 tracking-wide uppercase mb-4">
             ¿Por qué PideloYa?

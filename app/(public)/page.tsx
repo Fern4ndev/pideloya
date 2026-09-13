@@ -1,18 +1,20 @@
 import { HeroSection } from '@/components/features/home/HeroSection'
 import { HowItWorks } from '@/components/features/home/HowItWorks'
-import { Features } from '@/components/features/home/Features'
 import { JoinSection } from '@/components/features/registration/JoinSection'
+import { AmbientGlow } from '@/components/ui/ambient-glow'
 
 export default function HomePage() {
   return (
-    <>
+    <div className="home-surface relative isolate overflow-hidden">
+      <div aria-hidden="true" className="hero-blob hero-blob-coral" />
+      <div aria-hidden="true" className="hero-blob hero-blob-violet" />
+      <AmbientGlow className="top-0 h-full" />
       <HeroSection />
-      <div className="section-divider max-w-6xl mx-auto" />
-      <HowItWorks />
-      <div className="section-divider max-w-6xl mx-auto" />
-      <Features />
-      <div className="section-divider max-w-6xl mx-auto" />
-      <JoinSection />
-    </>
+
+      <div className="relative z-10">
+        <HowItWorks />
+        <JoinSection />
+      </div>
+    </div>
   )
 }

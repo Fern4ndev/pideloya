@@ -4,9 +4,6 @@ import { ChevronRightIcon } from "@animateicons/react/huge";
 export function HeroSection() {
   return (
     <section className="hero-section" aria-label="Presentación">
-      <div className="hero-blob hero-blob-coral" />
-      <div className="hero-blob hero-blob-violet" />
-
       <div className="hero-ring hero-ring-one" />
       <div className="hero-ring hero-ring-two" />
 
@@ -40,6 +37,7 @@ export function HeroSection() {
               type="text"
               placeholder="¿Dónde te lo llevamos?"
               className="min-w-0 flex-1"
+              suppressHydrationWarning
             />
           </div>
 

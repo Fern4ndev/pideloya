@@ -178,18 +178,18 @@ export function RestaurantRegisterForm() {
 
   if (success) {
     return (
-      <div className="relative rounded-3xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-orange-50 p-12 text-center overflow-hidden">
+      <div className="join-form relative overflow-hidden rounded-[28px] border border-zinc-800/80 bg-zinc-950/80 p-12 text-center shadow-glow backdrop-blur-xl">
         <div className="absolute top-0 right-0 w-40 h-40 bg-brand-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         <div className="relative">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-xl shadow-brand-500/30 rotate-3 hover:rotate-0 transition-transform duration-300">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-linear-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-xl shadow-brand-500/30 rotate-3 hover:rotate-0 transition-transform duration-300">
             <Icon icon="lucide:check" width="36" height="36" className="text-white" />
           </div>
           <h3 className="text-2xl font-bold mb-3">¡Listo! Registramos tu negocio</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
+          <p className="mx-auto max-w-sm leading-relaxed text-zinc-400">
             Vamos a revisar tu información y activar tu cuenta. Te contactaremos por WhatsApp al número que registraste.
           </p>
-          <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-500/10 text-brand-600 text-sm font-medium">
+          <div className="mt-8 inline-flex items-center gap-2 rounded-full bg-yellow-400/10 px-4 py-2 text-sm font-medium text-yellow-300">
             <Icon icon="lucide:clock" width="14" height="14" />
             Respuesta en menos de 24 horas
           </div>
@@ -199,17 +199,17 @@ export function RestaurantRegisterForm() {
   }
 
   return (
-    <div className="relative rounded-3xl border border-border/60 bg-white shadow-xl shadow-black/[0.03] overflow-hidden">
-      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-400 via-brand-500 to-orange-500" />
+    <div className="join-form relative overflow-hidden rounded-[28px] border border-zinc-800/80 bg-zinc-950/80 text-white shadow-glow backdrop-blur-xl">
+      <div className="absolute top-0 inset-x-0 h-1 bg-linear-to-r from-brand-400 via-brand-500 to-orange-500" />
 
-      <div className="px-6 pt-6 pb-5 border-b border-border/50">
+      <div className="border-b border-zinc-800/80 px-6 pb-5 pt-6">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/25 shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-linear-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/25 shrink-0">
             <Icon icon="lucide:store" width="22" height="22" className="text-white" />
           </div>
           <div>
             <h3 className="text-lg font-bold leading-tight">Registra tu negocio</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Llega a más clientes en Abancay</p>
+            <p className="mt-0.5 text-xs text-zinc-400">Llega a más clientes en Abancay</p>
           </div>
         </div>
       </div>
@@ -220,7 +220,7 @@ export function RestaurantRegisterForm() {
             <div className="w-5 h-5 rounded-md bg-brand-500/10 flex items-center justify-center shrink-0">
               <Icon icon="lucide:building-2" width="12" height="12" className="text-brand-600" />
             </div>
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">Datos del negocio</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Datos del negocio</h4>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -323,7 +323,7 @@ export function RestaurantRegisterForm() {
 
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-border/50" />
-          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Contacto</span>
+          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Contacto</span>
           <div className="flex-1 h-px bg-border/50" />
         </div>
 
@@ -332,7 +332,7 @@ export function RestaurantRegisterForm() {
             <div className="w-5 h-5 rounded-md bg-brand-500/10 flex items-center justify-center shrink-0">
               <Icon icon="lucide:users" width="12" height="12" className="text-brand-600" />
             </div>
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">Datos de contacto</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Datos de contacto</h4>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -434,12 +434,12 @@ export function RestaurantRegisterForm() {
           </div>
         </div>
 
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border/40">
+        <div className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
           <Checkbox
             id="consent"
             checked={form.consent}
             onCheckedChange={(checked) => setForm((f) => ({ ...f, consent: checked === true }))}
-            className="mt-0.5 data-[state=checked]:bg-brand-500 data-[state=checked]:border-brand-500"
+            className="mt-0.5 data-[state=checked]:border-yellow-400 data-[state=checked]:bg-yellow-400"
           />
           <Label htmlFor="consent" className="text-xs leading-relaxed text-muted-foreground cursor-pointer select-none w-full">
             Autorizo el tratamiento de mis datos personales para comunicaciones vía WhatsApp, conforme a la{' '}
@@ -456,7 +456,7 @@ export function RestaurantRegisterForm() {
 
         <Button
           type="submit"
-          className="w-full h-11 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white font-semibold text-sm shadow-lg shadow-brand-500/25 hover:shadow-xl hover:shadow-brand-500/30 transition-all duration-200 disabled:from-muted disabled:to-muted disabled:shadow-none disabled:text-muted-foreground"
+          className="h-11 w-full rounded-xl bg-yellow-400 text-sm font-semibold text-black shadow-glowStrong transition-all duration-200 hover:bg-yellow-300 disabled:bg-zinc-800 disabled:text-zinc-500"
           disabled={isPending || !isFormValid}
         >
           {isPending ? (
