@@ -219,7 +219,8 @@ export function DeliveryRegisterForm() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">Datos personales</h4>
           </div>
 
-          <div className="space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
             <Label htmlFor="fullName" className="text-sm font-medium">
               Nombre completo <span className="text-destructive">*</span>
             </Label>
@@ -232,13 +233,12 @@ export function DeliveryRegisterForm() {
                 onBlur={() => markTouched('fullName')}
                 placeholder="Juan Pérez"
                 aria-invalid={touched.fullName && !!errors.fullName}
-                className="h-10 pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                className="h-10 w-full pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
               />
             </div>
             {touched.fullName && <FieldError message={errors.fullName} />}
-          </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="documentType" className="text-sm font-medium">
                 Tipo doc. <span className="text-destructive">*</span>
@@ -265,6 +265,9 @@ export function DeliveryRegisterForm() {
               </Select>
               {touched.documentType && <FieldError message={errors.documentType} />}
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <div className="flex items-baseline justify-between">
                 <Label htmlFor="documentNumber" className="text-sm font-medium">
@@ -293,14 +296,13 @@ export function DeliveryRegisterForm() {
                   onBlur={() => markTouched('documentNumber')}
                   placeholder={form.documentType === 'DNI' ? '12345678' : 'N° documento'}
                   aria-invalid={touched.documentNumber && !!errors.documentNumber}
-                  className="h-10 pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                  className="h-10 w-full pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
                 />
               </div>
               {touched.documentNumber && <FieldError message={errors.documentNumber} />}
             </div>
-          </div>
 
-          <div className="space-y-1">
+            <div className="space-y-1">
             <Label htmlFor="vehicleType" className="text-sm font-medium">
               ¿Cómo vas a repartir? <span className="text-destructive">*</span>
             </Label>
@@ -325,6 +327,7 @@ export function DeliveryRegisterForm() {
               </SelectContent>
             </Select>
             {touched.vehicleType && <FieldError message={errors.vehicleType} />}
+          </div>
           </div>
         </div>
 
@@ -365,7 +368,7 @@ export function DeliveryRegisterForm() {
                   onBlur={() => markTouched('phone')}
                   placeholder="987654321"
                   aria-invalid={touched.phone && !!errors.phone}
-                  className="h-10 pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                  className="h-10 w-full pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
                 />
               </div>
               {touched.phone && <FieldError message={errors.phone} />}
@@ -384,14 +387,14 @@ export function DeliveryRegisterForm() {
                   onBlur={() => markTouched('email')}
                   placeholder="correo@ejemplo.com"
                   aria-invalid={touched.email && !!errors.email}
-                  className="h-10 pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                  className="h-10 w-full pl-9 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
                 />
               </div>
               {touched.email && <FieldError message={errors.email} />}
             </div>
           </div>
 
-          <div className="space-y-1">
+          <div className="w-full max-w-xs space-y-1">
             <Label htmlFor="repPassword" className="text-sm font-medium">
               Crea una contraseña <span className="text-destructive">*</span>
             </Label>
@@ -405,7 +408,7 @@ export function DeliveryRegisterForm() {
                 onBlur={() => markTouched('password')}
                 placeholder="••••••••"
                 aria-invalid={touched.password && !!errors.password}
-                className="h-10 pl-9 pr-10 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                className="h-10 w-full pl-9 pr-10 rounded-xl bg-muted/40 border-border/60 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
               />
               <button
                 type="button"
@@ -447,10 +450,9 @@ export function DeliveryRegisterForm() {
               }}
               className="mt-0.5 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
             />
-            <Label htmlFor="consent" className="text-xs leading-relaxed text-muted-foreground cursor-pointer select-none">
-              Autorizo el tratamiento de mis datos personales para comunicaciones
-              vía WhatsApp, conforme a la{' '}
-              <a href="#" className="text-emerald-600 font-medium hover:underline">Política de Privacidad</a> de PideloYa.
+            <Label htmlFor="consent" className="text-xs leading-relaxed text-muted-foreground cursor-pointer select-none w-full">
+              Autorizo el tratamiento de mis datos personales para comunicaciones vía WhatsApp, conforme a la{' '}
+              <a href="#" className="text-emerald-600 font-medium hover:underline">Política de Privacidad </a> de PideloYa.
             </Label>
           </div>
         </div>

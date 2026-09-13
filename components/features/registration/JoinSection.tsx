@@ -34,7 +34,7 @@ export function JoinSection() {
           </p>
         </div>
 
-        <Tabs defaultValue="restaurante" className="max-w-2xl mx-auto">
+        <Tabs defaultValue="restaurante" className="max-w-4xl mx-auto">
           <div className="flex justify-center mb-8 overflow-x-auto px-4">
             <TabsList className="inline-flex h-12 shrink-0 p-1 bg-muted/60 backdrop-blur-sm rounded-2xl border border-border/50">
               <TabsTrigger

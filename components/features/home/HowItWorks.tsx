@@ -1,4 +1,5 @@
 import { Icon } from '@iconify-icon/react'
+import { ScrollStack } from '@/components/ui/scroll-stack'
 
 const STEPS = [
   {
@@ -41,23 +42,29 @@ export function HowItWorks() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <ScrollStack
+          className="max-w-2xl mx-auto"
+          itemDistance={220}
+          topOffset={104}
+        >
           {STEPS.map((step) => (
             <div
               key={step.step}
-              className="bg-surface-50 rounded-4xl p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
+              className="bg-card rounded-4xl p-10 md:p-14 border border-border shadow-2xl shadow-black/8"
             >
               <div
-                className={`w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg ${step.shadow}`}
+                className={`w-20 h-20 rounded-2xl bg-linear-to-br ${step.gradient} flex items-center justify-center shadow-lg ${step.shadow} mb-8`}
               >
-                <Icon icon={step.icon} width="32" height="32" className="text-white" />
+                <Icon icon={step.icon} width="36" height="36" className="text-white" />
               </div>
-              <div className="text-xs font-bold text-brand-500 mb-3">{step.step}</div>
-              <h3 className="text-xl font-bold mb-2">{step.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{step.description}</p>
+              <div className="text-sm font-bold text-brand-500 mb-3 tracking-wide">{step.step}</div>
+              <h3 className="text-3xl font-bold mb-3">{step.title}</h3>
+              <p className="text-lg text-muted-foreground leading-relaxed max-w-md">
+                {step.description}
+              </p>
             </div>
           ))}
-        </div>
+        </ScrollStack>
       </div>
     </section>
   )
