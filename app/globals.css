@@ -274,7 +274,7 @@
 }
 
 /* ============================================================================
-   Hero — tema oscuro (PideloYa)
+   Home surface
    ============================================================================ */
 
 .home-surface {
@@ -283,326 +283,9 @@
     #0c0c0e;
 }
 
-.hero-section {
-  position: relative;
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  align-items: center;
-  gap: 4vw;
-  padding: 140px 5vw 80px;
-  overflow: hidden;
-  background: transparent;
-  color: #f5f2ea;
-}
-
-.hero-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.hero-blob-coral {
-  width: 520px;
-  height: 520px;
-  top: -160px;
-  right: -120px;
-  background: var(--coral);
-  opacity: 0.5;
-}
-
-.hero-blob-violet {
-  width: 420px;
-  height: 420px;
-  top: 560px;
-  left: -120px;
-  background: var(--violet);
-  opacity: 0.35;
-}
-
-.hero-ring {
-  position: absolute;
-  border: 1.5px dashed rgba(216, 255, 62, 0.35);
-  border-radius: 50%;
-  pointer-events: none;
-  animation: spin 40s linear infinite;
-}
-
-.hero-ring-one {
-  width: 560px;
-  height: 560px;
-  top: 8%;
-  right: -6%;
-}
-
-.hero-ring-two {
-  width: 760px;
-  height: 760px;
-  top: -4%;
-  right: -16%;
-  animation-duration: 70s;
-  animation-direction: reverse;
-}
-
-.hero-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 28px;
-  padding: 8px 16px;
-  border: 1px solid rgba(216, 255, 62, 0.4);
-  border-radius: 999px;
-  color: var(--lime);
-  font-size: 13px;
-}
-
-.hero-kicker span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--lime);
-  animation: pulse 1.6s infinite;
-}
-
-.hero-title {
-  font-size: clamp(48px, 6.4vw, 92px);
-  line-height: 0.98;
-  font-weight: 800;
-  letter-spacing: -2px;
-  color: #f5f2ea;
-}
-
-.hero-stroke {
-  color: transparent;
-  -webkit-text-stroke: 2px #f5f2ea;
-}
-
-.hero-description {
-  max-width: 440px;
-  margin: 28px 0 36px;
-  color: #9b978c;
-  font-size: 17px;
-  line-height: 1.6;
-}
-
-.hero-search {
-  display: flex;
-  max-width: 480px;
-  padding: 8px;
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  transition:
-    border-color 0.3s ease,
-    box-shadow 0.3s ease;
-}
-
-.hero-search:focus-within {
-  border-color: var(--lime);
-  box-shadow: 0 0 0 4px rgba(216, 255, 62, 0.12);
-}
-
-.hero-search input {
-  width: 100%;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: #f5f2ea;
-  padding: 10px 18px;
-  font-size: 15px;
-}
-
-.hero-search input::placeholder {
-  color: #9b978c;
-}
-
-.hero-stats {
-  display: flex;
-  gap: 44px;
-  margin-top: 52px;
-}
-
-.hero-stats div {
-  display: flex;
-  flex-direction: column;
-}
-
-.hero-stats strong {
-  font-size: 30px;
-  font-weight: 800;
-  color: #f5f2ea;
-}
-
-.hero-stats span {
-  margin-top: 4px;
-  color: #9b978c;
-  font-size: 13px;
-}
-
-.hero-stage {
-  position: relative;
-  height: 560px;
-}
-
-.food-card {
-  position: absolute;
-  padding: 16px;
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 24px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
-  animation: float 6s ease-in-out infinite;
-}
-
-.food-card-one {
-  top: 6%;
-  left: 4%;
-  transform: rotate(-6deg);
-  animation-delay: 0.2s;
-}
-
-.food-card-two {
-  top: 38%;
-  right: 0;
-  transform: rotate(5deg);
-}
-
-.food-card-three {
-  bottom: 4%;
-  left: 14%;
-  transform: rotate(-3deg);
-  animation-delay: 1s;
-}
-
-.food-visual {
-  width: 150px;
-  height: 150px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.food-burger {
-  flex-direction: column;
-  gap: 4px;
-  border-radius: 50%;
-  background: #232326;
-}
-
-.burger-bun {
-  width: 80px;
-  height: 20px;
-  border-radius: 20px;
-  background: #c98a3d;
-}
-
-.burger-top {
-  border-radius: 50px 50px 12px 12px;
-  height: 30px;
-}
-
-.burger-patty {
-  width: 78px;
-  height: 13px;
-  border-radius: 5px;
-  background: #40251a;
-}
-
-.burger-cheese {
-  width: 86px;
-  height: 8px;
-  border-radius: 3px;
-  background: var(--coral);
-}
-
-.food-box {
-  border-radius: 10px;
-  background: #232326;
-  position: relative;
-}
-
-.food-circle {
-  width: 55px;
-  height: 55px;
-  border-radius: 50%;
-  background: #ffd23e;
-}
-
-.food-circle-small {
-  position: absolute;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #ff8c42;
-}
-
-.food-drink {
-  flex-direction: column;
-}
-
-.drink-lid {
-  width: 80px;
-  height: 14px;
-  border-radius: 8px;
-  background: var(--lime);
-}
-
-.drink-body {
-  width: 70px;
-  height: 105px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border-radius: 0 0 14px 14px;
-  background: var(--violet);
-  transform: perspective(100px) rotateX(-2deg);
-}
-
-.drink-body span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: white;
-  opacity: 0.7;
-}
-
-.floating-tag {
-  position: absolute;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: var(--lime);
-  color: var(--panel);
-  font-size: 13px;
-  font-weight: 700;
-  animation: float 5s ease-in-out infinite;
-}
-
-.tag-discount {
-  top: 0;
-  right: 18%;
-  background: var(--coral);
-  color: white;
-  transform: rotate(4deg);
-}
-
-.tag-time {
-  right: 6%;
-  bottom: 26%;
-  transform: rotate(-4deg);
-  animation-delay: 0.6s;
-}
-
-.tag-delivery {
-  top: 34%;
-  left: -4%;
-  background: var(--violet);
-  color: white;
-  transform: rotate(6deg);
-  animation-delay: 1.2s;
-}
+/* ============================================================================
+   Keyframes
+   ============================================================================ */
 
 @keyframes spin {
   to {
@@ -622,34 +305,18 @@
   }
 }
 
-@media (max-width: 900px) {
-  .hero-blob-violet {
-    top: 680px;
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
   }
-
-  .hero-section {
-    grid-template-columns: 1fr;
-    padding-top: 120px;
-  }
-
-  .hero-stage {
-    height: 480px;
-    margin-top: 40px;
-  }
-
-  .hero-stats {
-    gap: 24px;
-  }
-
-  .hero-stats strong {
-    font-size: 24px;
-  }
-
-  .hero-ring-one,
-  .hero-ring-two {
-    opacity: 0.5;
+  to {
+    transform: rotate(0deg);
   }
 }
+
+/* ============================================================================
+   Shared component styles
+   ============================================================================ */
 
 .shadow-glow {
   box-shadow: 0 0 40px rgba(250, 183, 28, 0.08);
@@ -696,35 +363,4 @@
   border-color: rgb(248 113 113 / 0.3);
   background-color: rgb(127 29 29 / 0.25);
   color: rgb(252 165 165);
-}
-
-@media (max-width: 640px) {
-  .hero-blob-violet {
-    top: 760px;
-  }
-
-  .hero-section {
-    padding-right: 20px;
-    padding-left: 20px;
-  }
-
-  .hero-search {
-    border-radius: 20px;
-    flex-direction: column;
-  }
-
-  .hero-search .button-coral {
-    width: 100%;
-  }
-
-  .hero-stats {
-    flex-wrap: wrap;
-    gap: 24px;
-    margin-top: 40px;
-  }
-
-  .hero-stage {
-    transform: scale(0.8);
-    transform-origin: top left;
-  }
 }

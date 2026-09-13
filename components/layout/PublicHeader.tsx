@@ -20,8 +20,8 @@ export function PublicHeader() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/6 bg-[#0c0c0e]/95 px-[5vw] py-4 backdrop-blur-[14px]">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/6 bg-[#0c0c0e]/95 px-4 py-4 backdrop-blur-[14px] sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between">
         <Link href="/" onClick={closeMenu} className="text-2xl font-extrabold tracking-[-0.5px] text-white">
           <Image src="/icons/logo-pideloya.svg" alt="PideloYa" width={160} height={40} />
         </Link>

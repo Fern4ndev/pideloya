@@ -6,8 +6,6 @@ import { AmbientGlow } from '@/components/ui/ambient-glow'
 export default function HomePage() {
   return (
     <div className="home-surface relative isolate overflow-hidden">
-      <div aria-hidden="true" className="hero-blob hero-blob-coral" />
-      <div aria-hidden="true" className="hero-blob hero-blob-violet" />
       <AmbientGlow className="top-0 h-full" />
       <HeroSection />
 
