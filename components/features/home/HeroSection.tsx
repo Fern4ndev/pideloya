@@ -60,7 +60,7 @@ export function HeroSection() {
                   suppressHydrationWarning
                 />
               </div>
-              <button type="button" className="button-coral max-sm:w-full">
+              <button type="button" className="button-coral max-sm:w-full" suppressHydrationWarning>
                 <span>Pide ya</span>
                 <ChevronRightIcon size={24} duration={1.5} color="#ffffff" />
               </button>

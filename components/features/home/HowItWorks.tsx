@@ -236,6 +236,7 @@ export function HowItWorks() {
                   : 'w-2 bg-zinc-700 hover:bg-zinc-600'
               }`}
               aria-label={`Go to slide ${index + 1}`}
+              suppressHydrationWarning
             />
           ))}
         </div>
