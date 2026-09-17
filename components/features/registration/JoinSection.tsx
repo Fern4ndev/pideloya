@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export function JoinSection() {
   return (
-    <section id="unete" className="relative py-28 px-6 text-white">
+    <section id="unete" className="relative py-28 px-6 text-white" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 50%, transparent 0%, rgba(249, 115, 22, 0.25) 100%)' }}>
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-linear-to-b from-transparent via-white/3 to-transparent"

@@ -151,7 +151,7 @@ export function HowItWorks() {
   }, [api])
 
   return (
-    <section id="como-funciona" className="relative py-24 px-6">
+    <section id="como-funciona" className="relative py-24 px-6" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 50%, transparent 0%, rgba(139, 123, 255, 0.25) 100%)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <span className="inline-block text-sm font-semibold text-brand-600 tracking-wide uppercase mb-4">
