@@ -1,75 +1,186 @@
-import { Icon } from '@iconify-icon/react'
 import Link from 'next/link'
+import Image from 'next/image'
+
+
+/**
+ * Fondo "Nebula Core" (aura gradient, 5 capas radiales + blend modes).
+ * La capa base sólida (#100e0b) vive dentro del propio wrapper en vez
+ * del <body> — así el efecto queda contenido a esta sección sin tocar
+ * el fondo global de la página.
+ */
+function NebulaBackground() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      {/* Base — sustituye al body como backdrop de los blend modes */}
+      <div className="absolute inset-0" style={{ backgroundColor: '#100e0b' }} />
+
+      {/* Layer 1 — screen, violeta */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 25% 30%, rgba(139,92,246,0.6) 0%, transparent 45%)',
+          mixBlendMode: 'screen',
+          filter: 'blur(200px)',
+          transform: 'translateZ(0)',
+        }}
+      />
+
+      {/* Layer 2 — screen, rosa */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 75% 25%, rgba(236,72,153,0.5) 0%, transparent 40%)',
+          mixBlendMode: 'screen',
+          filter: 'blur(188px)',
+          transform: 'translateZ(0)',
+        }}
+      />
+
+      {/* Layer 3 — screen, azul */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 75%, rgba(59,130,246,0.5) 0%, transparent 50%)',
+          mixBlendMode: 'screen',
+          filter: 'blur(200px)',
+          transform: 'translateZ(0)',
+        }}
+      />
+
+      {/* Layer 4 — overlay, amarillo tenue */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 20% 80%, rgba(250,204,21,0.2) 0%, transparent 35%)',
+          mixBlendMode: 'overlay',
+          filter: 'blur(138px)',
+          transform: 'translateZ(0)',
+        }}
+      />
+
+      {/* Layer 5 — screen, highlight blanco */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 85% 70%, rgba(255,255,255,0.1) 0%, transparent 25%)',
+          mixBlendMode: 'screen',
+          filter: 'blur(100px)',
+          transform: 'translateZ(0)',
+        }}
+      />
+    </div>
+  )
+}
 
 export function JoinSection() {
   return (
-    <section id="unete" className="relative py-28 px-6 text-white" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 50%, transparent 0%, rgba(249, 115, 22, 0.25) 100%)' }}>
+    <section
+      id="unete"
+      className="relative overflow-hidden border-t border-white/[0.06] px-6 py-28"
+    >
+      <NebulaBackground />
+
+      {/* grid sutil, por encima del aura, debajo del contenido */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-linear-to-b from-transparent via-white/3 to-transparent"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-brand-500/5 rounded-full blur-3xl"
+        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)',
+          backgroundSize: '64px 64px',
+        }}
       />
 
-      <div className="relative max-w-5xl mx-auto">
-        <div className="text-center mb-14">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-yellow-400/10 px-4 py-1.5 text-xs font-semibold text-yellow-300">
-            <Icon icon="lucide:rocket" width="14" height="14" />
-            Únete al equipo
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-white">
-            Haz parte de{' '}
-            <span className="bg-linear-to-r from-brand-500 to-orange-500 bg-clip-text text-transparent">
-              PideloYa
-            </span>
+      <div className="relative z-10 mx-auto max-w-5xl">
+        <div className="mb-16 max-w-xl">
+          <p className="text-sm font-medium text-white/45">Únete</p>
+          <h2 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl">
+            Hay un lugar para ti en PideloYa
           </h2>
-          <p className="text-lg text-white max-w-lg mx-auto">
-            Ya seas restaurante o repartidor, hay un lugar para ti en Abancay.
+          <p className="mt-4 text-base leading-relaxed text-white/55">
+            Restaurante o repartidor — el registro toma menos de dos minutos.
           </p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <Link
-            href="/registro?tipo=restaurante"
-            className="group relative overflow-hidden rounded-[28px] border border-zinc-800/80 bg-zinc-950/80 p-7 shadow-glow backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-yellow-400/30 hover:bg-zinc-900/80"
-          >
-            <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-yellow-400/[0.04] blur-3xl transition duration-500 group-hover:bg-yellow-400/[0.09]" />
-            <div className="relative">
-              <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-yellow-400 transition duration-500 group-hover:border-yellow-400/30 group-hover:shadow-glowStrong">
-                <Icon icon="lucide:store" width="28" height="28" />
-              </div>
-              <h3 className="text-xl font-semibold tracking-tight text-white">Soy restaurante</h3>
-              <p className="mt-3 min-h-[72px] text-sm leading-6 text-zinc-400">
-                Registra tu negocio y llega a más clientes en Abancay.
-              </p>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-yellow-300">
-                Registrar negocio
-                <Icon icon="lucide:arrow-right" width="16" height="16" className="transition-transform group-hover:translate-x-1" />
-              </span>
+        <div className="grid gap-5 sm:grid-cols-2">
+          {/* Restaurante — acento violeta/rosa, coherente con el aura */}
+          <div className="group relative overflow-hidden rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/10 via-white/[0.03] to-transparent p-8 backdrop-blur-sm transition-all duration-300 sm:p-10">
+            {/* Imagen superpuesta ocupando el 70% con degradado a transparente hacia la izquierda */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[70%] sm:block [mask-image:linear-gradient(to_right,transparent_0%,black_50%)]">
+              <Image
+                src="/images/restaurant.avif"
+                alt="Restaurante"
+                fill
+                className="object-cover object-center"
+                sizes="70vw"
+              />
             </div>
-          </Link>
 
-          <Link
-            href="/registro?tipo=repartidor"
-            className="group relative overflow-hidden rounded-[28px] border border-zinc-800/80 bg-zinc-950/80 p-7 shadow-glow backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-yellow-400/30 hover:bg-zinc-900/80"
-          >
-            <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-yellow-400/[0.04] blur-3xl transition duration-500 group-hover:bg-yellow-400/[0.09]" />
-            <div className="relative">
-              <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-yellow-400 transition duration-500 group-hover:border-yellow-400/30 group-hover:shadow-glowStrong">
-                <Icon icon="lucide:zap" width="28" height="28" />
+            {/* Contenido del texto por encima de la imagen */}
+            <div className="relative z-10 flex flex-col justify-between sm:max-w-xs md:max-w-sm">
+              <div>
+                <span className="text-xs font-medium tabular-nums text-white/35">01</span>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+                  Soy restaurante
+                </h3>
+                <p className="mt-2.5 max-w-[26ch] text-sm leading-relaxed text-white/55">
+                  Publica tu carta y llega a más clientes en Abancay.
+                </p>
               </div>
-              <h3 className="text-xl font-semibold tracking-tight text-white">Soy repartidor</h3>
-              <p className="mt-3 min-h-[72px] text-sm leading-6 text-zinc-400">
-                Reparte a tu ritmo, recibe pedidos y genera ingresos en tu ciudad.
-              </p>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-yellow-300">
-                Quiero repartir
-                <Icon icon="lucide:arrow-right" width="16" height="16" className="transition-transform group-hover:translate-x-1" />
-              </span>
+
+              <Link
+                href="/registro?tipo=restaurante"
+                className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(236,72,153,0.5)] active:translate-y-0"
+              >
+                Registrar negocio
+                <span className="transition-transform duration-300 group-hover:translate-x-1">
+                  →
+                </span>
+              </Link>
             </div>
-          </Link>
+          </div>
+
+          {/* Repartidor — acento azul/violeta */}
+          <div className="group relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-white/[0.03] to-transparent p-8 backdrop-blur-sm transition-all duration-300 sm:p-10">
+            {/* Imagen superpuesta — placeholder, reemplaza la ruta */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[70%] sm:block [mask-image:linear-gradient(to_right,transparent_0%,black_50%)]">
+              <Image
+                src="/images/delivery.avif"
+                alt="Repartidor"
+                fill
+                className="object-cover object-center"
+                sizes="70vw"
+              />
+            </div>
+
+            {/* Contenido del texto por encima de la imagen */}
+            <div className="relative z-10 flex flex-col justify-between sm:max-w-xs md:max-w-sm">
+              <div>
+                <span className="text-xs font-medium tabular-nums text-white/35">02</span>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+                  Soy repartidor
+                </h3>
+                <p className="mt-2.5 max-w-[26ch] text-sm leading-relaxed text-white/55">
+                  Reparte a tu ritmo y genera ingresos en tu ciudad.
+                </p>
+              </div>
+
+              <Link
+                href="/registro?tipo=repartidor"
+                className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(59,130,246,0.5)] active:translate-y-0"
+              >
+                Quiero repartir
+                <span className="transition-transform duration-300 group-hover:translate-x-1">
+                  →
+                </span>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { Icon } from '@iconify-icon/react'
-import { DeliveryRegisterForm } from '@/components/features/registration/DeliveryRegisterForm'
-import { RestaurantRegisterForm } from '@/components/features/registration/RestaurantRegisterForm'
+import { RegistrationForms } from '@/components/features/registration/RegistrationForms'
 
 type RegistroPageProps = {
   searchParams: Promise<{ tipo?: string }>
@@ -34,7 +33,7 @@ export default async function RegistroPage({ searchParams }: RegistroPageProps) 
           </p>
         </div>
 
-        {isRepartidor ? <DeliveryRegisterForm /> : <RestaurantRegisterForm />}
+        <RegistrationForms tipo={tipo ?? ''} />
       </div>
     </main>
   )
