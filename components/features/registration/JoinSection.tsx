@@ -116,6 +116,7 @@ export function JoinSection() {
                 src="/images/restaurant.avif"
                 alt="Restaurante"
                 fill
+                loading="eager"
                 className="object-cover object-center"
                 sizes="70vw"
               />

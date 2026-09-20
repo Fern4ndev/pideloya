@@ -22,6 +22,7 @@ export function SidebarBrand({
         height={36}
         alt="PideloYa"
         className="h-9 w-auto"
+        style={{ width: 'auto', height: '2.25rem' }}
         priority
       />
       {section && (
