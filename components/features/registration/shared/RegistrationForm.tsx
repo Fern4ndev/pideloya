@@ -49,7 +49,7 @@ export function RegistrationForm({ config }: RegistrationFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950">
+    <div className="rounded-2xl border border-neutral-200 bg-white/80 backdrop-blur-sm shadow-xl shadow-black/5">
       <FormHeader title={config.title} subtitle={config.subtitle} />
 
       <form onSubmit={handleSubmit} noValidate className="px-8 py-7">
@@ -174,7 +174,7 @@ export function RegistrationForm({ config }: RegistrationFormProps) {
           })}
         </div>
 
-        <div className="mt-7 border-t border-zinc-800/80 pt-6">
+        <div className="mt-7 border-t border-neutral-200 pt-6">
           <FormError message={error} />
         </div>
 

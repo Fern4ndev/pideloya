@@ -76,7 +76,7 @@ const DELIVERY_FIELDS: FieldDef[] = [
     <>
       Autorizo el tratamiento de mis datos personales para comunicaciones vía
       WhatsApp, conforme a la{' '}
-      <a href="#" className="text-zinc-300 underline underline-offset-2 hover:text-white">
+      <a href="/privacidad" className="text-purple-600 underline underline-offset-2 hover:text-purple-800">
         Política de Privacidad
       </a>{' '}
       de PideloYa.
@@ -145,7 +145,7 @@ const RESTAURANT_FIELDS: FieldDef[] = [
     <>
       Autorizo el tratamiento de mis datos personales para comunicaciones vía
       WhatsApp, conforme a la{' '}
-      <a href="#" className="text-zinc-300 underline underline-offset-2 hover:text-white">
+      <a href="/privacidad" className="text-purple-600 underline underline-offset-2 hover:text-purple-800">
         Política de Privacidad
       </a>{' '}
       de PideloYa.

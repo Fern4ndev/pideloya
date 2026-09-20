@@ -3,12 +3,11 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { House, Menu, Store, Tags, X } from 'lucide-react'
+import { House, Menu, Store, X } from 'lucide-react'
 
 
 const navItems = [
   { label: 'Cómo funciona', href: '#como-funciona', icon: House },
-  { label: 'Categorías', href: '#categorias', icon: Tags },
   { label: 'Negocios', href: '#unete', icon: Store },
 ]
 
