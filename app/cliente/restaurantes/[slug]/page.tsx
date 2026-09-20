@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { RestaurantMenuView } from '@/components/features/restaurants/RestaurantMenuView'
 
-export default async function RestaurantMenuPage({
+export default async function ClienteRestaurantMenuPage({
   params,
 }: {
   params: Promise<{ slug: string }>
@@ -14,6 +14,8 @@ export default async function RestaurantMenuPage({
     .from('restaurants')
     .select('id, name, description, logo_url, address_text, whatsapp, food_type')
     .eq('slug', slug)
+    .eq('is_approved', true)
+    .eq('is_active', true)
     .maybeSingle()
 
   if (!restaurant) notFound()

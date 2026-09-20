@@ -13,10 +13,16 @@ export interface RestaurantCardData {
   food_type?: string | null
 }
 
-export function RestaurantCard({ restaurant }: { restaurant: RestaurantCardData }) {
+export function RestaurantCard({
+  restaurant,
+  basePath = '/restaurantes',
+}: {
+  restaurant: RestaurantCardData
+  basePath?: string
+}) {
   return (
-    <Link href={`/restaurantes/${restaurant.slug}`} className="group block h-full">
-      <Card className="h-full overflow-hidden border-border/70 p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg">
+    <Link href={`${basePath}/${restaurant.slug}`} className="group block h-full">
+      <Card className="h-full overflow-hidden border-0 bg-white/70 p-0 shadow-sm ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-brand-300 dark:bg-white/5 dark:ring-white/10">
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
           {restaurant.logo_url ? (
             <Image
@@ -24,18 +30,22 @@ export function RestaurantCard({ restaurant }: { restaurant: RestaurantCardData 
               alt={restaurant.name}
               fill
               sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-50 text-brand-400">
               <UtensilsCrossedIcon className="h-10 w-10" />
             </div>
           )}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
           {restaurant.food_type && (
             <Badge className="absolute left-3 top-3 border-0 bg-white/90 text-foreground shadow-sm backdrop-blur">
               {restaurant.food_type}
             </Badge>
           )}
+          <span className="absolute bottom-3 right-3 translate-y-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-600 opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+            Ver menú
+          </span>
         </div>
 
         <CardContent className="flex items-start justify-between gap-2 py-4">
