@@ -40,10 +40,10 @@ export function PublicFooter() {
           </Link>
           <p className="text-sm leading-relaxed text-neutral-500">
             La forma más rápida de pedir{' '}
-            <span className="font-bold text-neutral-300">comida</span>,{' '}
-            <span className="font-bold text-neutral-300">mercado</span> y{' '}
-            <span className="font-bold text-neutral-300">farmacia</span> en Abancay.
-            Repartidores locales, seguimiento en vivo y entrega promedio de 12 minutos.
+            comida,{' '}
+            mercado y{' '}
+            farmacn en Abancay.
+            Repartidores locales y entrega promedio de 12 minutos.
           </p>
         </div>
 

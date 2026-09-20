@@ -32,20 +32,20 @@ export function FormSelect({
 }: FormSelectProps) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-[13px] font-medium text-zinc-300">
+      <Label htmlFor={id} className="text-[13px] font-medium text-neutral-700">
         {label}
       </Label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger
           id={id}
           aria-invalid={touched && !!error}
-          className="h-11 rounded-lg border-zinc-800 bg-zinc-900/50 text-[15px] text-white placeholder:text-zinc-600 focus:border-zinc-600 focus:ring-0 focus:outline-none transition-colors"
+          className="h-11 rounded-xl border-white/40 bg-white/60 text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:border-purple-300/60 focus:bg-white/80 focus:ring-2 focus:ring-purple-500/10 focus:outline-none transition-all duration-200"
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent className="border-zinc-800 bg-zinc-900">
+        <SelectContent className="border-white/40 bg-white/90 backdrop-blur-xl">
           {options.map((opt) => (
-            <SelectItem key={opt} value={opt} className="text-[15px] text-zinc-300 focus:bg-zinc-800 focus:text-white">
+            <SelectItem key={opt} value={opt} className="text-[15px] text-neutral-700 focus:bg-purple-50 focus:text-purple-700">
               {opt}
             </SelectItem>
           ))}

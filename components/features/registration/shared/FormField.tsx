@@ -33,11 +33,11 @@ export function FormField({
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between">
-        <Label htmlFor={id} className="text-[13px] font-medium text-zinc-300">
+        <Label htmlFor={id} className="text-[13px] font-medium text-neutral-700">
           {label}
         </Label>
         {counter && (
-          <span className="text-[12px] tabular-nums text-zinc-500">
+          <span className="text-[12px] tabular-nums text-neutral-400">
             {counter.current}/{counter.max}
           </span>
         )}
@@ -51,7 +51,7 @@ export function FormField({
         onBlur={onBlur}
         placeholder={placeholder}
         aria-invalid={touched && !!error}
-        className="h-11 w-full rounded-lg border-zinc-800 bg-zinc-900/50 text-[15px] text-white placeholder:text-zinc-600 focus:border-zinc-600 focus:ring-0 focus:outline-none transition-colors"
+        className="h-11 w-full rounded-xl border-white/40 bg-white/60 px-4 text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:border-purple-300/60 focus:bg-white/80 focus:ring-2 focus:ring-purple-500/10 focus:outline-none transition-all duration-200"
       />
       {touched && <FieldError message={error} />}
     </div>

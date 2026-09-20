@@ -27,7 +27,7 @@ export function PasswordField({
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-[13px] font-medium text-zinc-300">
+      <Label htmlFor={id} className="text-[13px] font-medium text-neutral-700">
         {label}
       </Label>
       <div className="relative">
@@ -39,13 +39,13 @@ export function PasswordField({
           onBlur={onBlur}
           placeholder="••••••••"
           aria-invalid={touched && !!error}
-          className="h-11 w-full rounded-lg border-zinc-800 bg-zinc-900/50 pr-10 text-[15px] text-white placeholder:text-zinc-600 focus:border-zinc-600 focus:ring-0 focus:outline-none transition-colors"
+          className="h-11 w-full rounded-xl border-white/40 bg-white/60 pr-10 text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:border-purple-300/60 focus:bg-white/80 focus:ring-2 focus:ring-purple-500/10 focus:outline-none transition-all duration-200"
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
           tabIndex={-1}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
           aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -48,9 +48,9 @@ export function RegistrationForm({ config }: RegistrationFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white/80 backdrop-blur-sm shadow-xl shadow-black/5">
-      <form onSubmit={handleSubmit} noValidate className="px-8 py-7">
-        <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2">
+    <div className="rounded-3xl border border-white/40 bg-white/50 p-1 shadow-2xl shadow-purple-900/5 backdrop-blur-2xl">
+      <form onSubmit={handleSubmit} noValidate className="rounded-[22px] bg-white/70 px-8 py-8 sm:px-10 sm:py-10">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
           {config.fields.map((field) => {
             const value = form[field.name]
             const error = errors[field.name] ?? null
@@ -171,7 +171,7 @@ export function RegistrationForm({ config }: RegistrationFormProps) {
           })}
         </div>
 
-        <div className="mt-7 border-t border-neutral-200 pt-6">
+        <div className="mt-8 border-t border-purple-100/60 pt-6">
           <FormError message={error} />
         </div>
 
