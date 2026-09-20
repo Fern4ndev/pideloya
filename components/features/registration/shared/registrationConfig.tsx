@@ -16,8 +16,6 @@ export type FieldDef =
   | { name: string; type: 'checkbox'; label: React.ReactNode }
 
 export interface RegistrationConfig {
-  title: string
-  subtitle: string
   submitLabel: string
   loadingLabel: string
   fields: FieldDef[]
@@ -65,9 +63,7 @@ function validateName(value: string, minLen = 2): string | null {
 
 const DELIVERY_FIELDS: FieldDef[] = [
   { name: 'fullName', type: 'text', label: 'Nombre completo', placeholder: 'Juan Pérez' },
-  { name: 'documentType', type: 'select', label: 'Tipo de documento', options: ['DNI', 'Carné de extranjería', 'Pasaporte'] },
   { name: 'documentNumber', type: 'text', label: 'N.º de documento', placeholder: 'N.º documento' },
-  { name: 'vehicleType', type: 'select', label: '¿Cómo vas a repartir?', options: ['Moto', 'Mototaxi', 'Bicicleta', 'A pie', 'Auto'] },
   { name: 'phone', type: 'phone', label: 'Celular' },
   { name: 'email', type: 'email', label: 'E-mail' },
   { name: 'password', type: 'password', label: 'Crea una contraseña' },
@@ -88,17 +84,12 @@ function validateDelivery(field: string, form: Record<string, string | boolean>)
   switch (field) {
     case 'fullName':
       return validateName(form.fullName as string)
-    case 'documentType':
-      return form.documentType ? null : 'Selecciona un tipo de documento'
     case 'documentNumber': {
       const val = (form.documentNumber as string) ?? ''
       if (!val) return 'Ingresa tu número de documento'
-      if (form.documentType === 'DNI' && !/^\d{8}$/.test(val)) return 'El DNI debe tener 8 dígitos numéricos'
-      if (form.documentType !== 'DNI' && val.trim().length < 6) return 'Ingresa un número de documento válido'
+      if (!/^\d{8}$/.test(val)) return 'El DNI debe tener 8 dígitos numéricos'
       return null
     }
-    case 'vehicleType':
-      return form.vehicleType ? null : 'Selecciona cómo vas a repartir'
     case 'phone':
       return validatePhone(form.phone as string)
     case 'email':
@@ -115,14 +106,12 @@ function validateDelivery(field: string, form: Record<string, string | boolean>)
 }
 
 export const deliveryConfig: RegistrationConfig = {
-  title: 'Conviértete en repartidor',
-  subtitle: 'Gana dinero a tu ritmo en Abancay',
   submitLabel: 'Registrarme ahora',
   loadingLabel: 'Registrando…',
   fields: DELIVERY_FIELDS,
   fieldOrder: DELIVERY_FIELDS.map((f) => f.name),
   validate: validateDelivery,
-  onSubmit: (form) => registerDeliveryPerson(form as any),
+  onSubmit: (form) => registerDeliveryPerson({ ...form, documentType: 'DNI', vehicleType: 'Moto' } as any),
   successTitle: 'Recibimos tu registro',
   successDescription:
     'Vamos a validar tus datos y activar tu cuenta. Te contactaremos por WhatsApp.',
@@ -183,8 +172,6 @@ function validateRestaurant(field: string, form: Record<string, string | boolean
 }
 
 export const restaurantConfig: RegistrationConfig = {
-  title: 'Registra tu negocio',
-  subtitle: 'Llega a más clientes en Abancay',
   submitLabel: 'Registrar restaurante',
   loadingLabel: 'Registrando…',
   fields: RESTAURANT_FIELDS,

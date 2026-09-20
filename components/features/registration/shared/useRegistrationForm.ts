@@ -9,8 +9,6 @@ export interface RegistrationFieldConfig {
 }
 
 export interface RegistrationConfig {
-  title: string
-  subtitle: string
   submitLabel: string
   loadingLabel: string
   fields: Array<{

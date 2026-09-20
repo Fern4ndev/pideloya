@@ -10,7 +10,6 @@ import { CheckboxField } from './CheckboxField'
 import { FormError } from './FormError'
 import { FormSubmitButton } from './FormSubmitButton'
 import { FormSuccessScreen } from './FormSuccessScreen'
-import { FormHeader } from './FormHeader'
 import { FormFooter } from './FormFooter'
 
 interface RegistrationFormProps {
@@ -50,8 +49,6 @@ export function RegistrationForm({ config }: RegistrationFormProps) {
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white/80 backdrop-blur-sm shadow-xl shadow-black/5">
-      <FormHeader title={config.title} subtitle={config.subtitle} />
-
       <form onSubmit={handleSubmit} noValidate className="px-8 py-7">
         <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2">
           {config.fields.map((field) => {
