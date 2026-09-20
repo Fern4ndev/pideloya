@@ -6,36 +6,65 @@ import type { FeaturedProduct } from '@/components/features/products/FeaturedPro
 export default async function ClienteHomePage() {
   const supabase = await createClient()
 
-  const [restaurantsResult, productsResult] = await Promise.all([
-    supabase
-      .from('restaurants')
-      .select('slug, name, description, logo_url, address_text, food_type')
-      .eq('is_approved', true)
-      .eq('is_active', true)
-      .order('name'),
-    supabase
-      .from('products')
-      .select('id, name, price, image_url, restaurant:restaurants!inner(id, name, is_approved, is_active)')
-      .eq('available', true)
-      .eq('restaurant.is_approved', true)
-      .eq('restaurant.is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(12),
-  ])
+  // La policy RLS "restaurants_select_public" ya filtra por
+  // is_approved = true e is_active = true — no hace falta repetirlo aquí.
+  const { data: restaurants, error } = await supabase
+    .from('restaurants')
+    .select('slug, name, description, logo_url, address_text, food_type')
+    .order('name')
 
-  const restaurants = (restaurantsResult.data ?? []) as RestaurantCardData[]
-  const popularProducts = ((productsResult.data ?? []) as any[]).map((p) => ({
-    id: p.id,
-    name: p.name,
-    price: Number(p.price),
-    imageUrl: p.image_url,
-    restaurant: { id: p.restaurant.id, name: p.restaurant.name },
-  })) as FeaturedProduct[]
+  // "Platos populares": últimos productos disponibles, con el restaurante
+  // embebido para poder agregarlos al carrito directo desde la home.
+  // Requiere las policies "products_select_customer" /
+  // "categories_select_customer" — ver migración 20260920100000.
+  const { data: popularProductsRaw } = await supabase
+    .from('products')
+    .select('id, name, price, image_url, restaurants(id, name)')
+    .eq('available', true)
+    .order('created_at', { ascending: false })
+    .limit(12)
+
+  const popularProducts: FeaturedProduct[] = (popularProductsRaw ?? [])
+    .filter((p) => p.restaurants)
+    .map((p) => {
+      const restaurant = p.restaurants as unknown as { id: string; name: string }
+      return {
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        imageUrl: p.image_url,
+        restaurant: { id: restaurant.id, name: restaurant.name },
+      }
+    })
 
   return (
-    <ClienteHomeClient
-      restaurants={restaurants}
-      popularProducts={popularProducts}
-    />
+    <div>
+      {error && (
+        <p className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          No pudimos cargar los negocios. Intenta recargar la página.
+        </p>
+      )}
+
+      {!error && restaurants && restaurants.length === 0 && <EmptyState />}
+
+      {!error && restaurants && restaurants.length > 0 && (
+        <ClienteHomeClient
+          restaurants={restaurants as RestaurantCardData[]}
+          popularProducts={popularProducts}
+        />
+      )}
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
+      <p className="font-medium">Todavía no hay negocios publicados</p>
+      <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+        En cuanto el administrador apruebe el primer negocio en Abancay, va a
+        aparecer aquí.
+      </p>
+    </div>
   )
 }
