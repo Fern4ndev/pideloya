@@ -7,6 +7,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'PideloYa — Pedidos en Abancay',
   description: 'Pide en tus negocios favoritos de Abancay, Apurímac.',
+  icons: {
+    icon: "/icons/favicon.svg"
+  }
 }
 
 export default function RootLayout({
