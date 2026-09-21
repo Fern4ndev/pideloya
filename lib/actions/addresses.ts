@@ -4,10 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
 import { addressSchema, type AddressInput } from '@/lib/validations/address'
 
-export async function createAddress(input: AddressInput) {
-  const data = addressSchema.parse(input)
+async function getMyProfileId() {
   const supabase = await createClient()
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -21,11 +19,30 @@ export async function createAddress(input: AddressInput) {
 
   if (!profile) throw new Error('Perfil no encontrado')
 
-  // La policy RLS "addresses_insert_own" ya exige que customer_id
-  // coincida con el usuario autenticado — esto es solo para tenerlo
-  // a mano al construir el insert.
+  return { supabase, profileId: profile.id as string }
+}
+
+export async function createAddress(input: AddressInput) {
+  const data = addressSchema.parse(input)
+  const { supabase, profileId } = await getMyProfileId()
+
+  // Regla de negocio: un cliente solo puede tener UNA dirección guardada.
+  // Este chequeo evita el viaje redondo cuando ya sabemos que existe una;
+  // el constraint único en la base (migración 20260920210000) es la red
+  // de seguridad real ante condiciones de carrera.
+  const { count } = await supabase
+    .from('addresses')
+    .select('id', { count: 'exact', head: true })
+    .eq('customer_id', profileId)
+
+  if (count && count > 0) {
+    throw new Error(
+      'Ya tienes una dirección guardada. Edítala o elimínala antes de agregar otra.'
+    )
+  }
+
   const { error } = await supabase.from('addresses').insert({
-    customer_id: profile.id,
+    customer_id: profileId,
     label: data.label || null,
     address_text: data.addressText,
     reference: data.reference || null,
@@ -33,20 +50,15 @@ export async function createAddress(input: AddressInput) {
     longitude: data.longitude,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Ya tienes una dirección guardada.')
+    }
+    throw new Error(error.message)
+  }
 
   revalidatePath('/cliente/direcciones')
-  return { success: true }
-}
-
-export async function deleteAddress(addressId: string) {
-  const supabase = await createClient()
-
-  const { error } = await supabase.from('addresses').delete().eq('id', addressId)
-
-  if (error) throw new Error(error.message)
-
-  revalidatePath('/cliente/direcciones')
+  revalidatePath('/cliente/carrito')
   return { success: true }
 }
 
@@ -55,8 +67,8 @@ export async function updateAddress(addressId: string, input: AddressInput) {
   const supabase = await createClient()
 
   // RLS "addresses_update_own" ya garantiza que solo el dueño puede
-  // tocar sus direcciones — el update fallará silenciosamente si no
-  // le pertenece, así que verificamos con select().single().
+  // tocar su dirección — el update falla silenciosamente si no le
+  // pertenece, así que verificamos con select().single().
   const { data: updated, error } = await supabase
     .from('addresses')
     .update({
@@ -73,5 +85,17 @@ export async function updateAddress(addressId: string, input: AddressInput) {
   if (error || !updated) throw new Error('No se pudo actualizar la dirección')
 
   revalidatePath('/cliente/direcciones')
+  revalidatePath('/cliente/carrito')
+  return { success: true }
+}
+
+export async function deleteAddress(addressId: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase.from('addresses').delete().eq('id', addressId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/cliente/direcciones')
+  revalidatePath('/cliente/carrito')
   return { success: true }
 }

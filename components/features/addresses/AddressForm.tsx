@@ -2,28 +2,41 @@
 
 import { useState, useTransition, type SubmitEvent } from 'react'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
-import { createAddress } from '@/lib/actions/addresses'
+import { createAddress, updateAddress } from '@/lib/actions/addresses'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MapPinIcon, LocateFixedIcon } from 'lucide-react'
 
-// ssr: false es obligatorio — Leaflet usa `window` y `document`
-// directamente, y se rompe si Next.js intenta renderizarlo en servidor.
 const AddressMapPicker = dynamic(() => import('./AddressMapPicker'), {
   ssr: false,
-  loading: () => (
-    <div className="h-64 w-full animate-pulse rounded-lg bg-muted" />
-  ),
+  loading: () => <div className="h-64 w-full animate-pulse rounded-2xl bg-muted" />,
 })
 
-export function AddressForm({ onCreated }: { onCreated?: () => void }) {
-  const router = useRouter()
-  const [label, setLabel] = useState('')
-  const [addressText, setAddressText] = useState('')
-  const [reference, setReference] = useState('')
+export interface AddressFormValues {
+  id?: string
+  label: string
+  addressText: string
+  reference: string
+  latitude: number | null
+  longitude: number | null
+}
+
+export function AddressForm({
+  initialData,
+  onSaved,
+}: {
+  initialData?: AddressFormValues
+  onSaved?: () => void
+}) {
+  const isEditing = Boolean(initialData?.id)
+  const [label, setLabel] = useState(initialData?.label ?? '')
+  const [addressText, setAddressText] = useState(initialData?.addressText ?? '')
+  const [reference, setReference] = useState(initialData?.reference ?? '')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    null
+    initialData?.latitude != null && initialData?.longitude != null
+      ? { lat: initialData.latitude, lng: initialData.longitude }
+      : null
   )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -34,8 +47,7 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
       return
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () =>
         setError(
           'No pudimos obtener tu ubicación. Ubica el pin manualmente en el mapa.'
@@ -54,19 +66,19 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
 
     startTransition(async () => {
       try {
-        await createAddress({
+        const payload = {
           label: label || null,
           addressText,
           reference: reference || null,
           latitude: coords.lat,
           longitude: coords.lng,
-        })
-        setLabel('')
-        setAddressText('')
-        setReference('')
-        setCoords(null)
-        router.refresh()
-        onCreated?.()
+        }
+        if (isEditing && initialData?.id) {
+          await updateAddress(initialData.id, payload)
+        } else {
+          await createAddress(payload)
+        }
+        onSaved?.()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
@@ -74,13 +86,11 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="space-y-1">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-1.5">
         <Label htmlFor="label">
           Nombre de la dirección{' '}
-          <span className="font-normal text-muted-foreground">
-            (opcional)
-          </span>
+          <span className="font-normal text-muted-foreground">(opcional)</span>
         </Label>
         <Input
           id="label"
@@ -90,7 +100,7 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
         />
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <Label htmlFor="addressText">Dirección</Label>
         <Input
           id="addressText"
@@ -101,12 +111,10 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
         />
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <Label htmlFor="reference">
           Referencia{' '}
-          <span className="font-normal text-muted-foreground">
-            (opcional)
-          </span>
+          <span className="font-normal text-muted-foreground">(opcional)</span>
         </Label>
         <Input
           id="reference"
@@ -116,32 +124,43 @@ export function AddressForm({ onCreated }: { onCreated?: () => void }) {
         />
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <Label>Ubica el punto exacto en el mapa</Label>
+          <Label className="flex items-center gap-1.5">
+            <MapPinIcon className="h-3.5 w-3.5 text-brand-500" />
+            Ubica el punto exacto
+          </Label>
           <Button
             type="button"
             size="sm"
             variant="ghost"
+            className="gap-1.5"
             onClick={handleUseMyLocation}
           >
+            <LocateFixedIcon className="h-3.5 w-3.5" />
             Usar mi ubicación
           </Button>
         </div>
-        <AddressMapPicker
-          latitude={coords?.lat ?? null}
-          longitude={coords?.lng ?? null}
-          onChange={(lat, lng) => setCoords({ lat, lng })}
-        />
+        <div className="overflow-hidden rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
+          <AddressMapPicker
+            latitude={coords?.lat ?? null}
+            longitude={coords?.lng ?? null}
+            onChange={(lat, lng) => setCoords({ lat, lng })}
+          />
+        </div>
         <p className="text-xs text-muted-foreground">
           Toca el mapa o arrastra el pin para ajustar la ubicación.
         </p>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
-      <Button type="submit" className="w-full" disabled={isPending}>
-        {isPending ? 'Guardando…' : 'Guardar dirección'}
+      <Button type="submit" className="w-full rounded-full" disabled={isPending}>
+        {isPending ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Guardar dirección'}
       </Button>
     </form>
   )

@@ -1,67 +1,57 @@
 import { createClient } from '@/lib/db/server'
-import { AddAddressDialog } from '@/components/features/addresses/AddAddressDialog'
-import { DeleteAddressButton } from '@/components/features/addresses/DeleteAddressButton'
+import { AddressFormDialog } from '@/components/features/addresses/AddressFormDialog'
+import { AddressCard } from '@/components/features/addresses/AddressCard'
+import { MapPinIcon } from 'lucide-react'
 
 export default async function AddressesPage() {
   const supabase = await createClient()
 
+  // Regla de negocio: cada cliente guarda como máximo UNA dirección
+  // (ver constraint `addresses_one_per_customer`).
   const { data: addresses, error } = await supabase
     .from('addresses')
-    .select('id, label, address_text, reference')
+    .select('id, label, address_text, reference, latitude, longitude')
     .order('created_at', { ascending: false })
+    .limit(1)
+
+  const address = addresses?.[0] ?? null
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Tus direcciones
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Tu dirección</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Las usamos para saber a dónde llevar tu pedido.
+            La usamos para saber a dónde llevar tu pedido.
           </p>
         </div>
-        <AddAddressDialog />
+        {!address && !error && <AddressFormDialog mode="create" />}
       </div>
 
       {error && (
-        <p className="mt-6 text-sm text-destructive">
-          No se pudieron cargar tus direcciones.
+        <p className="mt-6 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          No se pudo cargar tu dirección.
         </p>
       )}
 
-      {!error && addresses && addresses.length > 0 && (
-        <div className="mt-6 space-y-3">
-          {addresses.map((a) => (
-            <div
-              key={a.id}
-              className="flex items-start justify-between rounded-xl border p-4"
-            >
-              <div>
-                <p className="font-medium">{a.label || 'Dirección'}</p>
-                <p className="text-sm text-muted-foreground">
-                  {a.address_text}
-                </p>
-                {a.reference && (
-                  <p className="text-xs text-muted-foreground">
-                    {a.reference}
-                  </p>
-                )}
-              </div>
-              <DeleteAddressButton addressId={a.id} />
-            </div>
-          ))}
+      {!error && address && (
+        <div className="mt-6">
+          <AddressCard address={address} />
         </div>
       )}
 
-      {!error && addresses && addresses.length === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-          <p className="font-medium">
-            Todavía no tienes direcciones guardadas
-          </p>
+      {!error && !address && (
+        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-14 text-center dark:border-white/10 dark:bg-white/[0.02]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white">
+            <MapPinIcon className="h-6 w-6" />
+          </span>
+          <p className="mt-4 font-medium">Todavía no tienes una dirección guardada</p>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Agrega una para poder pedir en tus negocios favoritos.
+            Agrégala para poder pedir en tus negocios favoritos.
           </p>
+          <div className="mt-5">
+            <AddressFormDialog mode="create" />
+          </div>
         </div>
       )}
     </div>

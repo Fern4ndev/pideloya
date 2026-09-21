@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
+import { ChevronRightIcon, ReceiptIcon } from 'lucide-react'
 
 export default async function OrdersPage() {
   const supabase = await createClient()
@@ -18,7 +19,7 @@ export default async function OrdersPage() {
       </p>
 
       {error && (
-        <p className="mt-6 text-sm text-destructive">
+        <p className="mt-6 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
           No se pudieron cargar tus pedidos.
         </p>
       )}
@@ -34,27 +35,33 @@ export default async function OrdersPage() {
               <Link
                 key={order.id}
                 href={`/cliente/pedidos/${order.id}`}
-                className="block rounded-xl border p-4 transition hover:border-foreground/20 hover:shadow-sm"
+                className="group block rounded-3xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/5"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {itemsSummary}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString('es-PE', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+                  <div className="flex min-w-0 gap-3">
+                    <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600">
+                      <ReceiptIcon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{itemsSummary}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString('es-PE', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <OrderStatusBadge status={order.status} />
-                    <p className="mt-1 text-sm font-semibold">
-                      S/ {Number(order.total).toFixed(2)}
-                    </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="text-right">
+                      <OrderStatusBadge status={order.status} />
+                      <p className="mt-1 text-sm font-semibold">
+                        S/ {Number(order.total).toFixed(2)}
+                      </p>
+                    </div>
+                    <ChevronRightIcon className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </div>
               </Link>
@@ -64,8 +71,11 @@ export default async function OrdersPage() {
       )}
 
       {!error && orders && orders.length === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-          <p className="font-medium">Todavía no has hecho ningún pedido</p>
+        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-14 text-center dark:border-white/10 dark:bg-white/[0.02]">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white">
+            <ReceiptIcon className="h-6 w-6" />
+          </span>
+          <p className="mt-4 font-medium">Todavía no has hecho ningún pedido</p>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">
             Ve a un negocio y arma tu primer pedido.
           </p>
