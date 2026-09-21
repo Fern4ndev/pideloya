@@ -71,9 +71,7 @@ export const GET = withApi(async (request: Request) => {
     const filtered = (data ?? []).filter(
       (o: any) =>
         o.status === 'PENDING' ||
-        (o.deliveries ?? []).some(
-          (d: any) => d.delivery_person_id === context.profileId
-        )
+        o.deliveries?.delivery_person_id === context.profileId
     )
     return successResponse(filtered)
   }

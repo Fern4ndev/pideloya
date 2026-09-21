@@ -77,6 +77,8 @@ export async function acceptOrder(orderId: string) {
 
   revalidatePath('/repartidor/disponibles')
   revalidatePath('/repartidor/pedidos')
+  revalidatePath('/cliente/pedidos')
+  revalidatePath(`/cliente/pedidos/${orderId}`)
   return { success: true }
 }
 
@@ -136,5 +138,7 @@ export async function advanceOrderStatus(orderId: string, currentStatus: OrderSt
   }
 
   revalidatePath('/repartidor/pedidos')
+  revalidatePath('/cliente/pedidos')
+  revalidatePath(`/cliente/pedidos/${orderId}`)
   return { success: true }
 }

@@ -5,7 +5,7 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'PideloYa — Pedidos en Abancay',
+  title: 'PideloYa',
   description: 'Pide en tus negocios favoritos de Abancay, Apurímac.',
   icons: {
     icon: "/icons/favicon.svg"

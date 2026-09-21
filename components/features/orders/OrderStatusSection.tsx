@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/db/client'
+import { useOrderStatus } from '@/lib/hooks/use-order-status'
 import { OrderStatusTimeline } from './OrderStatusTimeline'
 import { CancelOrderButton } from './CancelOrderButton'
 import type { OrderStatus } from '@/lib/constants/order-status'
@@ -13,38 +12,13 @@ export function OrderStatusSection({
   orderId: string
   initialStatus: OrderStatus
 }) {
-  const [status, setStatus] = useState<OrderStatus>(initialStatus)
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`,
-        },
-        (payload) => {
-          if (payload.new.status) {
-            setStatus(payload.new.status as OrderStatus)
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [orderId])
+  const { status } = useOrderStatus(orderId)
+  const currentStatus = (status as OrderStatus) ?? initialStatus
 
   return (
     <>
-      <OrderStatusTimeline status={status} />
-      {status === 'PENDING' && (
+      <OrderStatusTimeline status={currentStatus} />
+      {currentStatus === 'PENDING' && (
         <div className="mt-6">
           <CancelOrderButton orderId={orderId} />
         </div>
