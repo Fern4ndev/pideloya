@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { useCartStore, cartItemCount } from '@/lib/hooks/use-cart'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -16,20 +16,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LayoutDashboardIcon, PackageIcon, MapPinIcon, ShoppingBagIcon } from 'lucide-react'
+import { PackageIcon, MapPinIcon, ShoppingBagIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
-  { href: '/cliente', label: 'Inicio', icon: LayoutDashboardIcon },
   { href: '/cliente/pedidos', label: 'Mis pedidos', icon: PackageIcon },
-  { href: '/cliente/direcciones', label: 'Direcciones', icon: MapPinIcon },
+  { href: '/cliente/direcciones', label: 'Dirección', icon: MapPinIcon },
 ]
 
 export function CustomerHeader({ fullName }: { fullName: string }) {
   const pathname = usePathname()
+  const router = useRouter()
   const items = useCartStore((state) => state.items)
   const itemCount = useMemo(() => cartItemCount(items), [items])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
+
+  function navigate(href: string) {
+    if (pathname !== href) {
+      router.push(href)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-white/70 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-neutral-950/60">
@@ -43,9 +49,9 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href
             return (
-              <Link
+              <button
                 key={link.href}
-                href={link.href}
+                onClick={() => navigate(link.href)}
                 className={cn(
                   'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all',
                   active
@@ -55,7 +61,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
               >
                 <link.icon className="h-3.5 w-3.5" />
                 {link.label}
-              </Link>
+              </button>
             )
           })}
         </nav>
@@ -64,14 +70,13 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           <Link
             href="/cliente/carrito"
             className={cn(
-              'relative flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors',
+              'relative flex h-9 w-9 items-center justify-center rounded-full border transition-colors',
               pathname === '/cliente/carrito'
                 ? 'border-brand-500 bg-brand-500 text-white'
                 : 'border-black/5 bg-black/[0.03] text-foreground hover:bg-black/5 dark:border-white/10 dark:bg-white/5'
             )}
           >
             <ShoppingBagIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Carrito</span>
             {itemCount > 0 && (
               <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1 text-[10px] font-bold text-white ring-2 ring-white">
                 {itemCount}
@@ -121,9 +126,9 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
         {NAV_LINKS.map((link) => {
           const active = pathname === link.href
           return (
-            <Link
+            <button
               key={link.href}
-              href={link.href}
+              onClick={() => navigate(link.href)}
               className={cn(
                 'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors',
                 active
@@ -133,7 +138,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
             >
               <link.icon className="h-3.5 w-3.5" />
               {link.label}
-            </Link>
+            </button>
           )
         })}
       </nav>

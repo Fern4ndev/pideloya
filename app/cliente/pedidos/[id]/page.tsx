@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
-import { OrderStatusTimeline } from '@/components/features/orders/OrderStatusTimeline'
-import { CancelOrderButton } from '@/components/features/orders/CancelOrderButton'
+import { OrderStatusSection } from '@/components/features/orders/OrderStatusSection'
 
 export default async function OrderDetailPage({
   params,
@@ -11,9 +10,6 @@ export default async function OrderDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  // La policy RLS "orders_select_own_customer" ya garantiza que solo
-  // puede ver SUS propios pedidos — si el id es de otro cliente, esto
-  // simplemente devuelve null, no un error.
   const { data: order } = await supabase
     .from('orders')
     .select(
@@ -39,14 +35,8 @@ export default async function OrderDetailPage({
       </h1>
 
       <div className="mt-6">
-        <OrderStatusTimeline status={order.status} />
+        <OrderStatusSection orderId={order.id} initialStatus={order.status} />
       </div>
-
-      {order.status === 'PENDING' && (
-        <div className="mt-6">
-          <CancelOrderButton orderId={order.id} />
-        </div>
-      )}
 
       <div className="mt-8 space-y-2 border-t pt-4">
         <h2 className="text-sm font-medium">Productos</h2>

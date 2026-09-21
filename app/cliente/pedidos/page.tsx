@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/db/server'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
-import { ChevronRightIcon, ReceiptIcon } from 'lucide-react'
+import { ChevronRightIcon, ReceiptIcon, SearchIcon } from 'lucide-react'
 
 export default async function OrdersPage() {
   const supabase = await createClient()
@@ -11,12 +11,30 @@ export default async function OrdersPage() {
     .select('id, status, total, created_at, order_items(quantity, product_name)')
     .order('created_at', { ascending: false })
 
+  const pendingCount = orders?.filter((o) => o.status === 'PENDING').length ?? 0
+
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Mis pedidos</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         El historial y estado de todo lo que has pedido.
       </p>
+
+      {pendingCount > 0 && (
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+            <SearchIcon className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-amber-800">
+              {pendingCount} {pendingCount === 1 ? 'pedido buscando' : 'pedidos buscando'} repartidor
+            </p>
+            <p className="text-xs text-amber-600">
+              Te avisaremos cuando alguien lo acepte
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="mt-6 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">

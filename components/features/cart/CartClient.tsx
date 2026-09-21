@@ -69,8 +69,8 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
         <p className="mt-1 max-w-xs text-sm text-muted-foreground">
           Tu pedido está esperando a que un repartidor lo acepte. Te avisaremos cuando esté en camino.
         </p>
-        <Button className="mt-6 rounded-full" onClick={() => router.push('/cliente')}>
-          Volver al inicio
+        <Button className="mt-6 rounded-full" onClick={() => router.push('/cliente/pedidos')}>
+          Ver mis pedidos
         </Button>
       </div>
     )
