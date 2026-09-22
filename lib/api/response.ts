@@ -3,7 +3,10 @@ import { ApiError } from '@/lib/api/auth'
 
 /** Respuesta exitosa: `{ success: true, data }`. */
 export function successResponse<T>(data: T, status = 200) {
-  return NextResponse.json({ success: true, data }, { status })
+  return NextResponse.json({ success: true, data }, {
+    status,
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+  })
 }
 
 /** Respuesta de error genérica. */
