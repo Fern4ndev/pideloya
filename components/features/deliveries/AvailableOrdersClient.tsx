@@ -4,6 +4,7 @@ import useSWR from 'swr'
 import { createClient } from '@/lib/db/client'
 import { AcceptOrderButton } from '@/components/features/deliveries/AcceptOrderButton'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 
 async function fetchAvailableOrders(url: string) {
   const supabase = createClient()
@@ -20,14 +21,17 @@ async function fetchAvailableOrders(url: string) {
 }
 
 export function AvailableOrdersClient() {
-  const { data, error, isLoading } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR(
     '/api/v1/orders',
     fetchAvailableOrders,
     {
-      refreshInterval: 5000,
       revalidateOnFocus: true,
-      dedupingInterval: 2000,
     }
+  )
+
+  useRealtimeInvalidate(
+    { channelName: 'available-orders', table: 'orders' },
+    () => mutate()
   )
 
   const orders = (data?.data ?? []).filter((o: any) => o.status === 'PENDING')

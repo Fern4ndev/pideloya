@@ -4,6 +4,7 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
+import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 import { ChevronRightIcon, ReceiptIcon, SearchIcon } from 'lucide-react'
 
 async function fetchOrders(url: string) {
@@ -21,14 +22,17 @@ async function fetchOrders(url: string) {
 }
 
 export function OrdersListClient() {
-  const { data, error, isLoading } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR(
     '/api/v1/orders',
     fetchOrders,
     {
-      refreshInterval: 5000,
       revalidateOnFocus: true,
-      dedupingInterval: 2000,
     }
+  )
+
+  useRealtimeInvalidate(
+    { channelName: 'customer-orders', table: 'orders', event: '*' },
+    () => mutate()
   )
 
   const orders = data?.data ?? []

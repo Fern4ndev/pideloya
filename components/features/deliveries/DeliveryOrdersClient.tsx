@@ -5,6 +5,7 @@ import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 
 async function fetchDeliveryOrders(url: string) {
   const supabase = createClient()
@@ -21,16 +22,13 @@ async function fetchDeliveryOrders(url: string) {
 }
 
 export function DeliveryOrdersClient() {
-  const { data, error, isLoading } = useSWR(
-    '/api/v1/orders',
-    fetchDeliveryOrders,
-    {
-      refreshInterval: 5000,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    }
+  const { data, error, isLoading, mutate } = useSWR('/api/v1/orders', fetchDeliveryOrders, {
+    revalidateOnFocus: true,
+  })
+  useRealtimeInvalidate(
+    { channelName: 'my-deliveries', table: 'orders', event: 'UPDATE' },
+    () => mutate()
   )
-
   const orders = (data?.data ?? []).filter((o: any) =>
     ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'].includes(o.status)
   )
