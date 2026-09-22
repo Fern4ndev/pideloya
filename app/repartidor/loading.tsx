@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 export default function RepartidorLoading() {
   return (
     <div className="flex h-screen overflow-hidden">
-      <aside className="flex h-screen w-60 shrink-0 flex-col border-r bg-background px-3 py-4">
+      <aside className="hidden lg:flex h-screen w-60 shrink-0 flex-col border-r bg-background px-3 py-4">
         <div className="flex flex-col items-center gap-2 pb-4">
           <Skeleton className="h-9 w-32" />
           <Skeleton className="h-3 w-14" />
@@ -18,7 +18,7 @@ export default function RepartidorLoading() {
           <Skeleton className="h-4 w-28" />
         </div>
       </aside>
-      <main className="flex-1 overflow-auto px-8 py-6">
+      <main className="flex-1 overflow-auto px-8 pt-16 pb-6 lg:py-6">
         <div className="space-y-6">
           <div className="space-y-2">
             <Skeleton className="h-7 w-56" />

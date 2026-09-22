@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
@@ -26,7 +26,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { SidebarBrand } from './SidebarBrand'
-import { ChevronLeftIcon, ChevronRightIcon, LogOutIcon } from 'lucide-react'
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  LogOutIcon,
+  MenuIcon,
+  XIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type SidebarLink = {
@@ -50,29 +56,65 @@ export function Sidebar({
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
 
   return (
-    <aside
-      className={cn(
-        'relative flex h-screen shrink-0 flex-col border-r bg-background py-4 transition-[width] duration-200',
-        collapsed ? 'w-[72px] px-2' : 'w-60 px-3'
-      )}
-    >
-      {/* Botón para colapsar/expandir el sidebar */}
+    <>
+      {/* Botón hamburguesa — solo en móvil/tablet */}
       <button
         type="button"
-        onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-3 top-8 z-10 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground"
-        aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-xl border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground lg:hidden"
+        aria-label="Abrir menú"
       >
-        {collapsed ? (
-          <ChevronRightIcon className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronLeftIcon className="h-3.5 w-3.5" />
-        )}
+        <MenuIcon className="h-4 w-4" />
       </button>
+
+      {/* Fondo oscuro al abrir el menú en móvil */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex h-full w-60 shrink-0 flex-col border-r bg-background px-3 py-4 transition-[transform,width] duration-200 lg:static lg:z-auto lg:h-screen lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          collapsed && 'lg:w-[72px] lg:px-2'
+        )}
+      >
+        {/* Botón para colapsar/expandir el sidebar — solo escritorio */}
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="absolute -right-3 top-8 z-10 hidden h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground lg:flex"
+          aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+        >
+          {collapsed ? (
+            <ChevronRightIcon className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronLeftIcon className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        {/* Botón para cerrar el menú en móvil */}
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          className="absolute right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground lg:hidden"
+          aria-label="Cerrar menú"
+        >
+          <XIcon className="h-3.5 w-3.5" />
+        </button>
 
       <Link
         href={homeHref}
@@ -156,6 +198,7 @@ export function Sidebar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </aside>
+      </aside>
+    </>
   )
 }

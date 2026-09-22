@@ -14,14 +14,14 @@ export function SidebarBrand({
 }) {
   if (collapsed) {
     return (
-      <span
-        className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground',
-          className
-        )}
-      >
-        P
-      </span>
+      <Image
+        src="/icons/favicon.svg"
+        width={20}
+        height={20}
+        alt="PideloYa"
+        className={cn('h-5 w-auto shrink-0', className)}
+        style={{ width: 'auto', height: '1.5rem' }}
+      />
     )
   }
 
