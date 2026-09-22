@@ -1,7 +1,6 @@
 'use client'
 
 import { Sidebar } from './Sidebar'
-import { SidebarBrand } from './SidebarBrand'
 import {
   LayoutDashboardIcon,
   PackageIcon,
@@ -20,12 +19,13 @@ const RESTAURANT_LINKS = [
   { href: '/restaurante/perfil', label: 'Perfil', icon: UserIcon },
 ]
 
-export function RestaurantSidebar() {
+export function RestaurantSidebar({ fullName }: { fullName?: string }) {
   return (
     <Sidebar
-      brand={<SidebarBrand section="Negocio" />}
+      section="Negocio"
       homeHref="/restaurante"
       links={RESTAURANT_LINKS}
+      fullName={fullName}
     />
   )
 }

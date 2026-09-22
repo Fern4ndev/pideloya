@@ -1,19 +1,30 @@
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
-/**
- * Logo + etiqueta de sección, usado como `brand` en cada Sidebar
- * (Admin, Restaurante, Repartidor). Centraliza el logo en un solo
- * lugar: si cambia el archivo o el tamaño, se cambia aquí una vez.
- */
 export function SidebarBrand({
   section,
+  collapsed = false,
   className,
 }: {
   /** Texto corto que identifica el panel, ej. "Negocio", "Reparto" */
   section?: string
+  /** Versión compacta (solo inicial) para cuando el sidebar está colapsado */
+  collapsed?: boolean
   className?: string
 }) {
+  if (collapsed) {
+    return (
+      <span
+        className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground',
+          className
+        )}
+      >
+        P
+      </span>
+    )
+  }
+
   return (
     <span className={cn('flex flex-col items-center gap-0.5', className)}>
       <Image

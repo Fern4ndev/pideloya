@@ -1,7 +1,6 @@
 'use client'
 
 import { Sidebar } from './Sidebar'
-import { SidebarBrand } from './SidebarBrand'
 import { LayoutDashboardIcon, StoreIcon, Motorbike, UserIcon } from 'lucide-react'
 
 const ADMIN_LINKS = [
@@ -11,12 +10,13 @@ const ADMIN_LINKS = [
   { href: '/admin/perfil', label: 'Perfil', icon: UserIcon },
 ]
 
-export function AdminSidebar() {
+export function AdminSidebar({ fullName }: { fullName?: string }) {
   return (
     <Sidebar
-      brand={<SidebarBrand section="Admin" />}
+      section="Admin"
       homeHref="/admin"
       links={ADMIN_LINKS}
+      fullName={fullName}
     />
   )
 }

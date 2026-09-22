@@ -1,7 +1,6 @@
 'use client'
 
 import { Sidebar } from './Sidebar'
-import { SidebarBrand } from './SidebarBrand'
 import {
   LayoutDashboardIcon,
   MapPinIcon,
@@ -18,12 +17,13 @@ const DELIVERY_LINKS = [
   { href: '/repartidor/perfil', label: 'Perfil', icon: UserIcon },
 ]
 
-export function DeliverySidebar() {
+export function DeliverySidebar({ fullName }: { fullName?: string }) {
   return (
     <Sidebar
-      brand={<SidebarBrand section="Reparto" />}
+      section="Reparto"
       homeHref="/repartidor"
       links={DELIVERY_LINKS}
+      fullName={fullName}
     />
   )
 }

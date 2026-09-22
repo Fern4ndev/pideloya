@@ -10,12 +10,13 @@ export default async function AdminLayout({
   const h = await headers()
   const role = h.get('x-user-role')
   const isActive = h.get('x-user-active')
+  const fullName = h.get('x-user-name') || 'Admin'
 
   if (role !== 'ADMIN' || isActive !== 'true') redirect('/login')
 
   return (
     <div className="flex min-h-screen">
-      <AdminSidebar />
+      <AdminSidebar fullName={fullName} />
       <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
     </div>
   )
