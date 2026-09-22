@@ -15,7 +15,7 @@ export default async function RestauranteLayout({
   if (role !== 'RESTAURANT' || isActive !== 'true') redirect('/login')
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <RestaurantSidebar fullName={fullName} />
       <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
     </div>

@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function RepartidorLoading() {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <aside className="flex h-screen w-60 shrink-0 flex-col border-r bg-background px-3 py-4">
         <div className="flex flex-col items-center gap-2 pb-4">
           <Skeleton className="h-9 w-32" />
