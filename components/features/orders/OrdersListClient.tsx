@@ -78,7 +78,7 @@ export function OrdersListClient() {
             const itemsSummary = order.order_items
               ?.map((i: any) => `${i.quantity}x ${i.product_name}`)
               .join(', ') ?? ''
-
+            const previewItems = (order.order_items ?? []).slice(0, 3)
             return (
               <Link
                 key={order.id}
@@ -87,9 +87,32 @@ export function OrdersListClient() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 gap-3">
-                    <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600">
-                      <ReceiptIcon className="h-5 w-5" />
-                    </span>
+                    {previewItems.length > 0 ? (
+                      <div className="mt-0.5 flex shrink-0 -space-x-2.5">
+                        {previewItems.map((item: any, i: number) => (
+                          <div
+                            key={i}
+                            className="h-10 w-10 overflow-hidden rounded-2xl bg-muted ring-2 ring-white dark:ring-neutral-900"
+                          >
+                            {item.image_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.image_url}
+                                alt={item.product_name ?? ''}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
+                                {item.product_name?.charAt(0) ?? '?'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600">
+                        <ReceiptIcon className="h-5 w-5" />
+                      </span>)}
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{itemsSummary}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">

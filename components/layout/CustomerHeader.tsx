@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { useCartStore, cartItemCount } from '@/lib/hooks/use-cart'
+import { useSearchStore } from '@/lib/hooks/use-search'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Logo } from '@/components/shared/Logo'
 import {
@@ -16,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { PackageIcon, MapPinIcon, ShoppingBagIcon } from 'lucide-react'
+import { PackageIcon, MapPinIcon, ShoppingBagIcon, SearchIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
@@ -31,9 +32,21 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
   const itemCount = useMemo(() => cartItemCount(items), [items])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
 
+  const search = useSearchStore((s) => s.query)
+  const setSearch = useSearchStore((s) => s.setQuery)
+
   function navigate(href: string) {
     if (pathname !== href) {
       router.push(href)
+    }
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value)
+    // El filtro solo vive en /cliente — si el usuario busca desde otra
+    // página del panel, lo llevamos ahí para que vea los resultados.
+    if (value.trim() !== '' && pathname !== '/cliente') {
+      router.push('/cliente')
     }
   }
 
@@ -44,8 +57,22 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           <Logo height={30} />
         </Link>
 
+        {/* Buscador — exclusivo de la interfaz de cliente */}
+        <div className="hidden flex-1 max-w-xs md:block">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Busca un restaurante o plato..."
+              className="h-9 w-full rounded-full border border-black/5 bg-black/[0.03] pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/5"
+            />
+          </div>
+        </div>
+
         {/* Nav central — pill glass */}
-        <nav className="hidden items-center gap-1 rounded-full border border-black/5 bg-black/[0.03] p-1 backdrop-blur sm:flex dark:border-white/10 dark:bg-white/5">
+        <nav className="hidden items-center gap-1 rounded-full border border-black/5 bg-black/[0.03] p-1 backdrop-blur lg:flex dark:border-white/10 dark:bg-white/5">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href
             return (
@@ -121,8 +148,22 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
         </div>
       </div>
 
+      {/* Buscador — mobile */}
+      <div className="border-t border-black/5 px-4 py-2 md:hidden dark:border-white/10">
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Busca un restaurante o plato..."
+            className="h-9 w-full rounded-full border border-black/5 bg-black/[0.03] pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/5"
+          />
+        </div>
+      </div>
+
       {/* Nav inferior — mobile */}
-      <nav className="flex items-center gap-1.5 overflow-x-auto border-t border-black/5 px-4 py-2 sm:hidden dark:border-white/10">
+      <nav className="flex items-center gap-1.5 overflow-x-auto border-t border-black/5 px-4 py-2 lg:hidden dark:border-white/10">
         {NAV_LINKS.map((link) => {
           const active = pathname === link.href
           return (

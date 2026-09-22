@@ -73,7 +73,7 @@ export async function createOrder(input: CreateOrderInput) {
   const productIds = data.items.map((i) => i.productId)
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id, name, price, available, restaurant_id')
+    .select('id, name, price, available, restaurant_id, image_url')
     .in('id', productIds)
 
   if (productsError) throw new Error(productsError.message)
@@ -118,6 +118,7 @@ export async function createOrder(input: CreateOrderInput) {
       order_id: order.id,
       product_id: item.productId,
       product_name: product.name,
+      image_url: product.image_url,
       restaurant_id: product.restaurant_id,
       quantity: item.quantity,
       unit_price: product.price,

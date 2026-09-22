@@ -1,11 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { SearchIcon, FlameIcon, ClockIcon } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { useMemo } from 'react'
+import { FlameIcon, ClockIcon } from 'lucide-react'
 import { RestaurantCard, type RestaurantCardData } from '@/components/features/restaurants/RestaurantCard'
 import { FeaturedProductCard, type FeaturedProduct } from '@/components/features/products/FeaturedProductCard'
+import { LogoLoop, type LogoItem } from '@/components/LogoLoop'
+import { useSearchStore } from '@/lib/hooks/use-search'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 
 export function ClienteHomeClient({
   restaurants,
@@ -14,7 +16,9 @@ export function ClienteHomeClient({
   restaurants: RestaurantCardData[]
   popularProducts: FeaturedProduct[]
 }) {
-  const [search, setSearch] = useState('')
+  // El término de búsqueda ahora vive en el navbar (CustomerHeader) —
+  // aquí solo lo leemos para filtrar la lista de negocios.
+  const search = useSearchStore((s) => s.query)
   const [activeType, setActiveType] = useState<string | null>(null)
 
   const foodTypes = useMemo(() => {
@@ -40,9 +44,39 @@ export function ClienteHomeClient({
 
   const hasFilters = search.trim().length > 0 || activeType !== null
 
+  const restaurantLogos: LogoItem[] = useMemo(
+    () =>
+      restaurants.map((r) => ({
+        title: r.name,
+        node: (
+          <a
+            href={`/cliente/restaurantes/${r.slug}`}
+            title={r.name}
+            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform hover:scale-105 dark:bg-neutral-900 dark:ring-white/10"
+          >
+            {
+              r.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r.logo_url}
+                  alt={r.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-muted-foreground">
+                  {r.name.charAt(0)}
+                </span>
+              )
+            }
+          </a >
+        ),
+      })),
+    [restaurants]
+  )
+
   return (
     <div className="space-y-10 pb-6">
-      {/* Hero — gradiente de marca + tarjeta de búsqueda glass */}
+      {/* Hero — gradiente de marca (sin buscador: ahora vive en el navbar) */}
       <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-brand-500 via-brand-600 to-violet px-6 py-10 text-white shadow-lg shadow-brand-500/20 sm:px-10 sm:py-14">
         <div
           aria-hidden="true"
@@ -65,19 +99,23 @@ export function ClienteHomeClient({
           <p className="mt-1.5 max-w-md text-sm text-white/85 sm:text-base">
             Pide en tus negocios favoritos y recíbelo directo en tu puerta.
           </p>
-
-          <div className="relative mt-6 max-w-md rounded-full bg-white/95 p-1 shadow-lg backdrop-blur">
-            <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Busca un restaurante o tipo de comida..."
-              className="h-11 rounded-full border-0 bg-transparent pl-11 text-sm text-foreground shadow-none focus-visible:ring-0"
-            />
-          </div>
         </div>
       </section>
+
+      {/* Logos de restaurantes — loop de círculos pequeños */}
+      {restaurantLogos.length > 0 && (
+        <section className="-mx-1">
+          <LogoLoop
+            logos={restaurantLogos}
+            logoHeight={56}
+            gap={24}
+            speed={35}
+            fadeOut
+            pauseOnHover
+            ariaLabel="Restaurantes en PideloYa"
+          />
+        </section>
+      )}
 
       {/* Categorías */}
       {foodTypes.length > 0 && (
