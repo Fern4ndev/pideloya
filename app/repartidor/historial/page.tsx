@@ -1,7 +1,18 @@
+import { DeliveryHistoryTable } from '@/components/features/deliveries/DeliveryHistoryTable'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
+
 export default function HistorialPage() {
   return (
-    <main>
-      <h1>Historial</h1>
-    </main>
+    <PageContainer size="lg">
+      <PageHeader
+        title="Historial"
+        description="Todas las entregas que has aceptado, con su estado y detalle."
+      />
+
+      <div className="mt-6">
+        <DeliveryHistoryTable />
+      </div>
+    </PageContainer>
   )
 }
