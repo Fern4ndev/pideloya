@@ -4,7 +4,7 @@ import { PageContainer } from '@/components/layout/PageContainer'
 
 export default function HistorialPage() {
   return (
-    <PageContainer size="lg">
+    <PageContainer size="full">
       <PageHeader
         title="Historial"
         description="Todas las entregas que has aceptado, con su estado y detalle."

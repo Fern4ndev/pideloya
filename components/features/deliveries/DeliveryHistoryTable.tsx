@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
+import { DeliveryDetailsDialog } from '@/components/features/deliveries/DeliveryDetailsDialog'
 import { PackageIcon } from 'lucide-react'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
@@ -30,7 +31,6 @@ async function getMyProfileId(supabase: Awaited<ReturnType<typeof createClient>>
 type DeliveryRow = {
   id: string
   accepted_at: string | null
-  picked_up_at: string | null
   delivered_at: string | null
   orders: {
     status: OrderStatus
@@ -45,16 +45,6 @@ type DeliveryRow = {
         }[]
       | null
   } | null
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString('es-PE', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 /**
@@ -75,7 +65,6 @@ export async function DeliveryHistoryTable() {
       `
       id,
       accepted_at,
-      picked_up_at,
       delivered_at,
       orders (
         status,
@@ -119,6 +108,11 @@ export async function DeliveryHistoryTable() {
       addressText: order?.addresses?.address_text ?? '—',
       restaurantName,
       itemsSummary,
+      items:
+        order?.order_items?.map((i) => ({
+          productName: i.product_name ?? null,
+          quantity: i.quantity,
+        })) ?? [],
     }
   })
 
@@ -132,18 +126,21 @@ export async function DeliveryHistoryTable() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10 text-right">Nº</TableHead>
                 <TableHead>Restaurante</TableHead>
                 <TableHead>Productos</TableHead>
                 <TableHead>Dirección</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Aceptado</TableHead>
-                <TableHead className="text-right">Entregado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <TableRow key={row.id}>
+                  <TableCell className="w-10 text-right text-muted-foreground tabular-nums">
+                    {index + 1}
+                  </TableCell>
                   <TableCell className="font-medium">{row.restaurantName}</TableCell>
                   <TableCell className="max-w-[220px] truncate text-muted-foreground">
                     {row.itemsSummary}
@@ -157,11 +154,19 @@ export async function DeliveryHistoryTable() {
                   <TableCell className="text-right font-medium">
                     S/ {Number(row.total).toFixed(2)}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatDateTime(row.acceptedAt)}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatDateTime(row.deliveredAt)}
+                  <TableCell className="text-right">
+                    <DeliveryDetailsDialog
+                      delivery={{
+                        id: row.id,
+                        restaurantName: row.restaurantName,
+                        items: row.items,
+                        addressText: row.addressText,
+                        status: row.status,
+                        total: row.total,
+                        acceptedAt: row.acceptedAt,
+                        deliveredAt: row.deliveredAt,
+                      }}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

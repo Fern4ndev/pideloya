@@ -76,7 +76,6 @@ export function ClienteHomeClient({
 
   return (
     <div className="space-y-10 pb-6">
-      {/* Hero — gradiente de marca (sin buscador: ahora vive en el navbar) */}
       <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-brand-500 via-brand-600 to-violet px-6 py-10 text-white shadow-lg shadow-brand-500/20 sm:px-10 sm:py-14">
         <div
           aria-hidden="true"
@@ -102,7 +101,6 @@ export function ClienteHomeClient({
         </div>
       </section>
 
-      {/* Logos de restaurantes — loop de círculos pequeños */}
       {restaurantLogos.length > 0 && (
         <section className="-mx-1">
           <LogoLoop
