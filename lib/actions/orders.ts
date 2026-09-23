@@ -73,7 +73,7 @@ export async function createOrder(input: CreateOrderInput) {
   const productIds = data.items.map((i) => i.productId)
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id, name, price, available, restaurant_id, image_url')
+    .select('id, name, price, available, restaurant_id, image_url, restaurants(name)')
     .in('id', productIds)
 
   if (productsError) throw new Error(productsError.message)
@@ -120,6 +120,10 @@ export async function createOrder(input: CreateOrderInput) {
       product_name: product.name,
       image_url: product.image_url,
       restaurant_id: product.restaurant_id,
+      restaurant_name:
+        (product.restaurants as unknown as { name: string } | { name: string }[] | null) instanceof Array
+          ? (product.restaurants as unknown as { name: string }[])[0]?.name ?? null
+          : (product.restaurants as unknown as { name: string } | null)?.name ?? null,
       quantity: item.quantity,
       unit_price: product.price,
     }
@@ -127,7 +131,7 @@ export async function createOrder(input: CreateOrderInput) {
 
   const { error: itemsError } = await supabase
     .from('order_items')
-    .insert(orderItems)
+    .insert(orderItems as any)
 
   if (itemsError) {
     // El pedido quedó creado sin ítems — lo eliminamos para no dejar
