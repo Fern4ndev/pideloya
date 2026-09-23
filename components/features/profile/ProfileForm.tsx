@@ -5,16 +5,6 @@ import { updateProfile, changePassword } from '@/lib/actions/profile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-
-const DOCUMENT_TYPES = ['DNI', 'Carné de extranjería', 'Pasaporte']
-const VEHICLE_TYPES = ['Moto', 'Mototaxi', 'Bicicleta', 'A pie', 'Auto']
 
 export interface ProfileFormData {
   fullName: string
@@ -60,9 +50,6 @@ export function ProfileForm({
         <div className="space-y-1">
           <Label>Correo</Label>
           <Input value={email} disabled />
-          <p className="text-xs text-muted-foreground">
-            El correo no se puede cambiar desde aquí.
-          </p>
         </div>
 
         <div className="space-y-1">
@@ -77,72 +64,40 @@ export function ProfileForm({
           />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="phone">Celular</Label>
-          <Input
-            id="phone"
-            value={form.phone}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="987654321"
-          />
-        </div>
-
-        {showDeliveryFields && (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="documentType">Tipo de documento</Label>
-                <Select
-                  value={form.documentType ?? ''}
-                  onValueChange={(value) =>
-                    setForm((f) => ({ ...f, documentType: value ?? '' }))
-                  }
-                >
-                  <SelectTrigger id="documentType" className="w-full">
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOCUMENT_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="documentNumber">N° de documento</Label>
-                <Input
-                  id="documentNumber"
-                  value={form.documentNumber ?? ''}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, documentNumber: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
+        {showDeliveryFields ? (
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label htmlFor="vehicleType">Vehículo</Label>
-              <Select
-                value={form.vehicleType ?? ''}
-                onValueChange={(value) =>
-                  setForm((f) => ({ ...f, vehicleType: value ?? '' }))
+              <Label htmlFor="phone">Celular</Label>
+              <Input
+                id="phone"
+                value={form.phone}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: e.target.value }))
                 }
-              >
-                <SelectTrigger id="vehicleType" className="w-full">
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  {VEHICLE_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="987654321"
+              />
             </div>
-          </>
+            <div className="space-y-1">
+              <Label htmlFor="documentNumber">N° de documento</Label>
+              <Input
+                id="documentNumber"
+                value={form.documentNumber ?? ''}
+                disabled
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <Label htmlFor="phone">Celular</Label>
+            <Input
+              id="phone"
+              value={form.phone}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, phone: e.target.value }))
+              }
+              placeholder="987654321"
+            />
+          </div>
         )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
