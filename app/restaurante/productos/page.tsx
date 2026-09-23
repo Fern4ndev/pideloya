@@ -36,9 +36,29 @@ export default async function RestaurantProductsPage({
 
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, name, price, available, image_url')
+    .select(
+      'id, name, description, price, image_url, image_file_id, available, category_id, restaurant_id'
+    )
     .order('created_at', { ascending: false })
     .range(pagination.start, pagination.end - 1)
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, name')
+    .order('sort_order', { ascending: true })
+
+  const rows =
+    products?.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description ?? '',
+      price: String(p.price),
+      imageUrl: p.image_url ?? '',
+      imageFileId: p.image_file_id ?? '',
+      available: p.available,
+      categoryId: p.category_id ?? '',
+      restaurantId: p.restaurant_id,
+    })) ?? []
 
   return (
     <PageContainer size="lg">
@@ -71,33 +91,36 @@ export default async function RestaurantProductsPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((p) => (
-                <TableRow key={p.id}>
+              {rows.map((product) => (
+                <TableRow key={product.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted">
-                        {p.image_url ? (
+                        {product.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={p.image_url}
-                            alt={p.name}
+                            src={product.imageUrl}
+                            alt={product.name}
                             className="h-full w-full object-cover"
                           />
                         ) : null}
                       </div>
-                      {p.name}
+                      {product.name}
                     </div>
                   </TableCell>
-                  <TableCell>S/ {Number(p.price).toFixed(2)}</TableCell>
+                  <TableCell>S/ {Number(product.price).toFixed(2)}</TableCell>
                   <TableCell>
-                    {p.available ? (
+                    {product.available ? (
                       <Badge variant="secondary">Disponible</Badge>
                     ) : (
                       <Badge variant="outline">No disponible</Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <ProductRowActions productId={p.id} available={p.available} />
+                    <ProductRowActions
+                      product={product}
+                      categories={categories ?? []}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -108,6 +131,7 @@ export default async function RestaurantProductsPage({
 
       {!error && products && products.length > 0 && (
         <TablePagination
+          alwaysShow
           basePath="/restaurante/productos"
           page={pagination.page}
           pageCount={pagination.pageCount}

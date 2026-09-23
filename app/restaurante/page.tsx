@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/layout/PageContainer'
 
 export default function RestauranteHomePage() {
   return (
-    <PageContainer size="lg">
+    <PageContainer size="full">
       <PageHeader
         title="Tu negocio en PideloYa"
         description="Resumen de tu restaurante. Los pedidos los gestiona directamente el flujo de reparto — no necesitas aceptarlos aquí."

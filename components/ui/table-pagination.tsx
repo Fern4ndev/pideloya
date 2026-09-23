@@ -16,6 +16,7 @@ type ClientMode = {
   pageCount: number
   onPageChange: (page: number) => void
   basePath?: string
+  alwaysShow?: boolean
 }
 
 type ServerMode = {
@@ -23,6 +24,7 @@ type ServerMode = {
   pageCount: number
   basePath: string
   onPageChange?: never
+  alwaysShow?: boolean
 }
 
 export type TablePaginationProps = ClientMode | ServerMode
@@ -36,8 +38,9 @@ export function TablePagination({
   pageCount,
   basePath,
   onPageChange,
+  alwaysShow = false,
 }: TablePaginationProps) {
-  if (pageCount <= 1) return null
+  if (pageCount <= 1 && !alwaysShow) return null
 
   const items = buildPageItems(page, pageCount)
 

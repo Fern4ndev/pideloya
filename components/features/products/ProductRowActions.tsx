@@ -1,26 +1,27 @@
 'use client'
 
-import Link from 'next/link'
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toggleProductAvailability, deleteProduct } from '@/lib/actions/products'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { PencilIcon, TrashIcon } from 'lucide-react'
+import { ProductEditDialog } from './ProductEditDialog'
+import type { ProductFormData } from './ProductForm'
+import { TrashIcon } from 'lucide-react'
 
 export function ProductRowActions({
-  productId,
-  available,
+  product,
+  categories,
 }: {
-  productId: string
-  available: boolean
+  product: ProductFormData & { id: string; restaurantId: string }
+  categories: { id: string; name: string }[]
 }) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
   function handleToggle() {
     startTransition(async () => {
-      await toggleProductAvailability(productId, !available)
+      await toggleProductAvailability(product.id, !product.available)
       router.refresh()
     })
   }
@@ -30,7 +31,7 @@ export function ProductRowActions({
       return
     }
     startTransition(async () => {
-      await deleteProduct(productId)
+      await deleteProduct(product.id)
       router.refresh()
     })
   }
@@ -38,19 +39,11 @@ export function ProductRowActions({
   return (
     <div className="flex items-center justify-end gap-1">
       <Switch
-        checked={available}
+        checked={product.available}
         onCheckedChange={handleToggle}
         disabled={isPending}
       />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        render={<Link href={`/restaurante/productos/${productId}`} />}
-        nativeButton={false}
-        title="Editar"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </Button>
+      <ProductEditDialog product={product} categories={categories} />
       <Button
         variant="ghost"
         size="icon-sm"

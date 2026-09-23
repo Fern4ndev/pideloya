@@ -43,11 +43,15 @@ export function ProductForm({
   initialData,
   categories = [],
   restaurantId,
+  onSaved,
+  onCancel,
 }: {
   productId?: string
   initialData?: ProductFormData
   categories?: { id: string; name: string }[]
   restaurantId: string
+  onSaved?: () => void
+  onCancel?: () => void
 }) {
   const router = useRouter()
   const [form, setForm] = useState<ProductFormData>(initialData ?? EMPTY_FORM)
@@ -76,7 +80,11 @@ export function ProductForm({
           await createProduct(payload)
         }
 
-        router.push('/restaurante/productos')
+        if (onSaved) {
+          onSaved()
+        } else {
+          router.push('/restaurante/productos')
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
@@ -212,7 +220,7 @@ export function ProductForm({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => router.push('/restaurante/productos')}
+              onClick={() => (onCancel ? onCancel() : router.push('/restaurante/productos'))}
             >
               Cancelar
             </Button>
