@@ -96,11 +96,11 @@ export function BusinessInfoForm({
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 min-w-0">
         <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
-          className="max-w-full"
+          className='w-full max-w border p-2'
           value={form.description}
           onChange={(e) =>
             setForm((f) => ({ ...f, description: e.target.value }))
