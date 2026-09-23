@@ -1,25 +1,49 @@
 import { createClient } from '@/lib/db/server'
 import { DashboardCards } from '@/components/features/admin/DashboardCards'
-import { OrdersByStatusChartClient } from '@/components/features/admin/OrdersByStatusChart'
+import { AdminDashboardCharts } from '@/components/features/admin/AdminDashboardCharts'
 import { RecentOrdersTable } from '@/components/features/admin/RecentOrdersTable'
 
 export default async function AdminHomePage() {
   const supabase = await createClient()
 
-  const { data: orders } = await supabase.from('orders').select('status')
+  const [
+    { data: orders },
+    { data: orderItems },
+    { data: restaurants },
+    { data: deliveries },
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, status, total, created_at'),
+    supabase
+      .from('order_items')
+      .select('order_id, restaurant_id'),
+    supabase
+      .from('restaurants')
+      .select('id, name')
+      .eq('is_approved', true)
+      .order('name', { ascending: true }),
+    supabase
+      .from('deliveries')
+      .select('order_id, delivery_person_id'),
+  ])
 
-  const statusCounts = (orders ?? []).reduce(
-    (acc, order) => {
-      acc[order.status] = (acc[order.status] ?? 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
+  const deliveryPersonIds = [
+    ...new Set(
+      (deliveries ?? [])
+        .map((delivery) => delivery.delivery_person_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ]
 
-  const chartData = Object.entries(statusCounts).map(([status, total]) => ({
-    status,
-    total,
-  }))
+  const { data: deliveryPersons } =
+    deliveryPersonIds.length > 0
+      ? await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', deliveryPersonIds)
+          .order('full_name', { ascending: true })
+      : { data: [] }
 
   return (
     <div className="space-y-6">
@@ -34,10 +58,15 @@ export default async function AdminHomePage() {
 
       <DashboardCards />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <OrdersByStatusChartClient data={chartData} />
-        <RecentOrdersTable />
-      </div>
+      <AdminDashboardCharts
+        orders={orders ?? []}
+        orderItems={orderItems ?? []}
+        restaurants={restaurants ?? []}
+        deliveries={deliveries ?? []}
+        deliveryPersons={deliveryPersons ?? []}
+      />
+
+      <RecentOrdersTable />
     </div>
   )
 }

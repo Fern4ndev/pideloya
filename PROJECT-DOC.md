@@ -204,13 +204,13 @@ pideloyaa/
 | Componente | Descripción |
 |---|---|
 | `ActiveSwitch.tsx` | Interruptor de activo/inactivo |
+| `AdminDashboardCharts.tsx` | Gráficos Ventas y Entregas con filtros |
 | `ApproveButton.tsx` | Botón de aprobación |
 | `ConfirmDialog.tsx` | Diálogo de confirmación |
 | `DashboardCards.tsx` | Tarjetas del dashboard admin |
 | `DeliveryRowActions.tsx` | Acciones de fila de repartidor |
 | `EditDeliveryDialog.tsx` | Diálogo editar repartidor |
 | `EditRestaurantDialog.tsx` | Diálogo editar restaurante |
-| `OrdersByStatusChart.tsx` | Gráfico de pedidos por estado |
 | `RecentOrdersTable.tsx` | Tabla de pedidos recientes |
 | `RestaurantRowActions.tsx` | Acciones de fila de restaurante |
 | `RestaurantTable.tsx` | Tabla de restaurantes |
