@@ -113,7 +113,7 @@ export const POST = withApi(async (request: Request) => {
   const productIds = items.map((i) => i.product_id)
   const { data: products, error: productsError } = await client
     .from('products')
-    .select('id, name, price, available, restaurant_id')
+    .select('id, name, price, available, restaurant_id, restaurants(name)')
     .in('id', productIds)
 
   if (productsError) throw productsError
@@ -160,12 +160,13 @@ export const POST = withApi(async (request: Request) => {
       product_id: item.product_id,
       product_name: product.name,
       restaurant_id: product.restaurant_id,
+      restaurant_name: (product.restaurants as unknown as Array<{ name: string }> | null)?.[0]?.name ?? null,
       quantity: item.quantity,
       unit_price: product.price,
     }
   })
 
-  const { error: itemsError } = await client.from('order_items').insert(orderItems)
+  const { error: itemsError } = await client.from('order_items').insert(orderItems as any)
   if (itemsError) {
     await client.from('orders').delete().eq('id', order.id)
     throw itemsError

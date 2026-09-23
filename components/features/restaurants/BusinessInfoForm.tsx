@@ -100,7 +100,7 @@ export function BusinessInfoForm({
         <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
-          className='w-full max-w border p-2'
+          className='w-full max-w-[525px] border p-2"'
           value={form.description}
           onChange={(e) =>
             setForm((f) => ({ ...f, description: e.target.value }))

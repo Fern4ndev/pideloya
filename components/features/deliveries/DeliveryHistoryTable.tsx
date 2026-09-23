@@ -43,7 +43,7 @@ type DeliveryRow = {
       | {
           product_name: string | null
           quantity: number
-          restaurants: { name: string } | null
+          restaurant_name: string | null
         }[]
       | null
   } | null
@@ -81,7 +81,7 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
         total,
         created_at,
         addresses ( address_text ),
-        order_items ( product_name, quantity, restaurants ( name ) )
+        order_items ( product_name, quantity, restaurant_name )
       )
     `
     )
@@ -103,7 +103,7 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
 
   const rows = ((deliveries ?? []) as unknown as DeliveryRow[]).map((d) => {
     const order = d.orders
-    const restaurantName = order?.order_items?.[0]?.restaurants?.name ?? '—'
+    const restaurantName = order?.order_items?.[0]?.restaurant_name ?? '—'
     const itemsSummary =
       order?.order_items
         ?.map((i) => `${i.quantity}x ${i.product_name ?? 'Producto'}`)
