@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -31,7 +30,6 @@ export interface BusinessInfoData {
   addressText: string
   whatsapp: string
   foodType: string
-  isActive: boolean
 }
 
 export function BusinessInfoForm({
@@ -60,17 +58,45 @@ export function BusinessInfoForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1">
-        <Label htmlFor="name">Nombre del negocio</Label>
-        <Input
-          id="name"
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          required
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="name">
+            Nombre del negocio <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="name"
+            value={form.name}
+            autoComplete="organization"
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="foodType">
+            Tipo de comida <span className="text-destructive">*</span>
+          </Label>
+          <Select
+            value={form.foodType}
+            onValueChange={(value) =>
+              setForm((f) => ({ ...f, foodType: value ?? '' }))
+            }
+          >
+            <SelectTrigger id="foodType" className="w-full">
+              <SelectValue placeholder="Selecciona una opción" />
+            </SelectTrigger>
+            <SelectContent>
+              {FOOD_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
@@ -78,73 +104,43 @@ export function BusinessInfoForm({
           onChange={(e) =>
             setForm((f) => ({ ...f, description: e.target.value }))
           }
-          rows={3}
+          rows={2}
         />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="foodType">Tipo de comida</Label>
-        <Select
-          value={form.foodType}
-          onValueChange={(value) =>
-            setForm((f) => ({ ...f, foodType: value ?? '' }))
-          }
-        >
-          <SelectTrigger id="foodType" className="w-full">
-            <SelectValue placeholder="Selecciona una opción" />
-          </SelectTrigger>
-          <SelectContent>
-            {FOOD_TYPES.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="addressText">Dirección</Label>
-        <Input
-          id="addressText"
-          value={form.addressText}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, addressText: e.target.value }))
-          }
-          required
-        />
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="whatsapp">WhatsApp del negocio</Label>
-        <Input
-          id="whatsapp"
-          inputMode="numeric"
-          value={form.whatsapp}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, whatsapp: e.target.value }))
-          }
-          placeholder="987654321"
-          required
-        />
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-        <div>
-          <Label htmlFor="isActive" className="cursor-pointer">
-            Negocio abierto
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="addressText">
+            Dirección <span className="text-destructive">*</span>
           </Label>
-          <p className="text-xs text-muted-foreground">
-            Desactívalo si vas a estar cerrado temporalmente.
-          </p>
+          <Input
+            id="addressText"
+            value={form.addressText}
+            autoComplete="street-address"
+            onChange={(e) =>
+              setForm((f) => ({ ...f, addressText: e.target.value }))
+            }
+            required
+          />
         </div>
-        <Switch
-          id="isActive"
-          checked={form.isActive}
-          onCheckedChange={(checked) =>
-            setForm((f) => ({ ...f, isActive: checked }))
-          }
-        />
+
+        <div className="space-y-1.5">
+          <Label htmlFor="whatsapp">
+            WhatsApp del negocio <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="whatsapp"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.whatsapp}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, whatsapp: e.target.value }))
+            }
+            placeholder="987654321"
+            required
+          />
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

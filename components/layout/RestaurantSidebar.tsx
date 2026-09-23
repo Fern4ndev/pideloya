@@ -3,6 +3,7 @@
 import { Sidebar } from './Sidebar'
 import {
   LayoutDashboardIcon,
+  ShoppingBagIcon,
   PackageIcon,
   TagsIcon,
   StoreIcon,
@@ -12,6 +13,7 @@ import {
 
 const RESTAURANT_LINKS = [
   { href: '/restaurante', label: 'Dashboard', icon: LayoutDashboardIcon },
+  { href: '/restaurante/pedidos', label: 'Pedidos', icon: ShoppingBagIcon },
   { href: '/restaurante/productos', label: 'Productos', icon: PackageIcon },
   { href: '/restaurante/categorias', label: 'Categorías', icon: TagsIcon },
   { href: '/restaurante/negocio', label: 'Mi negocio', icon: StoreIcon },

@@ -1,5 +1,5 @@
 import { RestaurantDashboardCards } from '@/components/features/restaurants/RestaurantDashboardCards'
-import { RestaurantRecentOrders } from '@/components/features/restaurants/RestaurantRecentOrders'
+import { RestaurantDashboardCharts } from '@/components/features/restaurants/RestaurantDashboardCharts'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 
@@ -13,7 +13,7 @@ export default function RestauranteHomePage() {
 
       <div className="mt-6 space-y-6">
         <RestaurantDashboardCards />
-        <RestaurantRecentOrders />
+        <RestaurantDashboardCharts />
       </div>
     </PageContainer>
   )

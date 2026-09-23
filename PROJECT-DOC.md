@@ -289,13 +289,16 @@ pideloyaa/
 | Componente | Descripción |
 |---|---|
 | `BusinessInfoForm.tsx` | Formulario info del negocio |
+| `DailySalesChart.tsx` | Gráfico de ventas por día del dashboard |
 | `ImageUploader.tsx` | Subidor de imágenes |
 | `LogoUploader.tsx` | Subidor de logo |
 | `RestaurantCard.tsx` | Tarjeta de restaurante |
 | `RestaurantDashboardCards.tsx` | Tarjetas dashboard restaurante |
+| `RestaurantDashboardCharts.tsx` | Gráficos del dashboard restaurante |
 | `RestaurantHoursForm.tsx` | Formulario de horarios |
 | `RestaurantInfoForm.tsx` | Formulario info del restaurante |
-| `RestaurantRecentOrders.tsx` | Pedidos recientes del restaurante |
+| `RestaurantOrdersTable.tsx` | Tabla de pedidos del módulo Pedidos |
+| `TopProductsChart.tsx` | Gráfico de productos más vendidos |
 
 ### layout/ — Componentes de Layout
 

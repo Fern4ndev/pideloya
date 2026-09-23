@@ -56,13 +56,30 @@ export function Sidebar({
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
+
+  // Sincroniza el modo escritorio con el breakpoint lg. Al volver a
+  // pantalla grande (cruzando a lg) el sidebar colapsado se re-expande;
+  // en celular/tablet el contenido siempre muestra los labels.
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 64rem)')
+    const onChange = () => {
+      setIsDesktop(mq.matches)
+      if (mq.matches) setCollapsed(false)
+    }
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
+
+  const compact = isDesktop && collapsed
 
   return (
     <>
@@ -118,9 +135,9 @@ export function Sidebar({
 
       <Link
         href={homeHref}
-        className={cn('flex items-center pb-4', collapsed ? 'justify-center px-0' : 'px-2')}
+        className={cn('flex items-center pb-4', compact ? 'justify-center px-0' : 'px-2')}
       >
-        <SidebarBrand section={section} collapsed={collapsed} />
+        <SidebarBrand section={section} collapsed={compact} />
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -134,11 +151,11 @@ export function Sidebar({
               nativeButton={false}
               variant={active ? 'default' : 'ghost'}
               size="sm"
-              title={collapsed ? link.label : undefined}
-              className={cn('gap-2', collapsed ? 'justify-center px-0' : 'justify-start')}
+              title={compact ? link.label : undefined}
+              className={cn('gap-2', compact ? 'justify-center px-0' : 'justify-start')}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && link.label}
+              {!compact && link.label}
             </Button>
           )
         })}
@@ -152,7 +169,7 @@ export function Sidebar({
               type="button"
               className={cn(
                 'flex w-full items-center gap-2 rounded-2xl p-2 text-left transition-colors hover:bg-muted',
-                collapsed && 'justify-center'
+                compact && 'justify-center'
               )}
             />
           }
@@ -162,7 +179,7 @@ export function Sidebar({
               {initial}
             </AvatarFallback>
           </Avatar>
-          {!collapsed && (
+          {!compact && (
             <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {fullName}
             </span>

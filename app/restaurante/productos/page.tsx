@@ -61,7 +61,7 @@ export default async function RestaurantProductsPage({
     })) ?? []
 
   return (
-    <PageContainer size="lg">
+    <PageContainer size="full">
       <PageHeader
         title="Productos"
         description="Lo que ven tus clientes en tu carta."
@@ -84,6 +84,7 @@ export default async function RestaurantProductsPage({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">N°</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead>Precio</TableHead>
                 <TableHead>Estado</TableHead>
@@ -91,8 +92,11 @@ export default async function RestaurantProductsPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((product) => (
+              {rows.map((product, index) => (
                 <TableRow key={product.id}>
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    {pagination.start + index + 1}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted">

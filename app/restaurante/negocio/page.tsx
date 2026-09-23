@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/server'
 import { BusinessInfoForm } from '@/components/features/restaurants/BusinessInfoForm'
+import { BusinessStatusSwitch } from '@/components/features/restaurants/BusinessStatusSwitch'
 import { LogoUploader } from '@/components/features/restaurants/LogoUploader'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -32,20 +33,21 @@ export default async function BusinessInfoPage() {
     .single()
 
   return (
-    <PageContainer size="sm">
+    <PageContainer size="lg">
       <PageHeader
         title="Mi negocio"
         description="Esta información aparece en tu carta pública."
+        action={
+          <BusinessStatusSwitch initialIsActive={restaurant?.is_active ?? true} />
+        }
       />
 
-      <Card className="mt-6">
-        <CardContent className="space-y-8">
-          <div className="border-b pb-6">
-            <LogoUploader
-              currentLogoUrl={restaurant?.logo_url ?? null}
-              restaurantId={member!.restaurant_id}
-            />
-          </div>
+      <Card className="mx-auto mt-6 max-w-3xl">
+        <CardContent className="grid items-start gap-8 md:grid-cols-[auto_1fr]">
+          <LogoUploader
+            currentLogoUrl={restaurant?.logo_url ?? null}
+            restaurantId={member!.restaurant_id}
+          />
 
           <BusinessInfoForm
             initialData={{
@@ -54,7 +56,6 @@ export default async function BusinessInfoPage() {
               addressText: restaurant?.address_text ?? '',
               whatsapp: restaurant?.whatsapp ?? '',
               foodType: restaurant?.food_type ?? '',
-              isActive: restaurant?.is_active ?? true,
             }}
           />
         </CardContent>

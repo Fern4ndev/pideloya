@@ -85,7 +85,9 @@ export async function updateRestaurant(input: RestaurantInput) {
       whatsapp: data.whatsapp || null,
       food_type: data.foodType,
       slug,
-      is_active: data.isActive,
+      // Solo lo escribimos si viene en el payload: el estado del negocio
+      // lo controla setRestaurantActive desde el header, no este form.
+      ...(data.isActive !== undefined ? { is_active: data.isActive } : {}),
     })
     .eq('id', restaurantId)
 
@@ -93,6 +95,36 @@ export async function updateRestaurant(input: RestaurantInput) {
 
   revalidatePath(`/restaurantes/${slug}`)
   revalidatePath(`/public/restaurantes/${slug}`)
+  revalidatePath('/restaurante')
+  return { success: true }
+}
+
+/**
+ * Abre o cierra el negocio (is_active) desde el header de "Mi negocio".
+ * A diferencia de toggleRestaurantActive (admin), solo toca el estado
+ * del restaurante y no desactiva perfiles.
+ */
+export async function setRestaurantActive(isActive: boolean) {
+  const { supabase, restaurantId } = await getMyRestaurantId()
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('slug')
+    .eq('id', restaurantId)
+    .single()
+
+  if (!restaurant) throw new Error('Restaurante no encontrado')
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ is_active: isActive })
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath(`/restaurantes/${restaurant.slug}`)
+  revalidatePath(`/public/restaurantes/${restaurant.slug}`)
+  revalidatePath('/restaurante/negocio')
   revalidatePath('/restaurante')
   return { success: true }
 }
