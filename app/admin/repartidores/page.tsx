@@ -10,17 +10,36 @@ import {
 } from '@/components/ui/table'
 import { DeliveryRowActions } from '@/components/features/admin/DeliveryRowActions'
 import { ActiveSwitch } from '@/components/features/admin/ActiveSwitch'
+import { TablePagination } from '@/components/ui/table-pagination'
+import { getPagination } from '@/lib/pagination'
 
-export default async function AdminDeliveryPage() {
+export default async function AdminDeliveryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const supabase = await createClient()
+  const { page } = await searchParams
 
-  const { data: deliveryPeople, error } = await supabase
+  const getAll = supabase
+    .from('profiles')
+    .select(
+      'id, full_name, phone, document_type, document_number, vehicle_type, is_active, created_at',
+      { count: 'exact', head: true }
+    )
+    .eq('role', 'DELIVERY')
+
+  const total = (await getAll).count ?? 0
+  const pagination = getPagination(total, page)
+
+  const { data: pagedDeliveryPeople, error: pagedError } = await supabase
     .from('profiles')
     .select(
       'id, full_name, phone, document_type, document_number, vehicle_type, is_active, created_at'
     )
     .eq('role', 'DELIVERY')
     .order('created_at', { ascending: false })
+    .range(pagination.start, pagination.end - 1)
 
   return (
     <div>
@@ -34,13 +53,13 @@ export default async function AdminDeliveryPage() {
         </p>
       </div>
 
-      {error && (
+      {pagedError && (
         <p className="mt-6 text-sm text-destructive">
           No se pudo cargar la lista de repartidores.
         </p>
       )}
 
-      {!error && deliveryPeople && deliveryPeople.length > 0 && (
+      {!pagedError && pagedDeliveryPeople && pagedDeliveryPeople.length > 0 && (
         <Table className="mt-6">
           <TableHeader>
             <TableRow>
@@ -56,13 +75,13 @@ export default async function AdminDeliveryPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {deliveryPeople.map((d, index) => {
+            {pagedDeliveryPeople.map((d, index) => {
               const createdAt = new Date(d.created_at)
 
               return (
                 <TableRow key={d.id}>
                   <TableCell className="text-muted-foreground">
-                    {index + 1}
+                    {pagination.start + index + 1}
                   </TableCell>
                   <TableCell className="font-medium">{d.full_name}</TableCell>
                   <TableCell className="text-muted-foreground">
@@ -118,7 +137,15 @@ export default async function AdminDeliveryPage() {
         </Table>
       )}
 
-      {!error && deliveryPeople && deliveryPeople.length === 0 && (
+      {!pagedError && pagedDeliveryPeople && pagedDeliveryPeople.length > 0 && (
+        <TablePagination
+          basePath="/admin/repartidores"
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+        />
+      )}
+
+      {!pagedError && total === 0 && (
         <p className="mt-10 text-center text-sm text-muted-foreground">
           Todavía no hay repartidores registrados.
         </p>

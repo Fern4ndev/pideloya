@@ -9,6 +9,7 @@ import {
 } from '@/lib/actions/categories'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PencilIcon, TrashIcon } from 'lucide-react'
 
 interface Category {
   id: string
@@ -139,20 +140,22 @@ export function CategoryManager({
               <>
                 <span className="flex-1 text-sm">{category.name}</span>
                 <Button
-                  size="sm"
+                  size="icon-sm"
                   variant="ghost"
+                  title="Editar"
                   onClick={() => startEditing(category)}
                 >
-                  Editar
+                  <PencilIcon className="h-4 w-4" />
                 </Button>
                 <Button
-                  size="sm"
+                  size="icon-sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
                   disabled={isPending}
                   onClick={() => handleDelete(category.id)}
+                  title="Eliminar"
                 >
-                  Eliminar
+                  <TrashIcon className="h-4 w-4" />
                 </Button>
               </>
             )}

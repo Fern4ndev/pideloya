@@ -35,7 +35,7 @@ export default async function HorariosPage() {
     .order('day_of_week')
 
   return (
-    <PageContainer size="md">
+    <PageContainer size="lg">
       <PageHeader
         title="Horarios"
         description="Define los horarios de atención de tu restaurante."

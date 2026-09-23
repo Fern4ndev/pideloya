@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -11,6 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { TablePagination } from '@/components/ui/table-pagination'
+import { PAGE_SIZE } from '@/lib/pagination'
 import { RestaurantRowActions } from './RestaurantRowActions'
 import { SearchIcon } from 'lucide-react'
 
@@ -33,6 +35,7 @@ type Restaurant = {
 
 export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
     if (!search.trim()) return restaurants
@@ -47,6 +50,15 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
       )
     })
   }, [restaurants, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filtered])
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pageStart = (safePage - 1) * PAGE_SIZE
+  const paged = filtered.slice(pageStart, pageStart + PAGE_SIZE)
 
   return (
     <div className="mt-6 space-y-4">
@@ -75,7 +87,7 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((r, index) => {
+            {paged.map((r, index) => {
               const ownerName =
                 r.restaurant_members?.[0]?.profiles?.full_name ?? '—'
               const createdAt = new Date(r.created_at)
@@ -83,7 +95,7 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
               return (
                 <TableRow key={r.id}>
                   <TableCell className="text-muted-foreground">
-                    {index + 1}
+                    {pageStart + index + 1}
                   </TableCell>
                   <TableCell className="font-medium">{r.name}</TableCell>
                   <TableCell>{ownerName}</TableCell>
@@ -127,11 +139,19 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
             })}
           </TableBody>
         </Table>
-      ) : (
-        <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-          No se encontraron restaurantes para &quot;{search}&quot;.
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+            No se encontraron restaurantes para &quot;{search}&quot;.
+          </div>
+        )}
+
+        {filtered.length > 0 && (
+          <TablePagination
+            page={safePage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+          />
+        )}
+      </div>
   )
 }

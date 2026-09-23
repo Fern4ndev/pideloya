@@ -13,17 +13,32 @@ import {
 import { ProductRowActions } from '@/components/features/products/ProductRowActions'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
+import { TablePagination } from '@/components/ui/table-pagination'
+import { getPagination } from '@/lib/pagination'
 import { PlusIcon } from 'lucide-react'
 
-export default async function RestaurantProductsPage() {
+export default async function RestaurantProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const supabase = await createClient()
+  const { page } = await searchParams
 
   // No filtramos por restaurant_id: la policy "products_select_owner"
   // ya limita el resultado a los productos del restaurante del usuario.
+  const getCount = supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+
+  const total = (await getCount).count ?? 0
+  const pagination = getPagination(total, page)
+
   const { data: products, error } = await supabase
     .from('products')
     .select('id, name, price, available, image_url')
     .order('created_at', { ascending: false })
+    .range(pagination.start, pagination.end - 1)
 
   return (
     <PageContainer size="lg">
@@ -91,7 +106,15 @@ export default async function RestaurantProductsPage() {
         </div>
       )}
 
-      {!error && products && products.length === 0 && (
+      {!error && products && products.length > 0 && (
+        <TablePagination
+          basePath="/restaurante/productos"
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+        />
+      )}
+
+      {!error && total === 0 && (
         <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
           <p className="font-medium">Todavía no tienes productos</p>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">

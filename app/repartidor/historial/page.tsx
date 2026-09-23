@@ -2,7 +2,13 @@ import { DeliveryHistoryTable } from '@/components/features/deliveries/DeliveryH
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 
-export default function HistorialPage() {
+export default async function HistorialPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page } = await searchParams
+
   return (
     <PageContainer size="full">
       <PageHeader
@@ -11,7 +17,7 @@ export default function HistorialPage() {
       />
 
       <div className="mt-6">
-        <DeliveryHistoryTable />
+        <DeliveryHistoryTable page={page} />
       </div>
     </PageContainer>
   )

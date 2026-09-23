@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/table'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { DeliveryDetailsDialog } from '@/components/features/deliveries/DeliveryDetailsDialog'
+import { TablePagination } from '@/components/ui/table-pagination'
+import { getPagination } from '@/lib/pagination'
 import { PackageIcon } from 'lucide-react'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
@@ -53,11 +55,19 @@ type DeliveryRow = {
  * (Card + Table) y el mismo OrderStatusBadge que ya usan pedidos y
  * "Mis entregas", en vez de redefinir los colores/labels de estado.
  */
-export async function DeliveryHistoryTable() {
+export async function DeliveryHistoryTable({ page }: { page?: string }) {
   const supabase = await createClient()
   const profileId = await getMyProfileId(supabase)
 
   if (!profileId) return null
+
+  const getTotal = supabase
+    .from('deliveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('delivery_person_id', profileId)
+
+  const total = (await getTotal).count ?? 0
+  const pagination = getPagination(total, page)
 
   const { data: deliveries, error } = await supabase
     .from('deliveries')
@@ -77,7 +87,7 @@ export async function DeliveryHistoryTable() {
     )
     .eq('delivery_person_id', profileId)
     .order('accepted_at', { ascending: false })
-    .limit(100)
+    .range(pagination.start, pagination.end - 1)
 
   if (error) {
     return (
@@ -122,8 +132,9 @@ export async function DeliveryHistoryTable() {
         <CardTitle className="text-base">Historial de entregas</CardTitle>
       </CardHeader>
       <CardContent>
-        {rows.length > 0 ? (
-          <Table>
+        {total > 0 ? (
+          <>
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10 text-right">Nº</TableHead>
@@ -139,7 +150,7 @@ export async function DeliveryHistoryTable() {
               {rows.map((row, index) => (
                 <TableRow key={row.id}>
                   <TableCell className="w-10 text-right text-muted-foreground tabular-nums">
-                    {index + 1}
+                    {pagination.start + index + 1}
                   </TableCell>
                   <TableCell className="font-medium">{row.restaurantName}</TableCell>
                   <TableCell className="max-w-[220px] truncate text-muted-foreground">
@@ -172,6 +183,12 @@ export async function DeliveryHistoryTable() {
               ))}
             </TableBody>
           </Table>
+            <TablePagination
+              basePath="/repartidor/historial"
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+            />
+          </>
         ) : (
           <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
             <PackageIcon className="h-8 w-8 text-muted-foreground/50" />
