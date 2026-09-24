@@ -124,7 +124,6 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
                       id={r.id}
                       name={r.name}
                       isApproved={r.is_approved}
-                      isActive={r.is_active}
                       restaurant={{
                         id: r.id,
                         name: r.name,

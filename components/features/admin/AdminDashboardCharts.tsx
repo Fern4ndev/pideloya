@@ -36,46 +36,42 @@ type AdminDashboardChartsProps = {
   deliveryPersons: AdminChartPerson[]
 }
 
-const DAY_MS = 86_400_000
+type RangeError = 'empty-from' | 'empty-to' | 'inverted' | 'too-long' | null
 
-const MONTHS_SHORT = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+const DAY_MS = 86_400_000
+const MAX_RANGE_DAYS = 366
+
+const WEEKDAYS_FULL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+
+const MONTHS_FULL = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ]
+
+const RANGE_ERROR_TEXT: Record<Exclude<RangeError, null>, string> = {
+  'empty-from': 'Selecciona la fecha «desde».',
+  'empty-to': 'Selecciona la fecha «hasta».',
+  inverted: 'La fecha «desde» debe ser anterior o igual a la «hasta».',
+  'too-long': 'El rango no puede superar 366 días.',
+}
 
 function limaDayKey(date: Date): string {
   return date.toLocaleDateString('sv-SE', { timeZone: 'America/Lima' })
+}
+
+function dayParts(key: string): { month: number; day: number; weekday: number } {
+  const [year, month, day] = key.split('-').map(Number)
+  const weekday = (new Date(Date.UTC(year, month - 1, day, 17)).getUTCDay() + 6) % 7
+  return { month, day, weekday }
 }
 
 function addDays(key: string, days: number): string {
   return limaDayKey(new Date(new Date(`${key}T12:00:00-05:00`).getTime() + days * DAY_MS))
 }
 
-function bucketKey(dayKey: string, granularity: Granularity): string {
-  if (granularity === 'day') return dayKey
-  if (granularity === 'month') return dayKey.slice(0, 7)
-
-  const [y, m, d] = dayKey.split('-').map(Number)
-  const date = new Date(Date.UTC(y, m - 1, d, 17))
-  const mondayOffset = (date.getUTCDay() + 6) % 7
-  date.setUTCDate(date.getUTCDate() - mondayOffset)
-  return limaDayKey(date)
-}
-
-function formatDay(key: string): string {
-  const [, month, day] = key.split('-')
-  return `${day}/${month}`
-}
-
-function formatMonth(key: string): string {
-  const [year, month] = key.split('-').map(Number)
-  return `${MONTHS_SHORT[month - 1]} ${year}`
-}
-
-function bucketLabel(key: string, granularity: Granularity): string {
-  if (granularity === 'day') return formatDay(key)
-  if (granularity === 'month') return formatMonth(key)
-  return `Sem ${formatDay(key)}`
+function formatFullDate(key: string): string {
+  const [year, month, day] = key.split('-')
+  return `${day}/${month}/${year}`
 }
 
 const salesConfig = {
@@ -88,33 +84,39 @@ const deliveriesConfig = {
 
 type Bucket = { key: string; label: string; count: number; total: number }
 
+const FIXED_BUCKETS: Record<Granularity, { key: string; label: string }[]> = {
+  day: WEEKDAYS_FULL.map((label, index) => ({ key: String(index), label })),
+  week: Array.from({ length: 5 }, (_, index) => ({ key: String(index + 1), label: `Sem ${index + 1}` })),
+  month: MONTHS_FULL.map((label, index) => ({ key: String(index), label })),
+}
+
+function bucketKeyFor(createdAt: string, granularity: Granularity): string {
+  const { month, day, weekday } = dayParts(limaDayKey(new Date(createdAt)))
+  if (granularity === 'day') return String(weekday)
+  if (granularity === 'week') return String(Math.floor((day - 1) / 7) + 1)
+  return String(month - 1)
+}
+
 function buildBuckets(
-  fromKey: string,
-  toKey: string,
   granularity: Granularity,
   counts: Map<string, { count: number; total: number }>
 ): Bucket[] {
-  const fromTs = new Date(`${fromKey}T00:00:00-05:00`).getTime()
-  const toTs = new Date(`${toKey}T00:00:00-05:00`).getTime()
-
-  const buckets: Bucket[] = []
-  const seen = new Set<string>()
-
-  for (let t = fromTs; t <= toTs; t += DAY_MS) {
-    const key = bucketKey(limaDayKey(new Date(t)), granularity)
-    if (seen.has(key)) continue
-    seen.add(key)
-
+  return FIXED_BUCKETS[granularity].map(({ key, label }) => {
     const current = counts.get(key) ?? { count: 0, total: 0 }
-    buckets.push({
-      key,
-      label: bucketLabel(key, granularity),
-      count: current.count,
-      total: current.total,
-    })
-  }
+    return { key, label, count: current.count, total: current.total }
+  })
+}
 
-  return buckets
+function aggregate(orders: AdminChartOrder[], granularity: Granularity): Bucket[] {
+  const counts = new Map<string, { count: number; total: number }>()
+  for (const order of orders) {
+    const key = bucketKeyFor(order.created_at, granularity)
+    const current = counts.get(key) ?? { count: 0, total: 0 }
+    current.count += 1
+    current.total += Number(order.total)
+    counts.set(key, current)
+  }
+  return buildBuckets(granularity, counts)
 }
 
 export function AdminDashboardCharts({
@@ -131,19 +133,37 @@ export function AdminDashboardCharts({
   const [restaurantId, setRestaurantId] = useState('all')
   const [deliveryPersonId, setDeliveryPersonId] = useState('all')
 
-  const range = useMemo(() => {
-    const from = dateFrom && dateTo && dateFrom > dateTo ? dateTo : (dateFrom ?? '')
-    const to = dateFrom && dateTo && dateFrom > dateTo ? dateFrom : (dateTo ?? '')
-    return { from, to }
+  const rangeError = useMemo<RangeError>(() => {
+    if (!dateFrom) return 'empty-from'
+    if (!dateTo) return 'empty-to'
+    if (dateFrom > dateTo) return 'inverted'
+
+    const diffDays = Math.round(
+      (new Date(`${dateTo}T12:00:00-05:00`).getTime() - new Date(`${dateFrom}T12:00:00-05:00`).getTime()) /
+        DAY_MS
+    )
+    if (diffDays >= MAX_RANGE_DAYS) return 'too-long'
+
+    return null
   }, [dateFrom, dateTo])
 
-  const filteredOrders = useMemo(() => {
-    const fromTs = range.from
-      ? new Date(`${range.from}T00:00:00-05:00`).getTime()
-      : Number.NEGATIVE_INFINITY
-    const toTs = range.to
-      ? new Date(`${range.to}T23:59:59-05:00`).getTime()
-      : Number.POSITIVE_INFINITY
+  const fromInvalid = rangeError === 'empty-from' || rangeError === 'inverted' || rangeError === 'too-long'
+  const toInvalid = rangeError === 'empty-to' || rangeError === 'inverted' || rangeError === 'too-long'
+
+  const spanOrders = useMemo(() => {
+    if (rangeError) return []
+
+    const fromTs = new Date(`${dateFrom}T00:00:00-05:00`).getTime()
+    const toTs = new Date(`${dateTo}T23:59:59-05:00`).getTime()
+
+    return orders.filter((order) => {
+      const ts = new Date(order.created_at).getTime()
+      return ts >= fromTs && ts <= toTs
+    })
+  }, [orders, dateFrom, dateTo, rangeError])
+
+  const sales = useMemo(() => {
+    if (rangeError) return []
 
     const restaurantOrderIds =
       restaurantId === 'all'
@@ -154,70 +174,43 @@ export function AdminDashboardCharts({
               .map((item) => item.order_id)
           )
 
-    return orders.filter((order) => {
-      const ts = new Date(order.created_at).getTime()
-      return ts >= fromTs && ts <= toTs && (restaurantOrderIds === null || restaurantOrderIds.has(order.id))
-    })
-  }, [orders, orderItems, range.from, range.to, restaurantId])
+    const relevant =
+      restaurantOrderIds === null
+        ? spanOrders
+        : spanOrders.filter((order) => restaurantOrderIds.has(order.id))
 
-  const bucketRange = useMemo(() => {
-    let from = range.from
-    let to = range.to
-
-    if (!from) {
-      const min = filteredOrders.reduce((acc, o) => Math.min(acc, new Date(o.created_at).getTime()), Number.POSITIVE_INFINITY)
-      from = Number.isFinite(min) ? limaDayKey(new Date(min)) : todayKey
-    }
-    if (!to) {
-      const max = filteredOrders.reduce((acc, o) => Math.max(acc, new Date(o.created_at).getTime()), Number.NEGATIVE_INFINITY)
-      to = Number.isFinite(max) ? limaDayKey(new Date(max)) : todayKey
-    }
-
-    return { from, to }
-  }, [range.from, range.to, filteredOrders, todayKey])
-
-  const sales = useMemo(() => {
-    const counts = new Map<string, { count: number; total: number }>()
-    for (const order of filteredOrders) {
-      const key = bucketKey(limaDayKey(new Date(order.created_at)), granularity)
-      const current = counts.get(key) ?? { count: 0, total: 0 }
-      current.count += 1
-      current.total += Number(order.total)
-      counts.set(key, current)
-    }
-    return buildBuckets(bucketRange.from, bucketRange.to, granularity, counts)
-  }, [filteredOrders, granularity, bucketRange.from, bucketRange.to])
+    return aggregate(relevant, granularity)
+  }, [spanOrders, orderItems, restaurantId, granularity, rangeError])
 
   const delivered = useMemo(() => {
+    if (rangeError) return []
+
     const personByOrder = new Map(deliveries.map((d) => [d.order_id, d.delivery_person_id]))
 
-    const deliveredOrders = filteredOrders.filter(
-      (order) => order.status === 'DELIVERED' && personByOrder.has(order.id)
-    )
+    const relevant = spanOrders.filter((order) => {
+      if (order.status !== 'DELIVERED') return false
+      const personId = personByOrder.get(order.id)
+      return personId !== undefined && (deliveryPersonId === 'all' || personId === deliveryPersonId)
+    })
 
-    const result = deliveredOrders.filter(
-      (order) => deliveryPersonId === 'all' || personByOrder.get(order.id) === deliveryPersonId
-    )
-
-    const counts = new Map<string, { count: number; total: number }>()
-    for (const order of result) {
-      const key = bucketKey(limaDayKey(new Date(order.created_at)), granularity)
-      const current = counts.get(key) ?? { count: 0, total: 0 }
-      current.count += 1
-      current.total += Number(order.total)
-      counts.set(key, current)
-    }
-    return buildBuckets(bucketRange.from, bucketRange.to, granularity, counts)
-  }, [filteredOrders, deliveries, deliveryPersonId, granularity, bucketRange.from, bucketRange.to])
+    return aggregate(relevant, granularity)
+  }, [spanOrders, deliveries, deliveryPersonId, granularity, rangeError])
 
   const hasSales = sales.some((bucket) => bucket.count > 0)
   const hasDeliveries = delivered.some((bucket) => bucket.count > 0)
+
+  const salesEmptyMessage = rangeError
+    ? 'Corrige el rango de fechas para ver los gráficos.'
+    : 'No hay pedidos en el período seleccionado.'
+  const deliveriesEmptyMessage = rangeError
+    ? 'Corrige el rango de fechas para ver los gráficos.'
+    : 'No hay entregas en el período seleccionado.'
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
         <div>
-          <Label className="mb-1.5 block text-xs font-medium">Agrupar por</Label>
+          <Label className="mb-1.5 block text-xs font-medium">Vista</Label>
           <div className="flex gap-1">
             {(['day', 'week', 'month'] as const).map((option) => (
               <Button
@@ -233,31 +226,46 @@ export function AdminDashboardCharts({
           </div>
         </div>
 
-        <div className="flex items-end gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="filter-from" className="text-xs font-medium">
-              Desde
-            </Label>
-            <Input
-              id="filter-from"
-              type="date"
-              className="w-40"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="filter-to" className="text-xs font-medium">
-              Hasta
-            </Label>
-            <Input
-              id="filter-to"
-              type="date"
-              className="w-40"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-            />
-          </div>
+        <div className="space-y-1">
+          <Label htmlFor="filter-from" className="text-xs font-medium">
+            Desde
+          </Label>
+          <Input
+            id="filter-from"
+            type="date"
+            className="w-40"
+            value={dateFrom}
+            max={dateTo || undefined}
+            aria-invalid={fromInvalid}
+            onChange={(event) => setDateFrom(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="filter-to" className="text-xs font-medium">
+            Hasta
+          </Label>
+          <Input
+            id="filter-to"
+            type="date"
+            className="w-40"
+            value={dateTo}
+            min={dateFrom || undefined}
+            aria-invalid={toInvalid}
+            onChange={(event) => setDateTo(event.target.value)}
+          />
+        </div>
+
+        <div className="pb-1.5 text-xs text-muted-foreground">
+          {rangeError ? (
+            <p role="alert" className="text-destructive">
+              {RANGE_ERROR_TEXT[rangeError]}
+            </p>
+          ) : (
+            <p>
+              Mostrando: {formatFullDate(dateFrom)} – {formatFullDate(dateTo)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -295,7 +303,10 @@ export function AdminDashboardCharts({
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
-                    minTickGap={12}
+                    interval={0}
+                    angle={-60}
+                    textAnchor="end"
+                    height={70}
                   />
                   <YAxis
                     tickLine={false}
@@ -303,19 +314,13 @@ export function AdminDashboardCharts({
                     tickMargin={8}
                     allowDecimals={false}
                   />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => [`${value} pedidos`, 'Pedidos']}
-                      />
-                    }
-                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)" />
                 </BarChart>
               </ChartContainer>
             ) : (
               <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                No hay pedidos en el rango seleccionado.
+                {salesEmptyMessage}
               </div>
             )}
           </CardContent>
@@ -354,7 +359,10 @@ export function AdminDashboardCharts({
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
-                    minTickGap={12}
+                    interval={0}
+                    angle={-60}
+                    textAnchor="end"
+                    height={70}
                   />
                   <YAxis
                     tickLine={false}
@@ -362,19 +370,13 @@ export function AdminDashboardCharts({
                     tickMargin={8}
                     allowDecimals={false}
                   />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => [`${value} entregados`, 'Entregados']}
-                      />
-                    }
-                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)" />
                 </BarChart>
               </ChartContainer>
             ) : (
               <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                No hay entregas en el rango seleccionado.
+                {deliveriesEmptyMessage}
               </div>
             )}
           </CardContent>

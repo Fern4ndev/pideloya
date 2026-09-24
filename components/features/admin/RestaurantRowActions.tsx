@@ -8,7 +8,6 @@ import {
 } from '@/lib/actions/admin'
 import { RowActions } from './RowActions'
 import { EditRestaurantDialog } from './EditRestaurantDialog'
-import { ActiveSwitch } from './ActiveSwitch'
 
 type Restaurant = {
   id: string
@@ -22,13 +21,11 @@ export function RestaurantRowActions({
   id,
   name,
   isApproved,
-  isActive,
   restaurant,
 }: {
   id: string
   name: string
   isApproved: boolean
-  isActive: boolean
   restaurant: Restaurant
 }) {
   const [editOpen, setEditOpen] = useState(false)
@@ -42,13 +39,6 @@ export function RestaurantRowActions({
         onEdit={() => setEditOpen(true)}
         onDelete={() => deleteRestaurant(id)}
         entityName="restaurante"
-        renderSwitch={
-          <ActiveSwitch
-            id={id}
-            type="restaurant"
-            initialActive={isActive}
-          />
-        }
       />
       <EditRestaurantDialog
         open={editOpen}
