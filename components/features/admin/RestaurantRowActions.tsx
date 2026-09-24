@@ -39,6 +39,8 @@ export function RestaurantRowActions({
         onEdit={() => setEditOpen(true)}
         onDelete={() => deleteRestaurant(id)}
         entityName="restaurante"
+        deleteTitle="Eliminar restaurante"
+        deleteDescription="Se ocultará del público. Si tiene pedidos se conservará desactivado; si no, se eliminará permanentemente."
       />
       <EditRestaurantDialog
         open={editOpen}

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceRoleClient } from '@/lib/db/server'
+import { removeRestaurant } from '@/lib/admin/remove-restaurant'
 
 async function assertIsAdmin() {
   const supabase = await createClient()
@@ -137,30 +138,12 @@ export async function deleteRestaurant(restaurantId: string) {
   await assertIsAdmin()
   const adminClient = createServiceRoleClient()
 
-  const { data: members } = await adminClient
-    .from('restaurant_members')
-    .select('user_id')
-    .eq('restaurant_id', restaurantId)
-
-  // Borrar el restaurante primero (los FKs de categorías/productos
-  // están definidos con cascada en las migraciones).
-  const { error } = await adminClient
-    .from('restaurants')
-    .delete()
-    .eq('id', restaurantId)
-
-  if (error) throw new Error(error.message)
-
-  if (members && members.length > 0) {
-    const userIds = members.map((m) => m.user_id)
-    await adminClient
-      .from('profiles')
-      .update({ is_active: false })
-      .in('id', userIds)
-  }
+  // Híbrido compartido con DELETE /api/v1/restaurants/[id]: soft delete
+  // si tiene pedidos, hard delete si no (ver lib/admin/remove-restaurant).
+  const result = await removeRestaurant(adminClient, restaurantId)
 
   revalidatePath('/admin/restaurantes')
-  return { success: true }
+  return result
 }
 
 export async function deactivateUser(profileId: string) {
@@ -176,7 +159,7 @@ export async function deactivateUser(profileId: string) {
 
   revalidatePath('/admin/usuarios')
   revalidatePath('/admin/repartidores')
-  return { success: true }
+  return { success: true, message: 'Usuario desactivado' }
 }
 
 export async function toggleDeliveryPersonActive(profileId: string) {

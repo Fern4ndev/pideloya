@@ -12,6 +12,7 @@ import {
   ForbiddenError,
 } from '@/lib/api/auth'
 import { createClient } from '@/lib/db/server'
+import { removeRestaurant } from '@/lib/admin/remove-restaurant'
 import type { Database } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -163,43 +164,9 @@ export const DELETE = withApi(async (_request: Request, ctx: RouteCtx) => {
   const context = await authenticateRequest(_request)
   requireRole(context, ['ADMIN'])
 
+  // Híbrido compartido con la server action del panel admin: soft delete
+  // si tiene pedidos, hard delete si no (ver lib/admin/remove-restaurant).
   const client = adminClient()
-
-  // Si el restaurante tiene pedidos referenciados, el FK lo protegerá;
-  // desactivamos en ese caso en vez de borrar en cascada.
-  const { data: hasOrders } = await client
-    .from('order_items')
-    .select('restaurant_id')
-    .eq('restaurant_id', id)
-    .limit(1)
-    .maybeSingle()
-
-  if (hasOrders) {
-    const { error } = await client
-      .from('restaurants')
-      .update({ is_active: false, is_approved: false })
-      .eq('id', id)
-    if (error) throw error
-    return successResponse({
-      message: 'Restaurante con pedidos: se desactivó en lugar de eliminar',
-      softDeleted: true,
-    })
-  }
-
-  const { data: members } = await client
-    .from('restaurant_members')
-    .select('user_id')
-    .eq('restaurant_id', id)
-
-  const { error } = await client.from('restaurants').delete().eq('id', id)
-  if (error) throw error
-
-  if (members && members.length > 0) {
-    await client
-      .from('profiles')
-      .update({ is_active: false })
-      .in('id', members.map((m) => m.user_id))
-  }
-
-  return successResponse({ message: 'Restaurante eliminado' })
+  const result = await removeRestaurant(client, id)
+  return successResponse(result)
 })

@@ -9,9 +9,13 @@ type RowActionsProps = {
   isApproved?: boolean
   onApprove?: () => Promise<{ success: boolean }>
   onEdit: () => void
-  onDelete: () => Promise<{ success: boolean }>
+  onDelete: () => Promise<{ success: boolean; message?: string }>
   entityName: string
   renderSwitch?: React.ReactNode
+  deleteTitle?: string
+  deleteDescription?: string
+  deleteConfirmLabel?: string
+  deleteIcon?: React.ReactNode
 }
 
 export function RowActions({
@@ -21,6 +25,10 @@ export function RowActions({
   onDelete,
   entityName,
   renderSwitch,
+  deleteTitle,
+  deleteDescription,
+  deleteConfirmLabel,
+  deleteIcon,
 }: RowActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -28,15 +36,17 @@ export function RowActions({
     description: string
     confirmLabel: string
     variant: 'destructive' | 'default'
-    action: () => Promise<{ success: boolean }>
+    action: () => Promise<{ success: boolean; message?: string }>
   } | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleDelete() {
     setConfirmConfig({
-      title: `Eliminar ${entityName}`,
-      description: `¿Estás seguro de eliminar este ${entityName}? Esta acción no se puede deshacer.`,
-      confirmLabel: 'Eliminar',
+      title: deleteTitle ?? `Eliminar ${entityName}`,
+      description:
+        deleteDescription ??
+        `¿Estás seguro de eliminar este ${entityName}? Esta acción no se puede deshacer.`,
+      confirmLabel: deleteConfirmLabel ?? 'Eliminar',
       variant: 'destructive',
       action: onDelete,
     })
@@ -77,9 +87,9 @@ export function RowActions({
           variant="ghost"
           size="icon-sm"
           onClick={handleDelete}
-          title="Eliminar"
+          title={deleteConfirmLabel ?? 'Eliminar'}
         >
-          <TrashIcon className="h-4 w-4 text-destructive" />
+          {deleteIcon ?? <TrashIcon className="h-4 w-4 text-destructive" />}
         </Button>
       </div>
 

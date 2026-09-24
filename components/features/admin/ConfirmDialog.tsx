@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -26,14 +27,22 @@ export function ConfirmDialog({
   description: string
   confirmLabel?: string
   variant?: 'destructive' | 'default'
-  onConfirm: () => Promise<unknown>
+  onConfirm: () => Promise<{ success?: boolean; message?: string } | void>
 }) {
   const [isPending, startTransition] = useTransition()
 
   function handleConfirm() {
     startTransition(async () => {
-      await onConfirm()
-      onOpenChange(false)
+      try {
+        const result = await onConfirm()
+        onOpenChange(false)
+        toast.success(result?.message ?? 'Operación completada')
+      } catch (err) {
+        // El diálogo queda abierto para reintentar o cancelar.
+        toast.error(
+          err instanceof Error ? err.message : 'No se pudo completar la acción'
+        )
+      }
     })
   }
 

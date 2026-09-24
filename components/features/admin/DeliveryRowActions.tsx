@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { UserXIcon } from 'lucide-react'
 import {
   approveDeliveryPerson,
-  deleteUser,
+  deactivateUser,
 } from '@/lib/actions/admin'
 import { RowActions } from './RowActions'
 import { EditDeliveryDialog } from './EditDeliveryDialog'
@@ -35,8 +36,15 @@ export function DeliveryRowActions({
       <RowActions
         onApprove={!isActive ? () => approveDeliveryPerson(id) : undefined}
         onEdit={() => setEditOpen(true)}
-        onDelete={() => deleteUser(id)}
+        onDelete={async () => {
+          const result = await deactivateUser(id)
+          return { ...result, message: 'Repartidor desactivado' }
+        }}
         entityName="repartidor"
+        deleteTitle="Desactivar repartidor"
+        deleteDescription="¿Desactivar este repartidor? Podrás reactivarlo cuando quieras. Su historial de entregas se conserva."
+        deleteConfirmLabel="Desactivar"
+        deleteIcon={<UserXIcon className="h-4 w-4 text-destructive" />}
       />
       <EditDeliveryDialog
         open={editOpen}
