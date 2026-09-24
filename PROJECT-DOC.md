@@ -46,7 +46,7 @@ pideloyaa/
 
 | Archivo | Descripción |
 |---|---|
-| `package.json` | Dependencias y scripts del proyecto |
+| `package.json` | Dependencias y scripts del proyecto (`dev`, `build`, `start`, `lint`, `typecheck`) |
 | `pnpm-lock.yaml` | Lockfile de pnpm |
 | `pnpm-workspace.yaml` | Configuración de workspace pnpm |
 | `tsconfig.json` | Configuración de TypeScript |
@@ -106,7 +106,7 @@ pideloyaa/
 | `/admin/categorias` | `app/admin/categorias/page.tsx` | Gestión de categorías |
 | `/admin/configuracion` | `app/admin/configuracion/page.tsx` | Configuración general |
 | `/admin/pedidos` | `app/admin/pedidos/page.tsx` | Gestión de pedidos |
-| `/admin/perfil` | `app/admin/perfil/AdminProfilePage.tsx` | Perfil de admin |
+| `/admin/perfil` | `app/admin/perfil/page.tsx` | Perfil de admin |
 | `/admin/productos` | `app/admin/productos/page.tsx` | Gestión de productos |
 | `/admin/repartidores` | `app/admin/repartidores/page.tsx` | Gestión de repartidores |
 | `/admin/reportes` | `app/admin/reportes/page.tsx` | Reportes y estadísticas |
@@ -126,6 +126,7 @@ pideloyaa/
 | `/cliente/pedidos` | `app/cliente/pedidos/page.tsx` | Historial de pedidos |
 | `/cliente/pedidos/[id]` | `app/cliente/pedidos/[id]/page.tsx` | Detalle de pedido |
 | `/cliente/perfil` | `app/cliente/perfil/page.tsx` | Perfil del cliente |
+| `/cliente/restaurantes/[slug]` | `app/cliente/restaurantes/[slug]/page.tsx` | Perfil de restaurante (cliente) |
 | — | `app/cliente/layout.tsx` | Layout del cliente |
 | — | `app/cliente/loading.tsx` | Estado de carga del cliente |
 
@@ -140,7 +141,6 @@ pideloyaa/
 | `/restaurante/perfil` | `app/restaurante/perfil/page.tsx` | Perfil del restaurante |
 | `/restaurante/productos` | `app/restaurante/productos/page.tsx` | Listado de productos |
 | `/restaurante/productos/nuevo` | `app/restaurante/productos/nuevo/page.tsx` | Crear producto |
-| `/restaurante/productos/[id]` | `app/restaurante/productos/[id]/page.tsx` | Editar producto |
 | — | `app/restaurante/layout.tsx` | Layout del restaurante |
 | — | `app/restaurante/loading.tsx` | Estado de carga |
 
@@ -195,18 +195,19 @@ pideloyaa/
 #### addresses/ — Direcciones
 | Componente | Descripción |
 |---|---|
-| `AddAddressDialog.tsx` | Diálogo para agregar dirección |
+| `AddressCard.tsx` | Tarjeta de dirección |
 | `AddressForm.tsx` | Formulario de dirección |
+| `AddressFormDialog.tsx` | Diálogo de formulario de dirección |
 | `AddressMapPicker.tsx` | Selector de ubicación en mapa |
-| `DeleteAddressButton.tsx` | Botón para eliminar dirección |
+| `AddressViewDialog.tsx` | Diálogo de vista de dirección |
+| `DeleteAddressDialog.tsx` | Diálogo eliminar dirección |
 
 #### admin/ — Administración
 | Componente | Descripción |
 |---|---|
-| `ActiveSwitch.tsx` | Interruptor de activo/inactivo |
 | `AdminDashboardCharts.tsx` | Gráficos Ventas y Entregas con filtros |
-| `ApproveButton.tsx` | Botón de aprobación |
 | `ConfirmDialog.tsx` | Diálogo de confirmación |
+| `CustomerTable.tsx` | Tabla de usuarios/clientes del admin |
 | `DashboardCards.tsx` | Tarjetas del dashboard admin |
 | `DeliveryRowActions.tsx` | Acciones de fila de repartidor |
 | `EditDeliveryDialog.tsx` | Diálogo editar repartidor |
@@ -214,7 +215,9 @@ pideloyaa/
 | `RecentOrdersTable.tsx` | Tabla de pedidos recientes |
 | `RestaurantRowActions.tsx` | Acciones de fila de restaurante |
 | `RestaurantTable.tsx` | Tabla de restaurantes |
-| `RowActions.tsx` | Acciones genéricas de fila |
+| `RowActions.tsx` | Acciones genéricas de fila (Edit/Delete opcionales) |
+| `UserRowActions.tsx` | Acciones de fila de usuario (ver/eliminar) |
+| `ViewUserDialog.tsx` | Diálogo de inspección de usuario |
 
 #### auth/ — Autenticación
 | Componente | Descripción |
@@ -225,6 +228,7 @@ pideloyaa/
 #### cart/ — Carrito
 | Componente | Descripción |
 |---|---|
+| `CartBar.tsx` | Barra del carrito |
 | `CartClient.tsx` | Componente del carrito (cliente) |
 
 #### categories/ — Categorías
@@ -242,8 +246,12 @@ pideloyaa/
 |---|---|
 | `AcceptOrderButton.tsx` | Botón aceptar pedido |
 | `AdvanceStatusButton.tsx` | Botón avanzar estado |
+| `AvailableOrdersClient.tsx` | Lista de pedidos disponibles |
 | `DeliveryDashboardCards.tsx` | Tarjetas dashboard repartidor |
+| `DeliveryDetailsDialog.tsx` | Diálogo de detalles de entrega |
+| `DeliveryHistoryTable.tsx` | Tabla de historial de entregas |
 | `DeliveryOrderCard.tsx` | Tarjeta de pedido para repartidor |
+| `DeliveryOrdersClient.tsx` | Lista de pedidos asignados |
 
 #### home/ — Landing Page
 | Componente | Descripción |
@@ -263,12 +271,17 @@ pideloyaa/
 | Componente | Descripción |
 |---|---|
 | `CancelOrderButton.tsx` | Botón cancelar pedido |
+| `OrderDetailsDialog.tsx` | Diálogo de detalles del pedido |
+| `OrdersListClient.tsx` | Lista de pedidos del cliente |
 | `OrderStatusBadge.tsx` | Badge de estado de pedido |
+| `OrderStatusSection.tsx` | Sección de estado del pedido |
 | `OrderStatusTimeline.tsx` | Línea de tiempo del pedido |
 
 #### products/ — Productos
 | Componente | Descripción |
 |---|---|
+| `FeaturedProductCard.tsx` | Tarjeta de producto destacado |
+| `ProductEditDialog.tsx` | Diálogo editar producto |
 | `ProductForm.tsx` | Formulario de producto |
 | `ProductOrderCard.tsx` | Tarjeta de producto para pedido |
 | `ProductRowActions.tsx` | Acciones de fila de producto |
@@ -283,12 +296,15 @@ pideloyaa/
 |---|---|
 | `DeliveryRegisterForm.tsx` | Formulario registro repartidor |
 | `JoinSection.tsx` | Sección "Únete" |
+| `RegistrationForms.tsx` | Contenedor de formularios de registro |
 | `RestaurantRegisterForm.tsx` | Formulario registro restaurante |
+| `shared/*` | Campos y helpers compartidos del formulario |
 
 #### restaurants/ — Restaurantes
 | Componente | Descripción |
 |---|---|
 | `BusinessInfoForm.tsx` | Formulario info del negocio |
+| `BusinessStatusSwitch.tsx` | Interruptor abierto/cerrado |
 | `DailySalesChart.tsx` | Gráfico de ventas por día del dashboard |
 | `ImageUploader.tsx` | Subidor de imágenes |
 | `LogoUploader.tsx` | Subidor de logo |
@@ -297,8 +313,15 @@ pideloyaa/
 | `RestaurantDashboardCharts.tsx` | Gráficos del dashboard restaurante |
 | `RestaurantHoursForm.tsx` | Formulario de horarios |
 | `RestaurantInfoForm.tsx` | Formulario info del restaurante |
+| `RestaurantMenuView.tsx` | Vista de menú del restaurante |
+| `RestaurantOpenBanner.tsx` | Banner abierto/cerrado |
 | `RestaurantOrdersTable.tsx` | Tabla de pedidos del módulo Pedidos |
 | `TopProductsChart.tsx` | Gráfico de productos más vendidos |
+
+#### cliente-home/ — Home del cliente
+| Componente | Descripción |
+|---|---|
+| `ClienteHomeClient.tsx` | Contenido del home del cliente |
 
 ### layout/ — Componentes de Layout
 
@@ -320,6 +343,12 @@ pideloyaa/
 |---|---|
 | `Logo.tsx` | Logo de la aplicación |
 
+### Raíz de components/
+
+| Componente | Descripción |
+|---|---|
+| `LogoLoop.tsx` | Carrusel de logos animado |
+
 ### ui/ — Componentes UI (shadcn/ui)
 
 | Componente | Descripción |
@@ -337,11 +366,13 @@ pideloyaa/
 | `dropdown-menu.tsx` | Menú desplegable |
 | `input.tsx` | Input de texto |
 | `label.tsx` | Label |
+| `pagination.tsx` | Paginación |
 | `scroll-stack.tsx` | Stack con scroll |
 | `select.tsx` | Select/dropdown |
 | `skeleton.tsx` | Skeleton loader |
 | `switch.tsx` | Interruptor |
 | `table.tsx` | Tabla |
+| `table-pagination.tsx` | Paginación de tablas server-side |
 | `tabs.tsx` | Tabs |
 | `textarea.tsx` | Textarea |
 
@@ -355,13 +386,15 @@ pideloyaa/
 |---|---|
 | `lib/utils.ts` | Utilidades generales (cn, formateo, etc.) |
 | `lib/imagekit-server.ts` | Configuración de ImageKit server-side |
+| `lib/pagination.ts` | Helper de paginación server-side |
+| `lib/dates.ts` | Utilidades de fechas |
 
 ### actions/ — Server Actions
 
 | Archivo | Descripción |
 |---|---|
 | `lib/actions/addresses.ts` | CRUD de direcciones |
-| `lib/actions/admin.ts` | Acciones de administración |
+| `lib/actions/admin.ts` | Acciones de administración (aprobar, eliminar, revalidate) |
 | `lib/actions/auth.ts` | Acciones de autenticación |
 | `lib/actions/categories.ts` | CRUD de categorías |
 | `lib/actions/deliveries.ts` | Gestión de entregas |
@@ -372,6 +405,18 @@ pideloyaa/
 | `lib/actions/registration.ts` | Registro de usuarios |
 | `lib/actions/restaurant-hours.ts` | Gestión de horarios |
 | `lib/actions/restaurants.ts` | CRUD de restaurantes |
+
+### admin/ — Helpers de administración
+
+| Archivo | Descripción |
+|---|---|
+| `lib/admin/remove-restaurant.ts` | Borrado híbrido de restaurante (soft/hard) |
+
+### restaurants/ — Lógica de restaurante
+
+| Archivo | Descripción |
+|---|---|
+| `lib/restaurants/is-open.ts` | ¿Está abierto el restaurante ahora? |
 
 ### api/ — Capa de API
 
@@ -392,6 +437,9 @@ pideloyaa/
 | Archivo | Descripción |
 |---|---|
 | `lib/hooks/use-cart.ts` | Hook del carrito (Zustand) |
+| `lib/hooks/use-search.ts` | Hook de búsqueda |
+| `lib/hooks/use-restaurant-open.ts` | Estado abierto/cerrado del restaurante |
+| `lib/hooks/use-realtime-invalidate.ts` | Realtime + revalidación |
 
 ### constants/ — Constantes
 
@@ -411,12 +459,14 @@ pideloyaa/
 | `lib/validations/registration.ts` | Validación de registro |
 | `lib/validations/restaurant.ts` | Validación de restaurantes |
 
-### Directorios Vacíos
+### Directorios
 
 | Directorio | Estado |
 |---|---|
 | `lib/auth/` | Vacío |
 | `lib/theme/` | Vacío |
+| `lib/admin/` | Helper de borrado de restaurante |
+| `lib/restaurants/` | Helper is-open |
 
 ---
 
@@ -454,7 +504,7 @@ pideloyaa/
 | `supabase/config.toml` | Configuración de Supabase CLI |
 | `supabase/seed.sql` | Datos iniciales de prueba |
 
-### Migraciones (15 archivos)
+### Migraciones (25 archivos)
 
 | Migración | Descripción |
 |---|---|
@@ -465,7 +515,7 @@ pideloyaa/
 | `20260824203727_registration_fields.sql` | Campos de registro |
 | `20260828044635_fix_orders_deliveries_rls_recursion.sql` | Fix recursión RLS orders/deliveries |
 | `20260828045436_order_items_rls.sql` | RLS para order_items |
-| `20260829162152_order_items_product_name.sql` | Nombre de producto en order_items |
+| `20260829162152_order_items_product_name.sql` | Snapshot de nombre de producto en order_items |
 | `20260830060015_orders_customer_cancel_rls.sql` | RLS cancelación de cliente |
 | `20260830062645_profile_column_security.sql` | Seguridad a nivel de columna en profiles |
 | `20260911000000_fix_cascade_delete_user.sql` | Fix cascade delete de usuario |
@@ -473,6 +523,16 @@ pideloyaa/
 | `20260912000000_fix_rls_products_categories.sql` | Fix RLS productos/categorías |
 | `20260912132932_imagekit_file_ids.sql` | IDs de archivos ImageKit |
 | `20260912135915_restaurant_logos_storage.sql` | Storage de logos de restaurante |
+| `20260920201230_products_categories_customer_visibility.sql` | Visibilidad cliente en productos/categorías |
+| `20260920231812_addresses_one_per_customer.sql` | Una dirección por cliente |
+| `20260922103915_enable_realtime_orders.sql` | Realtime en orders |
+| `20260922160419_order_items_image_url.sql` | Snapshot de imagen en order_items |
+| `20260923000000_order_items_restaurant_name.sql` | Snapshot de nombre de restaurante en order_items |
+| `20260923100000_deliveries_person_set_null.sql` | `deliveries.delivery_person_id` → SET NULL |
+| `20260923120000_backfill_order_items_snapshots.sql` | Backfill de snapshots en order_items |
+| `20260923130000_profiles_email.sql` | Columna `email` en profiles + sync Auth |
+| `20260923130100_orders_customer_set_null.sql` | `orders.customer_id` / `addresses.customer_id` → SET NULL |
+| `20260924000000_restaurant_is_open.sql` | `restaurants.is_open` (toggle abierto/cerrado) |
 
 ---
 
@@ -496,11 +556,11 @@ Redirige a `/login` si el usuario no está autenticado o no tiene el rol adecuad
 | Categoría | Cantidad |
 |---|---|
 | Archivos de configuración raíz | 15 |
-| Rutas en `app/` | ~45 archivos |
-| Componentes (`components/`) | 77 total (47 features + 9 layout + 1 shared + 20 ui) |
+| Rutas en `app/` | ~46 archivos |
+| Componentes (`components/`) | 90+ total (features + layout + shared + ui) |
 | Server Actions (`lib/actions/`) | 12 |
-| Módulos en `lib/` | 27 archivos |
-| Migraciones Supabase | 15 |
+| Módulos en `lib/` | 30+ archivos |
+| Migraciones Supabase | 25 |
 | Definiciones de tipos | 7 |
 | Roles de usuario | 4 (Cliente, Restaurante, Repartidor, Admin) |
 
@@ -538,4 +598,4 @@ Redirige a `/login` si el usuario no está autenticado o no tiene el rol adecuad
 | Autenticación | Supabase Auth |
 | Imágenes | ImageKit |
 | Paquete | pnpm |
-| Linting | ESLint |
+| Linting | ESLint 9 + typecheck (`tsc --noEmit`) |

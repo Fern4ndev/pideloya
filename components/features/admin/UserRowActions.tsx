@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { EyeIcon, TrashIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { deleteUser } from '@/lib/actions/admin'
@@ -11,7 +10,6 @@ import { ViewUserDialog, type UserSummary } from './ViewUserDialog'
 export function UserRowActions({ user }: { user: UserSummary }) {
   const [viewOpen, setViewOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const router = useRouter()
 
   return (
     <>
@@ -47,14 +45,7 @@ export function UserRowActions({ user }: { user: UserSummary }) {
         }}
       />
 
-      <ViewUserDialog
-        open={viewOpen}
-        onOpenChange={(open) => {
-          setViewOpen(open)
-          if (!open) router.refresh()
-        }}
-        user={user}
-      />
+      <ViewUserDialog open={viewOpen} onOpenChange={setViewOpen} user={user} />
     </>
   )
 }

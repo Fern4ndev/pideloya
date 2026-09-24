@@ -1,14 +1,43 @@
 import { createClient } from '@/lib/db/server'
 import { CustomerTable } from '@/components/features/admin/CustomerTable'
+import { TablePagination } from '@/components/ui/table-pagination'
+import { getPagination } from '@/lib/pagination'
 
-export default async function UsuariosPage() {
+export default async function UsuariosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; q?: string }>
+}) {
   const supabase = await createClient()
+  const { page, q } = await searchParams
+  const query = (q ?? '').trim()
+  const safe = query.replace(/[%_,()]/g, ' ')
+  const orFilter = query
+    ? `full_name.ilike.%${safe}%,email.ilike.%${safe}%,phone.ilike.%${safe}%`
+    : null
 
-  const { data: customers, error } = await supabase
+  const countBuilder = supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('role', 'CUSTOMER')
+  const countQuery = orFilter ? countBuilder.or(orFilter) : countBuilder
+  const total = (await countQuery).count ?? 0
+  const pagination = getPagination(total, page)
+
+  const dataBuilder = supabase
     .from('profiles')
     .select('id, full_name, email, phone, is_active, created_at')
     .eq('role', 'CUSTOMER')
     .order('created_at', { ascending: false })
+  const dataQuery = orFilter ? dataBuilder.or(orFilter) : dataBuilder
+  const { data: customers, error } = await dataQuery.range(
+    pagination.start,
+    pagination.end - 1
+  )
+
+  const basePath = query
+    ? `/admin/usuarios?q=${encodeURIComponent(query)}`
+    : '/admin/usuarios'
 
   return (
     <div>
@@ -26,12 +55,25 @@ export default async function UsuariosPage() {
       )}
 
       {!error && customers && customers.length > 0 && (
-        <CustomerTable customers={customers} />
+        <>
+          <CustomerTable
+            customers={customers}
+            initialQuery={query}
+            startIndex={pagination.start}
+          />
+          <TablePagination
+            basePath={basePath}
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+          />
+        </>
       )}
 
-      {!error && customers && customers.length === 0 && (
+      {!error && total === 0 && (
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Todavía no hay clientes registrados.
+          {query
+            ? `No se encontraron clientes para "${query}".`
+            : 'Todavía no hay clientes registrados.'}
         </p>
       )}
     </div>

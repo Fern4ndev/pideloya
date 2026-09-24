@@ -13,10 +13,20 @@ Plataforma de pedidos y delivery para Abancay, Apurimac.
 ## Desarrollo
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
+```
+
+## Scripts
+
+```bash
+pnpm dev         # servidor de desarrollo
+pnpm build       # build de producción
+pnpm start       # servir el build
+pnpm lint        # ESLint
+pnpm typecheck   # TypeScript (tsc --noEmit)
 ```
 
 ## Variables de entorno
 
-Copiar `.env.example` a `.env` y completar los valores de Supabase.
+Copiar `.env.example` a `.env` y completar los valores de Supabase e ImageKit.

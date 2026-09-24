@@ -49,6 +49,7 @@ export async function approveRestaurant(restaurantId: string) {
   }
 
   revalidatePath('/admin/restaurantes')
+  revalidatePath('/admin')
   return { success: true, message: 'Restaurante activado' }
 }
 
@@ -64,6 +65,7 @@ export async function approveDeliveryPerson(profileId: string) {
   if (error) throw new Error(error.message)
 
   revalidatePath('/admin/repartidores')
+  revalidatePath('/admin')
   return { success: true, message: 'Repartidor activado' }
 }
 
@@ -76,6 +78,7 @@ export async function deleteRestaurant(restaurantId: string) {
   const result = await removeRestaurant(adminClient, restaurantId)
 
   revalidatePath('/admin/restaurantes')
+  revalidatePath('/admin')
   return result
 }
 
@@ -92,6 +95,7 @@ export async function deactivateUser(profileId: string) {
 
   revalidatePath('/admin/usuarios')
   revalidatePath('/admin/repartidores')
+  revalidatePath('/admin')
   return { success: true, message: 'Usuario desactivado' }
 }
 
@@ -145,7 +149,11 @@ export async function deleteUser(profileId: string) {
 
   // Eliminar el perfil primero; el FK con auth.users es
   // "on delete cascade" (ver migración de profiles).
-  await adminClient.from('profiles').delete().eq('id', profileId)
+  const { error: deleteError } = await adminClient
+    .from('profiles')
+    .delete()
+    .eq('id', profileId)
+  if (deleteError) throw new Error(deleteError.message)
 
   if (profile.auth_id) {
     const { error: authError } =
@@ -155,5 +163,6 @@ export async function deleteUser(profileId: string) {
 
   revalidatePath('/admin/usuarios')
   revalidatePath('/admin/repartidores')
+  revalidatePath('/admin')
   return { success: true }
 }

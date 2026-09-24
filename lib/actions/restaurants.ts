@@ -91,7 +91,6 @@ export async function updateRestaurant(input: RestaurantInput) {
   if (error) throw new Error(error.message)
 
   revalidatePath(`/restaurantes/${slug}`)
-  revalidatePath(`/public/restaurantes/${slug}`)
   revalidatePath('/restaurante')
   return { success: true }
 }
@@ -120,7 +119,6 @@ export async function setRestaurantOpen(isOpen: boolean) {
   if (error) throw new Error(error.message)
 
   revalidatePath(`/restaurantes/${restaurant.slug}`)
-  revalidatePath(`/public/restaurantes/${restaurant.slug}`)
   revalidatePath(`/cliente/restaurantes/${restaurant.slug}`)
   revalidatePath('/restaurante/negocio')
   revalidatePath('/restaurante')

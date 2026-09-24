@@ -46,6 +46,12 @@ export function TablePagination({
 
   const isOutOfRange = (target: number) => target < 1 || target > pageCount
 
+  const pageHref = (target: number) => {
+    if (!basePath) return '#'
+    const sep = basePath.includes('?') ? '&' : '?'
+    return `${basePath}${sep}page=${target}`
+  }
+
   const linkProps = (target: number, href: string) => ({
     href: onPageChange ? '#' : href,
     'aria-disabled': isOutOfRange(target) || undefined,
@@ -63,7 +69,7 @@ export function TablePagination({
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious
-            {...linkProps(page - 1, basePath ? `${basePath}?page=${page - 1}` : '#')}
+            {...linkProps(page - 1, pageHref(page - 1))}
             text="Anterior"
           />
         </PaginationItem>
@@ -76,7 +82,7 @@ export function TablePagination({
           ) : (
             <PaginationItem key={item}>
               <PaginationLink
-                {...linkProps(item, basePath ? `${basePath}?page=${item}` : '#')}
+                {...linkProps(item, pageHref(item))}
                 isActive={item === page}
               >
                 {item}
@@ -87,7 +93,7 @@ export function TablePagination({
 
         <PaginationItem>
           <PaginationNext
-            {...linkProps(page + 1, basePath ? `${basePath}?page=${page + 1}` : '#')}
+            {...linkProps(page + 1, pageHref(page + 1))}
             text="Siguiente"
           />
         </PaginationItem>

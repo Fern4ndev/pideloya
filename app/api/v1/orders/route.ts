@@ -1,6 +1,5 @@
 import { withApi, successResponse, errorResponse } from '@/lib/api/response'
 import { authenticateRequest, adminClient } from '@/lib/api/auth'
-import { createClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 
 export const dynamic = 'force-dynamic'
@@ -191,7 +190,10 @@ export const POST = withApi(async (request: Request) => {
       product_name: product.name,
       image_url: product.image_url,
       restaurant_id: product.restaurant_id,
-      restaurant_name: (product.restaurants as unknown as Array<{ name: string }> | null)?.[0]?.name ?? null,
+      restaurant_name:
+        (product.restaurants as unknown as { name: string } | { name: string }[] | null) instanceof Array
+          ? (product.restaurants as unknown as { name: string }[])[0]?.name ?? null
+          : (product.restaurants as unknown as { name: string } | null)?.name ?? null,
       quantity: item.quantity,
       unit_price: product.price,
     }
