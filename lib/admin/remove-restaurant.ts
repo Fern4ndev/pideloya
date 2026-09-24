@@ -8,19 +8,6 @@ export type RemoveRestaurantResult = {
   message: string
 }
 
-/**
- * Borrado híbrido de un restaurante, compartido por la server action del
- * panel admin y por DELETE /api/v1/restaurants/[id]:
- *
- * - Si tiene order_items (historial de pedidos): soft delete (solo
- *   is_active=false; is_approved se mantiene — si tiene pedidos, ya
- *   estaba aprobado). El FK RESTRICT de order_items protege el
- *   historial; aquí no se intenta violarlo.
- * - Si no tiene pedidos: hard delete (cascada limpia de categorías y
- *   productos).
- *
- * En ambos casos se desactivan los miembros del restaurante.
- */
 export async function removeRestaurant(
   client: AdminClient,
   restaurantId: string
