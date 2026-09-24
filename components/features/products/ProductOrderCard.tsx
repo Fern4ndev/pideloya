@@ -16,9 +16,11 @@ export interface OrderableProduct {
 export function ProductOrderCard({
   product,
   restaurant,
+  disabled = false,
 }: {
   product: OrderableProduct
   restaurant: { id: string; name: string }
+  disabled?: boolean
 }) {
   const [quantity, setQuantity] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
@@ -86,6 +88,7 @@ export function ProductOrderCard({
               variant="outline"
               size="sm"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              disabled={disabled}
             >
               −
             </Button>
@@ -95,11 +98,12 @@ export function ProductOrderCard({
               variant="outline"
               size="sm"
               onClick={() => setQuantity((q) => q + 1)}
+              disabled={disabled}
             >
               +
             </Button>
           </div>
-          <Button type="button" size="sm" onClick={handleAdd}>
+          <Button type="button" size="sm" onClick={handleAdd} disabled={disabled}>
             {justAdded ? 'Agregado ✓' : 'Agregar'}
           </Button>
         </div>

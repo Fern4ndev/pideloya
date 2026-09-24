@@ -14,12 +14,19 @@ export interface FeaturedProduct {
   restaurant: { id: string; name: string }
 }
 
-export function FeaturedProductCard({ product }: { product: FeaturedProduct }) {
+export function FeaturedProductCard({
+  product,
+  disabled = false,
+}: {
+  product: FeaturedProduct
+  disabled?: boolean
+}) {
   const [justAdded, setJustAdded] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
   const switchRestaurantAndAdd = useCartStore((state) => state.switchRestaurantAndAdd)
 
   function handleAdd() {
+    if (disabled) return
     const item = {
       productId: product.id,
       name: product.name,
@@ -52,6 +59,7 @@ export function FeaturedProductCard({ product }: { product: FeaturedProduct }) {
           type="button"
           size="icon-sm"
           onClick={handleAdd}
+          disabled={disabled}
           className="absolute bottom-2 right-2 rounded-full bg-brand-500 text-white shadow-md hover:bg-brand-600"
           aria-label={`Agregar ${product.name} al carrito`}
         >

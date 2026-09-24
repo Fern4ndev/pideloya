@@ -69,7 +69,7 @@ export default async function AdminDeliveryPage({
               <TableHead className="w-28">Teléfono</TableHead>
               <TableHead className="w-24">Estado</TableHead>
               <TableHead className="w-20 text-right">Registro</TableHead>
-              <TableHead className="w-12" />
+              <TableHead className="w-20">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

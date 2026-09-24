@@ -19,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DAY_MS,
+  RANGE_MAX_DAYS,
+  WEEKDAYS_FULL,
+  MONTHS_FULL,
+  addDays,
+  dayParts,
+  formatFullDate,
+  limaDayKey,
+} from '@/lib/dates'
 
 type Granularity = 'day' | 'week' | 'month'
 
@@ -34,44 +44,16 @@ type AdminDashboardChartsProps = {
   restaurants: AdminChartRestaurant[]
   deliveries: AdminChartDelivery[]
   deliveryPersons: AdminChartPerson[]
+  todayKey: string
 }
 
 type RangeError = 'empty-from' | 'empty-to' | 'inverted' | 'too-long' | null
-
-const DAY_MS = 86_400_000
-const MAX_RANGE_DAYS = 366
-
-const WEEKDAYS_FULL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
-
-const MONTHS_FULL = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-]
 
 const RANGE_ERROR_TEXT: Record<Exclude<RangeError, null>, string> = {
   'empty-from': 'Selecciona la fecha «desde».',
   'empty-to': 'Selecciona la fecha «hasta».',
   inverted: 'La fecha «desde» debe ser anterior o igual a la «hasta».',
   'too-long': 'El rango no puede superar 366 días.',
-}
-
-function limaDayKey(date: Date): string {
-  return date.toLocaleDateString('sv-SE', { timeZone: 'America/Lima' })
-}
-
-function dayParts(key: string): { month: number; day: number; weekday: number } {
-  const [year, month, day] = key.split('-').map(Number)
-  const weekday = (new Date(Date.UTC(year, month - 1, day, 17)).getUTCDay() + 6) % 7
-  return { month, day, weekday }
-}
-
-function addDays(key: string, days: number): string {
-  return limaDayKey(new Date(new Date(`${key}T12:00:00-05:00`).getTime() + days * DAY_MS))
-}
-
-function formatFullDate(key: string): string {
-  const [year, month, day] = key.split('-')
-  return `${day}/${month}/${year}`
 }
 
 const salesConfig = {
@@ -125,10 +107,10 @@ export function AdminDashboardCharts({
   restaurants,
   deliveries,
   deliveryPersons,
+  todayKey,
 }: AdminDashboardChartsProps) {
-  const todayKey = useMemo(() => limaDayKey(new Date()), [])
   const [granularity, setGranularity] = useState<Granularity>('day')
-  const [dateFrom, setDateFrom] = useState(addDays(todayKey, -29))
+  const [dateFrom, setDateFrom] = useState(() => addDays(todayKey, -29))
   const [dateTo, setDateTo] = useState(todayKey)
   const [restaurantId, setRestaurantId] = useState('all')
   const [deliveryPersonId, setDeliveryPersonId] = useState('all')
@@ -142,7 +124,7 @@ export function AdminDashboardCharts({
       (new Date(`${dateTo}T12:00:00-05:00`).getTime() - new Date(`${dateFrom}T12:00:00-05:00`).getTime()) /
         DAY_MS
     )
-    if (diffDays >= MAX_RANGE_DAYS) return 'too-long'
+    if (diffDays >= RANGE_MAX_DAYS) return 'too-long'
 
     return null
   }, [dateFrom, dateTo])

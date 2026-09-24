@@ -12,11 +12,18 @@ export default async function RestaurantMenuPage({
 
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, description, logo_url, address_text, whatsapp, food_type')
+    .select(
+      'id, name, description, logo_url, address_text, whatsapp, food_type, is_open'
+    )
     .eq('slug', slug)
     .maybeSingle()
 
   if (!restaurant) notFound()
+
+  const { data: hours } = await supabase
+    .from('restaurant_hours')
+    .select('day_of_week, open_time, close_time, is_closed')
+    .eq('restaurant_id', restaurant.id)
 
   const { data: products } = await supabase
     .from('products')
@@ -32,6 +39,11 @@ export default async function RestaurantMenuPage({
     .order('sort_order', { ascending: true })
 
   return (
-    <RestaurantMenuView restaurant={restaurant} products={products ?? []} categories={categories ?? []} />
+    <RestaurantMenuView
+      restaurant={restaurant}
+      products={products ?? []}
+      categories={categories ?? []}
+      hours={hours ?? []}
+    />
   )
 }

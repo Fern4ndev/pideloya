@@ -1,7 +1,12 @@
+'use client'
+
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ProductOrderCard } from '@/components/features/products/ProductOrderCard'
+import { RestaurantOpenBanner } from '@/components/features/restaurants/RestaurantOpenBanner'
+import { useRestaurantOpen } from '@/lib/hooks/use-restaurant-open'
+import type { RestaurantHourInput } from '@/lib/restaurants/is-open'
 
 export interface RestaurantMenuData {
   id: string
@@ -11,6 +16,7 @@ export interface RestaurantMenuData {
   address_text: string | null
   whatsapp: string | null
   food_type: string | null
+  is_open: boolean
 }
 
 export interface MenuProduct {
@@ -26,11 +32,15 @@ export function RestaurantMenuView({
   restaurant,
   products,
   categories,
+  hours,
 }: {
   restaurant: RestaurantMenuData
   products: MenuProduct[]
   categories: { id: string; name: string }[]
+  hours: RestaurantHourInput[]
 }) {
+  const isOpenNow = useRestaurantOpen(restaurant.is_open, hours)
+
   const productsByCategory = categories
     .map((category) => ({
       category,
@@ -98,6 +108,10 @@ export function RestaurantMenuView({
         )}
       </div>
 
+      <div className="mt-6">
+        <RestaurantOpenBanner isOpen={restaurant.is_open} hours={hours} />
+      </div>
+
       <div className="mt-8 space-y-8">
         {products.length > 0 ? (
           <>
@@ -118,6 +132,7 @@ export function RestaurantMenuView({
                         imageUrl: p.image_url,
                       }}
                       restaurant={{ id: restaurant.id, name: restaurant.name }}
+                      disabled={!isOpenNow}
                     />
                   ))}
                 </div>
@@ -141,6 +156,7 @@ export function RestaurantMenuView({
                         imageUrl: p.image_url,
                       }}
                       restaurant={{ id: restaurant.id, name: restaurant.name }}
+                      disabled={!isOpenNow}
                     />
                   ))}
                 </div>

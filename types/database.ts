@@ -301,6 +301,7 @@ export type Database = {
           created_at: string
           document_number: string | null
           document_type: string | null
+          email: string | null
           full_name: string
           id: string
           is_active: boolean
@@ -314,6 +315,7 @@ export type Database = {
           created_at?: string
           document_number?: string | null
           document_type?: string | null
+          email?: string | null
           full_name: string
           id?: string
           is_active?: boolean
@@ -327,6 +329,7 @@ export type Database = {
           created_at?: string
           document_number?: string | null
           document_type?: string | null
+          email?: string | null
           full_name?: string
           id?: string
           is_active?: boolean
@@ -417,6 +420,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_approved: boolean
+          is_open: boolean
           latitude: number | null
           logo_file_id: string | null
           logo_url: string | null
@@ -434,6 +438,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_approved?: boolean
+          is_open?: boolean
           latitude?: number | null
           logo_file_id?: string | null
           logo_url?: string | null
@@ -451,6 +456,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_approved?: boolean
+          is_open?: boolean
           latitude?: number | null
           logo_file_id?: string | null
           logo_url?: string | null

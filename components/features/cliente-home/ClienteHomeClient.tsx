@@ -12,9 +12,11 @@ import { useState } from 'react'
 export function ClienteHomeClient({
   restaurants,
   popularProducts,
+  closedRestaurantIds,
 }: {
   restaurants: RestaurantCardData[]
   popularProducts: FeaturedProduct[]
+  closedRestaurantIds?: string[]
 }) {
   // El término de búsqueda ahora vive en el navbar (CustomerHeader) —
   // aquí solo lo leemos para filtrar la lista de negocios.
@@ -159,7 +161,11 @@ export function ClienteHomeClient({
           </div>
           <div className="flex snap-x gap-4 overflow-x-auto pb-2">
             {popularProducts.map((product) => (
-              <FeaturedProductCard key={product.id} product={product} />
+              <FeaturedProductCard
+                key={product.id}
+                product={product}
+                disabled={closedRestaurantIds?.includes(product.restaurant.id)}
+              />
             ))}
           </div>
         </section>

@@ -1,10 +1,16 @@
 import { createClient } from '@/lib/db/server'
+import { limaDayKey } from '@/lib/dates'
 import { DashboardCards } from '@/components/features/admin/DashboardCards'
 import { AdminDashboardCharts } from '@/components/features/admin/AdminDashboardCharts'
 import { RecentOrdersTable } from '@/components/features/admin/RecentOrdersTable'
 
 export default async function AdminHomePage() {
   const supabase = await createClient()
+
+  // Snapshot del "hoy" en Lima: se calcula en el servidor y viaja dentro del
+  // HTML. Así el componente cliente no recalcula new Date() al hidratar y no
+  // hay hydration mismatch por fecha (ver lib/dates.ts).
+  const todayKey = limaDayKey(new Date())
 
   const [
     { data: orders },
@@ -64,6 +70,7 @@ export default async function AdminHomePage() {
         restaurants={restaurants ?? []}
         deliveries={deliveries ?? []}
         deliveryPersons={deliveryPersons ?? []}
+        todayKey={todayKey}
       />
 
       <RecentOrdersTable />

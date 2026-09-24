@@ -11,6 +11,7 @@ export interface RestaurantCardData {
   logo_url: string | null
   address_text: string | null
   food_type?: string | null
+  isOpen?: boolean
 }
 
 export function RestaurantCard({
@@ -38,11 +39,18 @@ export function RestaurantCard({
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-          {restaurant.food_type && (
-            <Badge className="absolute left-3 top-3 border-0 bg-white/90 text-foreground shadow-sm backdrop-blur">
-              {restaurant.food_type}
-            </Badge>
-          )}
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            {restaurant.isOpen === false && (
+              <Badge className="border-0 bg-background/95 text-muted-foreground shadow-sm backdrop-blur">
+                Cerrado
+              </Badge>
+            )}
+            {restaurant.food_type && (
+              <Badge className="border-0 bg-white/90 text-foreground shadow-sm backdrop-blur">
+                {restaurant.food_type}
+              </Badge>
+            )}
+          </div>
           <span className="absolute bottom-3 right-3 translate-y-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-600 opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
             Ver menú
           </span>
