@@ -41,8 +41,7 @@ export async function RecentOrdersTable() {
       profiles:customer_id ( full_name ),
       order_items (
         product_name,
-        quantity,
-        restaurants ( name )
+        restaurant_name
       )
     `)
     .order('created_at', { ascending: false })
@@ -68,7 +67,7 @@ export async function RecentOrdersTable() {
             <TableBody>
               {orders.map((order) => {
                 const customerName = (order.profiles as unknown as { full_name: string } | null)?.full_name ?? '—'
-                const restaurantName = (order.order_items?.[0] as unknown as { restaurants: { name: string } } | null)?.restaurants?.name ?? '—'
+                const restaurantName = (order.order_items?.[0] as unknown as { restaurant_name: string | null } | null)?.restaurant_name ?? '—'
                 const createdAt = new Date(order.created_at)
 
                 return (

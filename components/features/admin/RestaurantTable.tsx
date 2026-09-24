@@ -106,8 +106,10 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
                     {r.whatsapp ?? '—'}
                   </TableCell>
                   <TableCell>
-                    {r.is_approved ? (
+                    {r.is_approved && r.is_active ? (
                       <Badge className="bg-green-100 text-green-800">Aprobado</Badge>
+                    ) : r.is_approved && !r.is_active ? (
+                      <Badge className="bg-amber-100 text-amber-800">Desactivado</Badge>
                     ) : (
                       <Badge variant="outline">Pendiente</Badge>
                     )}
@@ -124,6 +126,7 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
                       id={r.id}
                       name={r.name}
                       isApproved={r.is_approved}
+                      isActive={r.is_active}
                       restaurant={{
                         id: r.id,
                         name: r.name,

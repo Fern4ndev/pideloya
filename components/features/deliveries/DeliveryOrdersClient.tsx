@@ -54,7 +54,8 @@ export function DeliveryOrdersClient() {
       {!error && orders.length > 0 && (
         <div className="mt-6 space-y-3">
           {orders.map((order: any) => {
-            const restaurant = order.order_items?.[0]?.restaurants
+            const item0 = order.order_items?.[0]
+            const restaurant = item0?.restaurants
             const itemsSummary = order.order_items
               ?.map((i: any) => `${i.quantity}x ${i.product_name}`)
               .join(', ') ?? ''
@@ -62,7 +63,7 @@ export function DeliveryOrdersClient() {
             return (
               <DeliveryOrderCard
                 key={order.id}
-                restaurantName={restaurant?.name ?? 'Restaurante'}
+                restaurantName={item0?.restaurant_name ?? restaurant?.name ?? 'Restaurante'}
                 pickupAddress={restaurant?.address_text}
                 itemsSummary={itemsSummary}
                 deliveryAddress={order.addresses?.address_text}

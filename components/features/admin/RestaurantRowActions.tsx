@@ -21,21 +21,38 @@ export function RestaurantRowActions({
   id,
   name,
   isApproved,
+  isActive,
   restaurant,
 }: {
   id: string
   name: string
   isApproved: boolean
+  isActive: boolean
   restaurant: Restaurant
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const router = useRouter()
 
+  const isDeactivated = isApproved && !isActive
+  const showApprove = !isApproved || isDeactivated
+
   return (
     <>
       <RowActions
-        isApproved={isApproved}
-        onApprove={() => approveRestaurant(id)}
+        onApprove={
+          showApprove
+            ? async () => {
+                const result = await approveRestaurant(id)
+                return {
+                  ...result,
+                  message: isDeactivated
+                    ? 'Restaurante reactivado'
+                    : 'Restaurante aprobado',
+                }
+              }
+            : undefined
+        }
+        approveLabel={isDeactivated ? 'Reactivar' : 'Aprobar'}
         onEdit={() => setEditOpen(true)}
         onDelete={() => deleteRestaurant(id)}
         entityName="restaurante"

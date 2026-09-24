@@ -61,10 +61,15 @@ export const GET = withApi(async (request: Request) => {
   }
 
   // DELIVERY: asignados a él o disponibles (PENDING).
+  // restaurants se expande para pickupAddress (dirección de recojo) —
+  // adminClient salta RLS, así funciona aunque el restaurante esté
+  // desactivado. El nombre de la tarjeta usa el snapshot restaurant_name.
   if (context.role === 'DELIVERY') {
     const { data, error } = await client
       .from('orders')
-      .select('*, order_items(*), addresses(*), deliveries(*)')
+      .select(
+        '*, order_items(*, restaurants(name, address_text)), addresses(*), deliveries(*)'
+      )
       .in('status', ['PENDING', 'ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
       .order('created_at', { ascending: false })
     if (error) throw error
@@ -113,7 +118,7 @@ export const POST = withApi(async (request: Request) => {
   const productIds = items.map((i) => i.product_id)
   const { data: products, error: productsError } = await client
     .from('products')
-    .select('id, name, price, available, restaurant_id, restaurants(name)')
+    .select('id, name, price, available, restaurant_id, image_url, restaurants(name)')
     .in('id', productIds)
 
   if (productsError) throw productsError
@@ -159,6 +164,7 @@ export const POST = withApi(async (request: Request) => {
       order_id: order.id,
       product_id: item.product_id,
       product_name: product.name,
+      image_url: product.image_url,
       restaurant_id: product.restaurant_id,
       restaurant_name: (product.restaurants as unknown as Array<{ name: string }> | null)?.[0]?.name ?? null,
       quantity: item.quantity,

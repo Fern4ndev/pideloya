@@ -34,13 +34,25 @@ export function DeliveryRowActions({
   return (
     <>
       <RowActions
-        onApprove={!isActive ? () => approveDeliveryPerson(id) : undefined}
+        onApprove={
+          !isActive
+            ? async () => {
+                const result = await approveDeliveryPerson(id)
+                return { ...result, message: 'Repartidor activado' }
+              }
+            : undefined
+        }
         onEdit={() => setEditOpen(true)}
-        onDelete={async () => {
-          const result = await deactivateUser(id)
-          return { ...result, message: 'Repartidor desactivado' }
-        }}
+        onDelete={
+          isActive
+            ? async () => {
+                const result = await deactivateUser(id)
+                return { ...result, message: 'Repartidor desactivado' }
+              }
+            : undefined
+        }
         entityName="repartidor"
+        approveLabel="Reactivar"
         deleteTitle="Desactivar repartidor"
         deleteDescription="¿Desactivar este repartidor? Podrás reactivarlo cuando quieras. Su historial de entregas se conserva."
         deleteConfirmLabel="Desactivar"

@@ -101,8 +101,7 @@ export async function updateRestaurant(input: RestaurantInput) {
 
 /**
  * Abre o cierra el negocio (is_active) desde el header de "Mi negocio".
- * A diferencia de toggleRestaurantActive (admin), solo toca el estado
- * del restaurante y no desactiva perfiles.
+ * Solo toca el estado del restaurante y no desactiva perfiles.
  */
 export async function setRestaurantActive(isActive: boolean) {
   const { supabase, restaurantId } = await getMyRestaurantId()

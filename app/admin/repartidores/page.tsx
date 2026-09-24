@@ -9,7 +9,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DeliveryRowActions } from '@/components/features/admin/DeliveryRowActions'
-import { ActiveSwitch } from '@/components/features/admin/ActiveSwitch'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { getPagination } from '@/lib/pagination'
 
@@ -69,7 +68,6 @@ export default async function AdminDeliveryPage({
               <TableHead>Vehículo</TableHead>
               <TableHead className="w-28">Teléfono</TableHead>
               <TableHead className="w-24">Estado</TableHead>
-              <TableHead className="w-16">Activo</TableHead>
               <TableHead className="w-20 text-right">Registro</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -99,15 +97,8 @@ export default async function AdminDeliveryPage({
                     {d.is_active ? (
                       <Badge variant="secondary">Activo</Badge>
                     ) : (
-                      <Badge variant="outline">Pendiente</Badge>
+                      <Badge variant="outline">Inactivo</Badge>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <ActiveSwitch
-                      id={d.id}
-                      type="delivery"
-                      initialActive={d.is_active}
-                    />
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {createdAt.toLocaleDateString('es-PE', {

@@ -1,17 +1,17 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { PencilIcon, TrashIcon, CheckIcon } from 'lucide-react'
 import { ConfirmDialog } from './ConfirmDialog'
 
 type RowActionsProps = {
-  isApproved?: boolean
-  onApprove?: () => Promise<{ success: boolean }>
+  onApprove?: () => Promise<{ success: boolean; message?: string }>
   onEdit: () => void
-  onDelete: () => Promise<{ success: boolean; message?: string }>
+  onDelete?: () => Promise<{ success: boolean; message?: string }>
   entityName: string
-  renderSwitch?: React.ReactNode
+  approveLabel?: string
   deleteTitle?: string
   deleteDescription?: string
   deleteConfirmLabel?: string
@@ -19,12 +19,11 @@ type RowActionsProps = {
 }
 
 export function RowActions({
-  isApproved,
   onApprove,
   onEdit,
   onDelete,
   entityName,
-  renderSwitch,
+  approveLabel = 'Aprobar',
   deleteTitle,
   deleteDescription,
   deleteConfirmLabel,
@@ -41,6 +40,7 @@ export function RowActions({
   const [isPending, startTransition] = useTransition()
 
   function handleDelete() {
+    if (!onDelete) return
     setConfirmConfig({
       title: deleteTitle ?? `Eliminar ${entityName}`,
       description:
@@ -55,22 +55,28 @@ export function RowActions({
 
   function handleApprove() {
     if (!onApprove) return
-    startTransition(() => {
-      onApprove()
+    startTransition(async () => {
+      try {
+        const result = await onApprove()
+        toast.success(result.message ?? 'Operación completada')
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : 'No se pudo completar la acción'
+        )
+      }
     })
   }
 
   return (
     <>
       <div className="flex items-center gap-1">
-        {renderSwitch}
-        {onApprove && !isApproved && (
+        {onApprove && (
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={handleApprove}
             disabled={isPending}
-            title="Aprobar"
+            title={approveLabel}
           >
             <CheckIcon className="h-4 w-4 text-green-600" />
           </Button>
@@ -83,14 +89,16 @@ export function RowActions({
         >
           <PencilIcon className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={handleDelete}
-          title={deleteConfirmLabel ?? 'Eliminar'}
-        >
-          {deleteIcon ?? <TrashIcon className="h-4 w-4 text-destructive" />}
-        </Button>
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleDelete}
+            title={deleteConfirmLabel ?? 'Eliminar'}
+          >
+            {deleteIcon ?? <TrashIcon className="h-4 w-4 text-destructive" />}
+          </Button>
+        )}
       </div>
 
       {confirmConfig && (
