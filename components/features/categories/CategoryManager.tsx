@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import {
   createCategory,
   updateCategory,
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/features/admin/ConfirmDialog'
 import { PencilIcon, TrashIcon } from 'lucide-react'
+import { useToast } from '@/components/ui/toast'
 
 interface Category {
   id: string
@@ -30,6 +30,7 @@ export function CategoryManager({
   const [error, setError] = useState<string | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const { success } = useToast()
 
   function handleCreate() {
     setError(null)
@@ -40,7 +41,7 @@ export function CategoryManager({
         await createCategory({ name: newName.trim() })
         setNewName('')
         router.refresh()
-        toast.success('Categoría creada')
+        success('Categoría creada')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
@@ -60,7 +61,7 @@ export function CategoryManager({
         await updateCategory(id, { name: editingName.trim() })
         setEditingId(null)
         router.refresh()
-        toast.success('Categoría actualizada')
+        success('Categoría actualizada')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
@@ -68,7 +69,6 @@ export function CategoryManager({
   }
 
   async function handleDelete(id: string) {
-    // Los errores los captura ConfirmDialog y los muestra como toast.
     await deleteCategory(id)
     router.refresh()
   }
@@ -153,13 +153,13 @@ export function CategoryManager({
             )}
           </div>
         ))}
-
-        {initialCategories.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Todavía no tienes categorías.
-          </p>
-        )}
       </div>
+
+      {initialCategories.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Todavía no tienes categorías.
+        </p>
+      )}
 
       <ConfirmDialog
         open={deleteTargetId !== null}

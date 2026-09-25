@@ -1,10 +1,10 @@
 'use client'
 
 import { useTransition } from 'react'
-import { toast } from 'sonner'
 import { advanceOrderStatus } from '@/lib/actions/deliveries'
 import { Button } from '@/components/ui/button'
 import type { OrderStatus } from '@/types/order'
+import { useToast } from '@/components/ui/toast'
 
 const NEXT_LABEL: Record<string, string> = {
   ASSIGNED: 'Marcar como recogido',
@@ -21,6 +21,7 @@ export function AdvanceStatusButton({
 }) {
   const [isPending, startTransition] = useTransition()
   const label = NEXT_LABEL[currentStatus]
+  const { success, error } = useToast()
 
   if (!label) return null
 
@@ -28,9 +29,9 @@ export function AdvanceStatusButton({
     startTransition(async () => {
       try {
         await advanceOrderStatus(orderId, currentStatus)
-        toast.success('Estado actualizado')
+        success('Estado actualizado')
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Algo salió mal')
+        error('Algo salió mal', err instanceof Error ? err.message : undefined)
       }
     })
   }

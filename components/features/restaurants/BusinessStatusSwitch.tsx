@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { setRestaurantOpen } from '@/lib/actions/restaurants'
 import { Switch } from '@/components/ui/switch'
 import { StoreIcon } from 'lucide-react'
-import { toast } from 'sonner'
+import { useToast } from '@/components/ui/toast'
 
 export function BusinessStatusSwitch({
   initialIsOpen,
@@ -13,16 +13,17 @@ export function BusinessStatusSwitch({
 }) {
   const [isOpen, setIsOpen] = useState(initialIsOpen)
   const [isPending, startTransition] = useTransition()
+  const { success, error } = useToast()
 
   function handleToggle(checked: boolean) {
     setIsOpen(checked)
     startTransition(async () => {
       try {
         await setRestaurantOpen(checked)
-        toast.success(checked ? 'Negocio abierto' : 'Negocio cerrado')
+        success(checked ? 'Negocio abierto' : 'Negocio cerrado')
       } catch (err) {
         setIsOpen(!checked)
-        toast.error(err instanceof Error ? err.message : 'No se pudo cambiar el estado')
+        error('No se pudo cambiar el estado', err instanceof Error ? err.message : undefined)
       }
     })
   }

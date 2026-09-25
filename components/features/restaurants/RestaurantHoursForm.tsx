@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { toast } from 'sonner'
+import { useToast } from '@/components/ui/toast'
 import { Loader2 } from 'lucide-react'
 
 type DayHours = {
@@ -58,6 +58,7 @@ export function RestaurantHoursForm({
     return DEFAULT_HOURS
   })
   const [saving, setSaving] = useState(false)
+  const { success, error } = useToast()
 
   const updateDay = (dayOfWeek: number, field: keyof DayHours, value: string | boolean) => {
     setHours((prev) =>
@@ -69,9 +70,9 @@ export function RestaurantHoursForm({
     setSaving(true)
     try {
       await updateRestaurantHours(hours)
-      toast.success('Horarios actualizados correctamente')
+      success('Horarios actualizados correctamente')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al guardar')
+      error('Error al guardar', e instanceof Error ? e.message : undefined)
     } finally {
       setSaving(false)
     }

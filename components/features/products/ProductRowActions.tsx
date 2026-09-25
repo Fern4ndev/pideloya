@@ -20,7 +20,6 @@ export function ProductRowActions({
   const router = useRouter()
 
   async function handleDelete() {
-    // Los errores los captura ConfirmDialog y los muestra como toast.
     await deleteProduct(product.id)
     router.refresh()
   }
