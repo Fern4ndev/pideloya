@@ -26,9 +26,10 @@
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
 
-  /* Único acento de color del sistema: azul, uso moderado (links, focus, badges de estado) */
+  /* Tinte azul claro: hover de menús/selects (accent-foreground oscuro encima,
+     contraste ≈ 10:1 — antes era blanco sobre blanco e ilegible) */
   --accent: oklch(93.354% 0.00183 249.164);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: oklch(0.205 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
@@ -61,7 +62,8 @@
   --muted-foreground: oklch(0.708 0 0);
 
   --accent: oklch(0.65 0.17 258.3);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Texto oscuro sobre el accent azul (L0.65) → ≈ 6:1 */
+  --accent-foreground: oklch(0.205 0 0);
 
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
