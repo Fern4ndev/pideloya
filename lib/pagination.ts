@@ -1,4 +1,4 @@
-export const PAGE_SIZE = 15
+export const PAGE_SIZE = 10
 
 export type PaginationState = {
   page: number

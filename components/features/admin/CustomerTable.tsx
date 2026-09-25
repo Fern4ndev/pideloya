@@ -14,6 +14,7 @@ import {
 import { UserRowActions } from './UserRowActions'
 import { SearchIcon } from 'lucide-react'
 import type { UserSummary } from './ViewUserDialog'
+import { TableShell } from '@/components/ui/table-shell'
 
 export type CustomerRow = UserSummary & {
   registered: string
@@ -49,7 +50,8 @@ export function CustomerTable({
         />
       </form>
 
-      <Table>
+      <TableShell>
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">N°</TableHead>
@@ -81,6 +83,7 @@ export function CustomerTable({
           })}
         </TableBody>
       </Table>
+        </TableShell>
     </div>
   )
 }

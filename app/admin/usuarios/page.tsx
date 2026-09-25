@@ -103,11 +103,14 @@ export default async function UsuariosPage({
             initialQuery={query}
             startIndex={pagination.start}
           />
-          <TablePagination
-            basePath={basePath}
-            page={pagination.page}
-            pageCount={pagination.pageCount}
-          />
+          <div className="mt-4 flex justify-end">
+            <TablePagination
+              basePath={basePath}
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              alwaysShow={true}
+            />
+          </div>
         </>
       )}
 

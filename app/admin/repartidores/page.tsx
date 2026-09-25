@@ -61,16 +61,16 @@ export default async function AdminDeliveryPage({
       {!pagedError && pagedDeliveryPeople && pagedDeliveryPeople.length > 0 && (
         <>
           <TableShell className="mt-6">
-            <Table>
+            <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">N°</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Documento</TableHead>
-              <TableHead>Vehículo</TableHead>
-              <TableHead className="w-28">Teléfono</TableHead>
+              <TableHead className="w-48">Nombre</TableHead>
+              <TableHead className="w-24">DNI</TableHead>
+              <TableHead className="w-28">Vehículo</TableHead>
+              <TableHead className="w-24">Teléfono</TableHead>
               <TableHead className="w-24">Estado</TableHead>
-              <TableHead className="w-20 text-right">Registro</TableHead>
+              <TableHead className="w-28 text-center">Registro</TableHead>
               <TableHead className="w-20">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -83,16 +83,14 @@ export default async function AdminDeliveryPage({
                   <TableCell className="text-muted-foreground">
                     {pagination.start + index + 1}
                   </TableCell>
-                  <TableCell className="font-medium">{d.full_name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {d.document_type
-                      ? `${d.document_type} ${d.document_number}`
-                      : '—'}
+                  <TableCell className="max-w-48 truncate font-medium" title={d.full_name ?? ''}>{d.full_name}</TableCell>
+                  <TableCell className="text-muted-foreground tabular-nums">
+                    {d.document_number ?? '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {d.vehicle_type ?? '—'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground tabular-nums">
                     {d.phone ?? '—'}
                   </TableCell>
                   <TableCell>
@@ -102,7 +100,7 @@ export default async function AdminDeliveryPage({
                       <Badge variant="outline">Inactivo</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
+                  <TableCell className="text-center text-muted-foreground">
                     {createdAt.toLocaleDateString('es-PE', {
                       day: '2-digit',
                       month: 'short',
@@ -130,11 +128,14 @@ export default async function AdminDeliveryPage({
           </Table>
           </TableShell>
 
-          <TablePagination
-            basePath="/admin/repartidores"
-            page={pagination.page}
-            pageCount={pagination.pageCount}
-          />
+          <div className="mt-4 flex justify-end">
+            <TablePagination
+              basePath="/admin/repartidores"
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              alwaysShow={true}
+            />
+          </div>
         </>
       )}
 
