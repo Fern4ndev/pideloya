@@ -63,7 +63,9 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // false = el popup siempre abre desde arriba (primera opción al inicio);
+  // true = comportamiento nativo del SO: ancla la opción seleccionada sobre el trigger.
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<

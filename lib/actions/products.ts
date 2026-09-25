@@ -99,18 +99,37 @@ export async function updateProduct(productId: string, input: ProductInput) {
 export async function deleteProduct(productId: string) {
   const { supabase } = await getMyRestaurantId()
 
-  const { data: current } = await supabase
+  const { data: current, error: fetchError } = await supabase
     .from('products')
     .select('image_file_id')
     .eq('id', productId)
-    .single()
+    .maybeSingle()
 
-  const { error } = await supabase.from('products').delete().eq('id', productId)
+  // Sin este chequeo, un producto que RLS oculta produciría un delete de
+  // 0 filas: toast de "Operación completada" sin borrar nada.
+  if (fetchError) throw new Error(fetchError.message)
+  if (!current) {
+    throw new Error('Producto no encontrado o no tienes permiso para eliminarlo')
+  }
+
+  const { error, count } = await supabase
+    .from('products')
+    .delete({ count: 'exact' })
+    .eq('id', productId)
 
   if (error) throw new Error(error.message)
+  if (!count) throw new Error('No se pudo eliminar el producto')
 
-  await deleteImageKitFileSafe(current?.image_file_id)
+  await deleteImageKitFileSafe(current.image_file_id)
 
   revalidatePath('/restaurante/productos')
+  // El producto también se muestra en la carta pública, en el home del
+  // cliente y en su página de detalle: si no se revalidan, el producto
+  // borrado sigue apareciendo ahí.
+  revalidatePath('/restaurantes')
+  revalidatePath('/restaurantes', 'layout')
+  revalidatePath('/cliente')
+  revalidatePath('/cliente', 'layout')
+  revalidatePath(`/productos/${productId}`)
   return { success: true }
 }
