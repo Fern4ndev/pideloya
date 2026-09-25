@@ -75,6 +75,14 @@ export const POST = withApi(async (request: Request) => {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') {
+      return errorResponse(
+        'Ya tienes una dirección guardada. Edita la dirección existente.',
+        409
+      )
+    }
+    throw error
+  }
   return successResponse(data, 201)
 })

@@ -18,11 +18,15 @@ export const POST = withApi(async (request: Request, ctx: RouteCtx) => {
   const client = adminClient()
 
   // Regla de negocio: un repartidor solo puede tener UNA entrega activa.
+  // adminClient salta RLS, así que el filtro por persona debe ser EXPLÍCITO:
+  // solo cuentan las entregas activas MÍAS (deliveries.delivery_person_id),
+  // no las de otros repartidores.
   if (context.role === 'DELIVERY') {
     const { data: active } = await client
-      .from('orders')
-      .select('id')
-      .in('status', ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
+      .from('deliveries')
+      .select('id, orders!inner(status)')
+      .eq('delivery_person_id', context.profileId)
+      .in('orders.status', ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
       .limit(1)
     if (active && active.length > 0) {
       return errorResponse(

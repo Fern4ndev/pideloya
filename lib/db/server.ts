@@ -46,6 +46,33 @@ export async function createClient() {
  *
  * NUNCA lo importes en código que corra en el navegador.
  */
+/**
+ * Cliente para rutas API que se autentican con `Authorization: Bearer`.
+ * No lee cookies: adjunta el access token validado a cada query, para que
+ * PostgREST opere como `authenticated` y las policies (auth.uid()) apliquen
+ * igual que en el navegador. Sin esto, un cliente sin cookies (curl, apps
+ * móviles, scripts de test) recibía 403 "Cuenta sin perfil configurado".
+ */
+export function createBearerClient(accessToken: string) {
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return []
+        },
+        setAll() {},
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    }
+  )
+}
+
 export function createServiceRoleClient() {
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

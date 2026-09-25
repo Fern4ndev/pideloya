@@ -1,4 +1,4 @@
-import { createClient, createServiceRoleClient } from '@/lib/db/server'
+import { createBearerClient, createServiceRoleClient } from '@/lib/db/server'
 import type { Role } from '@/types/auth'
 
 export interface AuthContext {
@@ -60,7 +60,7 @@ export async function authenticateRequest(request: Request): Promise<AuthContext
   const accessToken = authHeader.slice('Bearer '.length).trim()
   if (!accessToken) throw new UnauthorizedError()
 
-  const supabase = await createClient()
+  const supabase = createBearerClient(accessToken)
 
   const {
     data: { user },
