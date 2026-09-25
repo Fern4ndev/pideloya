@@ -7,15 +7,23 @@ export type PaginationState = {
   end: number
 }
 
+/**
+ * Parsea el parámetro de página de la URL sin conocer el total.
+ * Útil para derivar el offset de una query ANTES de tener el count
+ * (permite lanzar count y data en paralelo con Promise.all).
+ */
+export function parsePage(pageParam?: string | string[] | undefined): number {
+  const rawPage = Array.isArray(pageParam) ? pageParam[0] : pageParam
+  const parsed = Number.parseInt(rawPage ?? '1', 10)
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1
+}
+
 export function getPagination(
   total: number,
   pageParam?: string | string[] | undefined
 ): PaginationState {
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
-  const rawPage = Array.isArray(pageParam) ? pageParam[0] : pageParam
-  const parsed = Number.parseInt(rawPage ?? '1', 10)
-  const page = Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, pageCount) : 1
+  const page = Math.min(parsePage(pageParam), pageCount)
 
   const start = (page - 1) * PAGE_SIZE
   const end = Math.min(page * PAGE_SIZE, total)

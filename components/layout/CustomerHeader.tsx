@@ -149,7 +149,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <button className="rounded-full outline-none ring-brand-500/40 transition-shadow focus-visible:ring-2" />
+                <button className="rounded-full outline-none" />
               }
             >
               <Avatar className="h-9 w-9 ring-1 ring-black/5 dark:ring-white/10">

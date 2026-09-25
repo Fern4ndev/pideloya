@@ -147,18 +147,21 @@ export async function deleteUser(profileId: string) {
 
   if (!profile) throw new Error('Perfil no encontrado')
 
-  // Eliminar el perfil primero; el FK con auth.users es
-  // "on delete cascade" (ver migración de profiles).
-  const { error: deleteError } = await adminClient
-    .from('profiles')
-    .delete()
-    .eq('id', profileId)
-  if (deleteError) throw new Error(deleteError.message)
-
+  // Se borra PRIMERO la cuenta de auth: el FK profiles.auth_id →
+  // auth.users es "on delete cascade", así que Postgres purga el perfil
+  // en la misma operación (atómica: si el cascade fallara, la cuenta queda
+  // intacta y no queda un auth sin perfil). Los pedidos se conservan con
+  // customer_id = null (migración orders_customer_set_null).
   if (profile.auth_id) {
     const { error: authError } =
       await adminClient.auth.admin.deleteUser(profile.auth_id as string)
     if (authError) throw new Error(authError.message)
+  } else {
+    const { error: deleteError } = await adminClient
+      .from('profiles')
+      .delete()
+      .eq('id', profileId)
+    if (deleteError) throw new Error(deleteError.message)
   }
 
   revalidatePath('/admin/usuarios')

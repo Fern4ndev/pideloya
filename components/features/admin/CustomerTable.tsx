@@ -15,12 +15,16 @@ import { UserRowActions } from './UserRowActions'
 import { SearchIcon } from 'lucide-react'
 import type { UserSummary } from './ViewUserDialog'
 
+export type CustomerRow = UserSummary & {
+  registered: string
+}
+
 export function CustomerTable({
   customers,
   initialQuery,
   startIndex,
 }: {
-  customers: UserSummary[]
+  customers: CustomerRow[]
   initialQuery: string
   startIndex: number
 }) {
@@ -57,8 +61,6 @@ export function CustomerTable({
         </TableHeader>
         <TableBody>
           {customers.map((c, index) => {
-            const createdAt = new Date(c.created_at)
-
             return (
               <TableRow key={c.id}>
                 <TableCell className="text-muted-foreground">
@@ -69,11 +71,7 @@ export function CustomerTable({
                   {c.email ?? '—'}
                 </TableCell>
                 <TableCell className="text-center text-muted-foreground">
-                  {createdAt.toLocaleDateString('es-PE', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {c.registered}
                 </TableCell>
                 <TableCell>
                   <UserRowActions user={c} />

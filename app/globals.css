@@ -366,9 +366,15 @@
     mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, black 0%, transparent 100%);
   }
 
+/*
+ * Foco visible de click y de teclado: ÚNICO indicador de focus de la app.
+ * Los controles (input, button, select…) ya no traen su propio ring gris
+ * para no apilar dos tratamientos distintos — todo enfoca en lima.
+ * Los errores de validación (aria-invalid) siguen usando rojo aparte.
+ */
 :focus-visible {
   outline: 2px solid var(--lime);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {
