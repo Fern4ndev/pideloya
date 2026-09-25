@@ -14,8 +14,10 @@ import { ProductRowActions } from '@/components/features/products/ProductRowActi
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { TablePagination } from '@/components/ui/table-pagination'
+import { TableShell } from '@/components/ui/table-shell'
+import { EmptyState } from '@/components/ui/empty-state'
 import { getPagination } from '@/lib/pagination'
-import { PlusIcon } from 'lucide-react'
+import { PlusIcon, PackageOpenIcon } from 'lucide-react'
 
 export default async function RestaurantProductsPage({
   searchParams,
@@ -66,7 +68,11 @@ export default async function RestaurantProductsPage({
         title="Productos"
         description="Lo que ven tus clientes en tu carta."
         action={
-          <Button render={<Link href="/restaurante/productos/nuevo" />} nativeButton={false}>
+          <Button
+            variant="lime"
+            render={<Link href="/restaurante/productos/nuevo" />}
+            nativeButton={false}
+          >
             <PlusIcon />
             Nuevo producto
           </Button>
@@ -74,13 +80,13 @@ export default async function RestaurantProductsPage({
       />
 
       {error && (
-        <p className="mt-6 text-sm text-destructive">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           No se pudo cargar tu catálogo.
         </p>
       )}
 
       {!error && products && products.length > 0 && (
-        <div className="mt-6 overflow-hidden rounded-2xl border">
+        <TableShell className="mt-6">
           <Table>
             <TableHeader>
               <TableRow>
@@ -130,7 +136,7 @@ export default async function RestaurantProductsPage({
               ))}
             </TableBody>
           </Table>
-        </div>
+        </TableShell>
       )}
 
       {!error && products && products.length > 0 && (
@@ -143,12 +149,12 @@ export default async function RestaurantProductsPage({
       )}
 
       {!error && total === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-          <p className="font-medium">Todavía no tienes productos</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Crea el primero para que empiece a aparecer en tu carta pública.
-          </p>
-        </div>
+        <EmptyState
+          icon={PackageOpenIcon}
+          title="Todavía no tienes productos"
+          description="Crea el primero para que empiece a aparecer en tu carta pública."
+          className="mt-10"
+        />
       )}
     </PageContainer>
   )

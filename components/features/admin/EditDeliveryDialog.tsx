@@ -135,7 +135,7 @@ export function EditDeliveryDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" variant="lime" disabled={isPending}>
               {isPending ? 'Guardando…' : 'Guardar'}
             </Button>
           </DialogFooter>

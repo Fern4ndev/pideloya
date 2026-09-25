@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import {
   createCategory,
   updateCategory,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/actions/categories'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ConfirmDialog } from '@/components/features/admin/ConfirmDialog'
 import { PencilIcon, TrashIcon } from 'lucide-react'
 
 interface Category {
@@ -26,6 +28,7 @@ export function CategoryManager({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleCreate() {
@@ -37,6 +40,7 @@ export function CategoryManager({
         await createCategory({ name: newName.trim() })
         setNewName('')
         router.refresh()
+        toast.success('Categoría creada')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
@@ -56,28 +60,17 @@ export function CategoryManager({
         await updateCategory(id, { name: editingName.trim() })
         setEditingId(null)
         router.refresh()
+        toast.success('Categoría actualizada')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
     })
   }
 
-  function handleDelete(id: string) {
-    if (
-      !confirm(
-        '¿Eliminar esta categoría? Los productos que la usaban quedarán sin categoría.'
-      )
-    )
-      return
-
-    startTransition(async () => {
-      try {
-        await deleteCategory(id)
-        router.refresh()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Algo salió mal')
-      }
-    })
+  async function handleDelete(id: string) {
+    // Los errores los captura ConfirmDialog y los muestra como toast.
+    await deleteCategory(id)
+    router.refresh()
   }
 
   return (
@@ -94,12 +87,12 @@ export function CategoryManager({
             }
           }}
         />
-        <Button type="button" disabled={isPending} onClick={handleCreate}>
+        <Button type="button" variant="lime" disabled={isPending} onClick={handleCreate}>
           Agregar
         </Button>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <div className="space-y-2">
         {initialCategories.map((category) => (
@@ -151,8 +144,7 @@ export function CategoryManager({
                   size="icon-sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  disabled={isPending}
-                  onClick={() => handleDelete(category.id)}
+                  onClick={() => setDeleteTargetId(category.id)}
                   title="Eliminar"
                 >
                   <TrashIcon className="h-4 w-4" />
@@ -168,6 +160,20 @@ export function CategoryManager({
           </p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null)
+        }}
+        title="¿Eliminar categoría?"
+        description="Los productos que la usaban quedarán sin categoría."
+        confirmLabel="Eliminar"
+        onConfirm={async () => {
+          if (deleteTargetId) await handleDelete(deleteTargetId)
+          setDeleteTargetId(null)
+        }}
+      />
     </div>
   )
 }

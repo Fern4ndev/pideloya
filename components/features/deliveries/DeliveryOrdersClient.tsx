@@ -5,6 +5,7 @@ import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 
 async function fetchDeliveryOrders(url: string) {
@@ -46,7 +47,7 @@ export function DeliveryOrdersClient() {
   return (
     <>
       {error && (
-        <p className="mt-6 text-sm text-destructive">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           No se pudieron cargar tus entregas.
         </p>
       )}
@@ -70,6 +71,7 @@ export function DeliveryOrdersClient() {
                 deliveryReference={order.addresses?.reference}
                 total={Number(order.total)}
                 badge={<OrderStatusBadge status={order.status} />}
+                detailHref={`/repartidor/pedidos/${order.id}`}
                 action={
                   <AdvanceStatusButton
                     orderId={order.id}
@@ -83,12 +85,11 @@ export function DeliveryOrdersClient() {
       )}
 
       {!error && orders.length === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-          <p className="font-medium">No tienes entregas activas</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Ve a Disponibles para aceptar un pedido.
-          </p>
-        </div>
+        <EmptyState
+          title="No tienes entregas activas"
+          description="Ve a Disponibles para aceptar un pedido."
+          className="mt-10"
+        />
       )}
     </>
   )

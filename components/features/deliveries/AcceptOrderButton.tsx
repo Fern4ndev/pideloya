@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { acceptOrder } from '@/lib/actions/deliveries'
 import { Button } from '@/components/ui/button'
 
@@ -15,13 +16,13 @@ export function AcceptOrderButton({ orderId }: { orderId: string }) {
         await acceptOrder(orderId)
         router.push('/repartidor/pedidos')
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Algo salió mal')
+        toast.error(err instanceof Error ? err.message : 'Algo salió mal')
       }
     })
   }
 
   return (
-    <Button size="sm" className="mt-2" disabled={isPending} onClick={handleAccept}>
+    <Button size="sm" variant="lime" className="mt-2" disabled={isPending} onClick={handleAccept}>
       {isPending ? 'Aceptando…' : 'Aceptar'}
     </Button>
   )

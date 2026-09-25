@@ -96,23 +96,6 @@ export async function updateProduct(productId: string, input: ProductInput) {
   return { success: true }
 }
 
-export async function toggleProductAvailability(
-  productId: string,
-  available: boolean
-) {
-  const { supabase } = await getMyRestaurantId()
-
-  const { error } = await supabase
-    .from('products')
-    .update({ available })
-    .eq('id', productId)
-
-  if (error) throw new Error(error.message)
-
-  revalidatePath('/restaurante/productos')
-  return { success: true }
-}
-
 export async function deleteProduct(productId: string) {
   const { supabase } = await getMyRestaurantId()
 

@@ -11,6 +11,11 @@ import {
 import { DeliveryRowActions } from '@/components/features/admin/DeliveryRowActions'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { getPagination } from '@/lib/pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
+import { TableShell } from '@/components/ui/table-shell'
+import { EmptyState } from '@/components/ui/empty-state'
+import { BikeIcon } from 'lucide-react'
 
 export default async function AdminDeliveryPage({
   searchParams,
@@ -41,25 +46,22 @@ export default async function AdminDeliveryPage({
     .range(pagination.start, pagination.end - 1)
 
   return (
-    <div>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Repartidores
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Revisa y administra a los repartidores que se registraron desde la
-          página principal.
-        </p>
-      </div>
+    <PageContainer size="full">
+      <PageHeader
+        title="Repartidores"
+        description="Revisa y administra a los repartidores que se registraron desde la página principal."
+      />
 
       {pagedError && (
-        <p className="mt-6 text-sm text-destructive">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           No se pudo cargar la lista de repartidores.
         </p>
       )}
 
       {!pagedError && pagedDeliveryPeople && pagedDeliveryPeople.length > 0 && (
-        <Table className="mt-6">
+        <>
+          <TableShell className="mt-6">
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">N°</TableHead>
@@ -125,22 +127,25 @@ export default async function AdminDeliveryPage({
               )
             })}
           </TableBody>
-        </Table>
-      )}
+          </Table>
+          </TableShell>
 
-      {!pagedError && pagedDeliveryPeople && pagedDeliveryPeople.length > 0 && (
-        <TablePagination
-          basePath="/admin/repartidores"
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-        />
+          <TablePagination
+            basePath="/admin/repartidores"
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+          />
+        </>
       )}
 
       {!pagedError && total === 0 && (
-        <p className="mt-10 text-center text-sm text-muted-foreground">
-          Todavía no hay repartidores registrados.
-        </p>
+        <EmptyState
+          icon={BikeIcon}
+          title="Todavía no hay repartidores registrados"
+          description="Las cuentas de repartidores aparecerán aquí cuando se registren."
+          className="mt-10"
+        />
       )}
-    </div>
+    </PageContainer>
   )
 }

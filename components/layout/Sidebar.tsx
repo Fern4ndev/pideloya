@@ -142,14 +142,18 @@ export function Sidebar({
 
       <nav className="flex flex-1 flex-col gap-1">
         {links.map((link) => {
-          const active = pathname === link.href
+          // Prefijo para resaltar también subrutas (ej. /restaurante/productos/nuevo
+          // resalta "Productos"); el home solo se marca en coincidencia exacta.
+          const active =
+            pathname === link.href ||
+            (link.href !== homeHref && pathname.startsWith(`${link.href}/`))
           const Icon = link.icon
           return (
             <Button
               key={link.href}
               render={<Link href={link.href} />}
               nativeButton={false}
-              variant={active ? 'default' : 'ghost'}
+              variant={active ? 'lime' : 'ghost'}
               size="sm"
               title={compact ? link.label : undefined}
               className={cn('gap-2', compact ? 'justify-center px-0' : 'justify-start')}

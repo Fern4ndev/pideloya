@@ -4,6 +4,7 @@ import useSWR from 'swr'
 import { createClient } from '@/lib/db/client'
 import { AcceptOrderButton } from '@/components/features/deliveries/AcceptOrderButton'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 
 async function fetchAvailableOrders(url: string) {
@@ -49,7 +50,7 @@ export function AvailableOrdersClient() {
   return (
     <>
       {error && (
-        <p className="mt-6 text-sm text-destructive">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           No se pudieron cargar los pedidos.
         </p>
       )}
@@ -79,12 +80,11 @@ export function AvailableOrdersClient() {
       )}
 
       {!error && orders.length === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-          <p className="font-medium">No hay pedidos disponibles ahora mismo</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Vuelve a revisar en un rato.
-          </p>
-        </div>
+        <EmptyState
+          title="No hay pedidos disponibles ahora mismo"
+          description="Vuelve a revisar en un rato."
+          className="mt-10"
+        />
       )}
     </>
   )

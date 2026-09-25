@@ -100,7 +100,6 @@ export function BusinessInfoForm({
         <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
-          className='w-full max-w-[525px] border p-2"'
           value={form.description}
           onChange={(e) =>
             setForm((f) => ({ ...f, description: e.target.value }))
@@ -144,10 +143,10 @@ export function BusinessInfoForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {success && <p className="text-sm text-green-600">Guardado.</p>}
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" variant="lime" disabled={isPending}>
         {isPending ? 'Guardando…' : 'Guardar cambios'}
       </Button>
     </form>

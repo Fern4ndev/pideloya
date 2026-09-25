@@ -100,10 +100,10 @@ export function ProfileForm({
           </div>
         )}
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {success && <p className="text-sm text-green-600">Guardado.</p>}
 
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" variant="lime" disabled={isPending}>
           {isPending ? 'Guardando…' : 'Guardar cambios'}
         </Button>
       </form>
@@ -168,7 +168,7 @@ function PasswordChangeForm() {
         />
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {success && (
         <p className="text-sm text-green-600">Contraseña actualizada.</p>
       )}

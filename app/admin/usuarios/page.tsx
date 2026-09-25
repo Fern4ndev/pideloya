@@ -2,6 +2,10 @@ import { createClient } from '@/lib/db/server'
 import { CustomerTable } from '@/components/features/admin/CustomerTable'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { getPagination } from '@/lib/pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
+import { EmptyState } from '@/components/ui/empty-state'
+import { UsersIcon, SearchXIcon } from 'lucide-react'
 
 export default async function UsuariosPage({
   searchParams,
@@ -40,16 +44,14 @@ export default async function UsuariosPage({
     : '/admin/usuarios'
 
   return (
-    <div>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Usuarios</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Revisa y administra los clientes que se registraron con su cuenta de Google.
-        </p>
-      </div>
+    <PageContainer size="full">
+      <PageHeader
+        title="Usuarios"
+        description="Revisa y administra los clientes que se registraron con su cuenta de Google."
+      />
 
       {error && (
-        <p className="mt-6 text-sm text-destructive">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           No se pudo cargar la lista de clientes.
         </p>
       )}
@@ -70,12 +72,21 @@ export default async function UsuariosPage({
       )}
 
       {!error && total === 0 && (
-        <p className="mt-10 text-center text-sm text-muted-foreground">
-          {query
-            ? `No se encontraron clientes para "${query}".`
-            : 'Todavía no hay clientes registrados.'}
-        </p>
+        <EmptyState
+          icon={query ? SearchXIcon : UsersIcon}
+          title={
+            query
+              ? `No se encontraron clientes para "${query}"`
+              : 'Todavía no hay clientes registrados'
+          }
+          description={
+            query
+              ? 'Prueba con otro nombre o correo.'
+              : 'Las cuentas de clientes aparecerán aquí cuando se registren.'
+          }
+          className="mt-10"
+        />
       )}
-    </div>
+    </PageContainer>
   )
 }

@@ -5,6 +5,10 @@ import { RestaurantOrdersTable } from '@/components/features/restaurants/Restaur
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { TablePagination } from '@/components/ui/table-pagination'
+import { TableShell } from '@/components/ui/table-shell'
+import { EmptyState } from '@/components/ui/empty-state'
+import { RealtimeRefresh } from '@/components/ui/realtime-refresh'
+import { ClipboardListIcon } from 'lucide-react'
 import { getPagination } from '@/lib/pagination'
 
 export default async function RestaurantOrdersPage({
@@ -60,21 +64,24 @@ export default async function RestaurantOrdersPage({
 
   return (
     <PageContainer size="full">
+      {/* La tabla de pedidos se actualiza sola con cada cambio en orders */}
+      <RealtimeRefresh channelName="restaurant-orders" table="orders" />
+
       <PageHeader
         title="Pedidos"
         description="Historial de pedidos que incluyen tus productos."
       />
 
       {error && (
-        <p className="mt-6 text-sm text-destructive">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           No se pudo cargar tus pedidos.
         </p>
       )}
 
       {!error && total > 0 && (
-        <div className="mt-6 overflow-hidden rounded-2xl border">
+        <TableShell className="mt-6">
           <RestaurantOrdersTable orders={rows} startIndex={pagination.start} />
-        </div>
+        </TableShell>
       )}
 
       {!error && total > 0 && (
@@ -87,12 +94,12 @@ export default async function RestaurantOrdersPage({
       )}
 
       {!error && total === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-          <p className="font-medium">Aún no tienes pedidos</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Cuando tus clientes compren, los pedidos aparecerán aquí.
-          </p>
-        </div>
+        <EmptyState
+          icon={ClipboardListIcon}
+          title="Aún no tienes pedidos"
+          description="Cuando tus clientes compren, los pedidos aparecerán aquí."
+          className="mt-10"
+        />
       )}
     </PageContainer>
   )

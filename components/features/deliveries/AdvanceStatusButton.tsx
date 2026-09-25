@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { toast } from 'sonner'
 import { advanceOrderStatus } from '@/lib/actions/deliveries'
 import { Button } from '@/components/ui/button'
 import type { OrderStatus } from '@/types/order'
@@ -27,14 +28,15 @@ export function AdvanceStatusButton({
     startTransition(async () => {
       try {
         await advanceOrderStatus(orderId, currentStatus)
+        toast.success('Estado actualizado')
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Algo salió mal')
+        toast.error(err instanceof Error ? err.message : 'Algo salió mal')
       }
     })
   }
 
   return (
-    <Button size="sm" disabled={isPending} onClick={handleClick}>
+    <Button size="sm" variant="lime" disabled={isPending} onClick={handleClick}>
       {isPending ? 'Actualizando…' : label}
     </Button>
   )

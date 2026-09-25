@@ -125,7 +125,7 @@ export function RestaurantHoursForm({
           </TableBody>
         </Table>
 
-        <Button onClick={handleSave} disabled={saving}>
+        <Button variant="lime" onClick={handleSave} disabled={saving}>
           {saving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

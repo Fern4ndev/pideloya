@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TablePagination } from '@/components/ui/table-pagination'
+import { TableShell } from '@/components/ui/table-shell'
 import { PAGE_SIZE } from '@/lib/pagination'
 import { RestaurantRowActions } from './RestaurantRowActions'
 import { SearchIcon } from 'lucide-react'
@@ -73,7 +74,8 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
       </div>
 
       {filtered.length > 0 ? (
-        <Table>
+        <TableShell>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">N°</TableHead>
@@ -107,9 +109,9 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
                   </TableCell>
                   <TableCell>
                     {r.is_approved && r.is_active ? (
-                      <Badge className="bg-green-100 text-green-800">Aprobado</Badge>
+                      <Badge>Aprobado</Badge>
                     ) : r.is_approved && !r.is_active ? (
-                      <Badge className="bg-amber-100 text-amber-800">Desactivado</Badge>
+                      <Badge variant="secondary">Desactivado</Badge>
                     ) : (
                       <Badge variant="outline">Pendiente</Badge>
                     )}
@@ -140,7 +142,8 @@ export function RestaurantTable({ restaurants }: { restaurants: Restaurant[] }) 
               )
             })}
           </TableBody>
-        </Table>
+          </Table>
+        </TableShell>
         ) : (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
             No se encontraron restaurantes para &quot;{search}&quot;.

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/server'
 import { ProfileForm } from '@/components/features/profile/ProfileForm'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
 
 export default async function AdminProfilePage() {
   const supabase = await createClient()
@@ -14,8 +16,11 @@ export default async function AdminProfilePage() {
     .single()
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
+    <PageContainer size="sm">
+      <PageHeader
+        title="Mi perfil"
+        description="Actualiza tus datos personales y tu contraseña."
+      />
       <div className="mt-6">
         <ProfileForm
           email={user!.email ?? ''}
@@ -26,6 +31,6 @@ export default async function AdminProfilePage() {
           showPasswordChange
         />
       </div>
-    </div>
+    </PageContainer>
   )
 }
