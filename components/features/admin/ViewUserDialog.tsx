@@ -1,6 +1,5 @@
 'use client'
 
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -13,8 +12,6 @@ export type UserSummary = {
   id: string
   full_name: string
   email: string | null
-  phone: string | null
-  is_active: boolean
   created_at: string
 }
 
@@ -60,17 +57,6 @@ export function ViewUserDialog({
           <div className="space-y-1.5">
             <Row label="Nombre" value={user.full_name} />
             <Row label="Email" value={user.email ?? '—'} />
-            <Row label="Teléfono" value={user.phone ?? '—'} />
-            <Row
-              label="Estado"
-              value={
-                user.is_active ? (
-                  <Badge variant="secondary">Activo</Badge>
-                ) : (
-                  <Badge variant="outline">Inactivo</Badge>
-                )
-              }
-            />
             <Row label="Registro" value={formatDate(user.created_at)} />
           </div>
         </div>

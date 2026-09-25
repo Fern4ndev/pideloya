@@ -13,7 +13,7 @@ export default async function UsuariosPage({
   const query = (q ?? '').trim()
   const safe = query.replace(/[%_,()]/g, ' ')
   const orFilter = query
-    ? `full_name.ilike.%${safe}%,email.ilike.%${safe}%,phone.ilike.%${safe}%`
+    ? `full_name.ilike.%${safe}%,email.ilike.%${safe}%`
     : null
 
   const countBuilder = supabase
@@ -26,7 +26,7 @@ export default async function UsuariosPage({
 
   const dataBuilder = supabase
     .from('profiles')
-    .select('id, full_name, email, phone, is_active, created_at')
+    .select('id, full_name, email, created_at')
     .eq('role', 'CUSTOMER')
     .order('created_at', { ascending: false })
   const dataQuery = orFilter ? dataBuilder.or(orFilter) : dataBuilder

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -39,7 +38,7 @@ export function CustomerTable({
       <form onSubmit={submitSearch} className="relative max-w-sm">
         <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Buscar por nombre, email o teléfono..."
+          placeholder="Buscar por nombre o email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-8"
@@ -52,8 +51,6 @@ export function CustomerTable({
             <TableHead className="w-10">N°</TableHead>
             <TableHead className="w-40">Nombre</TableHead>
             <TableHead className="w-56">Email</TableHead>
-            <TableHead className="w-32">Teléfono</TableHead>
-            <TableHead className="w-24">Estado</TableHead>
             <TableHead className="w-28 text-center">Registro</TableHead>
             <TableHead className="w-28">Acciones</TableHead>
           </TableRow>
@@ -70,16 +67,6 @@ export function CustomerTable({
                 <TableCell className="font-medium">{c.full_name}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {c.email ?? '—'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {c.phone ?? '—'}
-                </TableCell>
-                <TableCell>
-                  {c.is_active ? (
-                    <Badge variant="secondary">Activo</Badge>
-                  ) : (
-                    <Badge variant="outline">Inactivo</Badge>
-                  )}
                 </TableCell>
                 <TableCell className="text-center text-muted-foreground">
                   {createdAt.toLocaleDateString('es-PE', {
