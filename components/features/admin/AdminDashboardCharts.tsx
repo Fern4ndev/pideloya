@@ -237,18 +237,6 @@ export function AdminDashboardCharts({
             onChange={(event) => setDateTo(event.target.value)}
           />
         </div>
-
-        <div className="pb-1.5 text-xs text-muted-foreground">
-          {rangeError ? (
-            <p role="alert" className="text-destructive">
-              {RANGE_ERROR_TEXT[rangeError]}
-            </p>
-          ) : (
-            <p>
-              Mostrando: {formatFullDate(dateFrom)} – {formatFullDate(dateTo)}
-            </p>
-          )}
-        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
