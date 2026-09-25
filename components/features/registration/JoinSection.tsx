@@ -81,7 +81,7 @@ export function JoinSection() {
   return (
     <section
       id="unete"
-      className="relative overflow-hidden border-t border-white/[0.06] px-6 py-28"
+      className="relative overflow-hidden border-t border-white/[0.06] px-6 py-24"
     >
       <NebulaBackground />
 
@@ -98,7 +98,7 @@ export function JoinSection() {
 
       <div className="relative z-10 mx-auto max-w-5xl">
         <div className="mb-16 max-w-xl">
-          <p className="text-sm font-medium text-white/45">Únete</p>
+          <p className="text-sm font-medium text-white/60">Únete</p>
           <h2 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-white sm:text-5xl">
             Hay un lugar para ti en PideloYa
           </h2>
@@ -108,8 +108,8 @@ export function JoinSection() {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          {/* Restaurante — acento violeta/rosa, coherente con el aura */}
-          <div className="group relative overflow-hidden rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/10 via-white/[0.03] to-transparent p-8 backdrop-blur-sm transition-all duration-300 sm:p-10">
+          {/* Restaurante — tinte coral de la paleta, coherente con el aura */}
+          <div className="group relative overflow-hidden rounded-2xl border border-coral/15 bg-coral/[0.06] p-8 backdrop-blur-sm transition duration-300 sm:p-10">
             {/* Imagen superpuesta ocupando el 70% con degradado a transparente hacia la izquierda */}
             <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[70%] sm:block [mask-image:linear-gradient(to_right,transparent_0%,black_50%)]">
               <Image
@@ -125,8 +125,7 @@ export function JoinSection() {
             {/* Contenido del texto por encima de la imagen */}
             <div className="relative z-10 flex flex-col justify-between sm:max-w-xs md:max-w-sm">
               <div>
-                <span className="text-xs font-medium tabular-nums text-white/35">01</span>
-                <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+                <h3 className="text-2xl font-semibold tracking-tight text-white">
                   Soy restaurante
                 </h3>
                 <p className="mt-2.5 max-w-[26ch] text-sm leading-relaxed text-white/55">
@@ -136,18 +135,15 @@ export function JoinSection() {
 
               <Link
                 href="/registro?tipo=restaurante"
-                className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(236,72,153,0.5)] active:translate-y-0"
+                className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-lime px-6 py-3 text-sm font-semibold text-panel transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(216,255,62,0.35)] active:translate-y-0"
               >
                 Registrar negocio
-                <span className="transition-transform duration-300 group-hover:translate-x-1">
-                  →
-                </span>
               </Link>
             </div>
           </div>
 
-          {/* Repartidor — acento azul/violeta */}
-          <div className="group relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-white/[0.03] to-transparent p-8 backdrop-blur-sm transition-all duration-300 sm:p-10">
+          {/* Repartidor — tinte violeta de la paleta */}
+          <div className="group relative overflow-hidden rounded-2xl border border-violet/15 bg-violet/[0.06] p-8 backdrop-blur-sm transition duration-300 sm:p-10">
             {/* Imagen superpuesta — placeholder, reemplaza la ruta */}
             <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[70%] sm:block [mask-image:linear-gradient(to_right,transparent_0%,black_50%)]">
               <Image
@@ -162,8 +158,7 @@ export function JoinSection() {
             {/* Contenido del texto por encima de la imagen */}
             <div className="relative z-10 flex flex-col justify-between sm:max-w-xs md:max-w-sm">
               <div>
-                <span className="text-xs font-medium tabular-nums text-white/35">02</span>
-                <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+                <h3 className="text-2xl font-semibold tracking-tight text-white">
                   Soy repartidor
                 </h3>
                 <p className="mt-2.5 max-w-[26ch] text-sm leading-relaxed text-white/55">
@@ -173,12 +168,9 @@ export function JoinSection() {
 
               <Link
                 href="/registro?tipo=repartidor"
-                className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-violet-600 px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(59,130,246,0.5)] active:translate-y-0"
+                className="mt-10 inline-flex w-fit items-center gap-2 rounded-full bg-lime px-6 py-3 text-sm font-semibold text-panel transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(216,255,62,0.35)] active:translate-y-0"
               >
                 Quiero repartir
-                <span className="transition-transform duration-300 group-hover:translate-x-1">
-                  →
-                </span>
               </Link>
             </div>
           </div>

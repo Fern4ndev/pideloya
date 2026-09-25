@@ -38,11 +38,11 @@ export function PublicFooter() {
           >
             <Image src="/icons/logo-pideloya.svg" alt="PideloYa" width={150} height={38} />
           </Link>
-          <p className="text-sm leading-relaxed text-neutral-500">
+          <p className="text-sm leading-relaxed text-neutral-400">
             La forma más rápida de pedir{' '}
             comida,{' '}
             mercado y{' '}
-            farmacn en Abancay.
+            farmacia en Abancay.
             Repartidores locales y entrega promedio de 12 minutos.
           </p>
         </div>
@@ -50,7 +50,7 @@ export function PublicFooter() {
         <div className="flex flex-wrap gap-12 md:gap-16">
           <nav aria-label="Producto">
             <h4 className="mb-4 text-sm font-medium text-white">Producto</h4>
-            <ul className="space-y-3 text-sm text-neutral-500">
+            <ul className="space-y-3 text-sm text-neutral-400">
               {PRODUCT_LINKS.map((link) => (
                 <li key={link.label}>
                   <Link href={link.href} className="transition-colors hover:text-white">
@@ -63,7 +63,7 @@ export function PublicFooter() {
 
           <nav aria-label="Únete">
             <h4 className="mb-4 text-sm font-medium text-white">Únete</h4>
-            <ul className="space-y-3 text-sm text-neutral-500">
+            <ul className="space-y-3 text-sm text-neutral-400">
               {JOIN_LINKS.map((link) => (
                 <li key={link.label}>
                   <Link href={link.href} className="transition-colors hover:text-white">
@@ -76,7 +76,7 @@ export function PublicFooter() {
 
           <nav aria-label="Contacto">
             <h4 className="mb-4 text-sm font-medium text-white">Contacto</h4>
-            <ul className="space-y-3 text-sm text-neutral-500">
+            <ul className="space-y-3 text-sm text-neutral-400">
               <li>
                 <a href="mailto:hola@pideloya.pe" className="transition-colors hover:text-white">
                   E-mail
@@ -87,7 +87,7 @@ export function PublicFooter() {
 
           <nav aria-label="Legal">
             <h4 className="mb-4 text-sm font-medium text-white">Legal</h4>
-            <ul className="space-y-3 text-sm text-neutral-500">
+            <ul className="space-y-3 text-sm text-neutral-400">
               {LEGAL_LINKS.map((link) => (
                 <li key={link.label}>
                   <Link href={link.href} className="transition-colors hover:text-white">
@@ -101,7 +101,7 @@ export function PublicFooter() {
       </div>
 
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 border-t border-white/10 px-6 pt-8 md:flex-row">
-        <span className="text-xs text-neutral-600">
+        <span className="text-xs text-neutral-400">
           © 2026 PideloYa · Hecho con hambre y cariño
         </span>
 
