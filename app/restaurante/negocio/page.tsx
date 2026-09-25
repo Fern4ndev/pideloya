@@ -27,7 +27,7 @@ export default async function BusinessInfoPage() {
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select(
-      'name, description, address_text, whatsapp, food_type, is_active, logo_url'
+      'name, description, address_text, whatsapp, food_type, is_open, logo_url'
     )
     .eq('id', member!.restaurant_id)
     .single()
@@ -38,7 +38,7 @@ export default async function BusinessInfoPage() {
         title="Mi negocio"
         description="Esta información aparece en tu carta pública."
         action={
-          <BusinessStatusSwitch initialIsActive={restaurant?.is_active ?? true} />
+          <BusinessStatusSwitch initialIsOpen={restaurant?.is_open ?? true} />
         }
       />
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/db/server'
+import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import { createOrderSchema, type CreateOrderInput } from '@/lib/validations/order'
 
 function toFriendlyMessage(err: unknown): string {
@@ -43,6 +44,31 @@ export async function cancelOrder(orderId: string) {
   revalidatePath('/cliente/pedidos')
   revalidatePath(`/cliente/pedidos/${orderId}`)
   return { success: true }
+}
+
+/**
+ * Estado de atención del restaurante para el carrito: le dice a la UI del
+ * cliente si está "cerrado / sin atención" y hay que bloquear el pedido.
+ */
+export async function getRestaurantCheckoutState(restaurantId: string) {
+  const supabase = await createClient()
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('is_approved, is_active, is_open')
+    .eq('id', restaurantId)
+    .maybeSingle()
+
+  if (!restaurant || !restaurant.is_approved || !restaurant.is_active) {
+    return { isOpenNow: false }
+  }
+
+  const { data: hours } = await supabase
+    .from('restaurant_hours')
+    .select('day_of_week, open_time, close_time, is_closed')
+    .eq('restaurant_id', restaurantId)
+
+  return { isOpenNow: isRestaurantOpenNow(restaurant.is_open, hours ?? []) }
 }
 
 export async function createOrder(input: CreateOrderInput) {
@@ -89,6 +115,32 @@ export async function createOrder(input: CreateOrderInput) {
   const restaurantIds = new Set(products.map((p) => p.restaurant_id))
   if (restaurantIds.size > 1) {
     throw new Error('No puedes pedir de más de un restaurante a la vez')
+  }
+
+  // El restaurante debe estar aprobado, activo y atendiendo (is_open + dentro
+  // del horario). Este es el "source of truth": la UI solo deshabilita botones.
+  const restaurantId = Array.from(restaurantIds)[0]
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from('restaurants')
+    .select('is_approved, is_active, is_open')
+    .eq('id', restaurantId)
+    .maybeSingle()
+
+  // Si la fila no aparece o el admin lo desactivó, ya no está disponible
+  // (RLS oculta restaurantes no aprobados/inactivos y no llega aquí).
+  if (restaurantError || !restaurant || !restaurant.is_approved || !restaurant.is_active) {
+    throw new Error('El negocio ya no está disponible')
+  }
+
+  const { data: hours } = await supabase
+    .from('restaurant_hours')
+    .select('day_of_week, open_time, close_time, is_closed')
+    .eq('restaurant_id', restaurantId)
+
+  if (!isRestaurantOpenNow(restaurant.is_open, hours ?? [])) {
+    throw new Error(
+      'El negocio está cerrado en este momento. No se pueden recibir pedidos.'
+    )
   }
 
   const total = data.items.reduce((sum, item) => {

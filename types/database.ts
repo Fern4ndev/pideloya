@@ -18,7 +18,7 @@ export type Database = {
         Row: {
           address_text: string
           created_at: string
-          customer_id: string
+          customer_id: string | null
           id: string
           label: string | null
           latitude: number
@@ -28,7 +28,7 @@ export type Database = {
         Insert: {
           address_text: string
           created_at?: string
-          customer_id: string
+          customer_id?: string | null
           id?: string
           label?: string | null
           latitude: number
@@ -38,7 +38,7 @@ export type Database = {
         Update: {
           address_text?: string
           created_at?: string
-          customer_id?: string
+          customer_id?: string | null
           id?: string
           label?: string | null
           latitude?: number
@@ -142,6 +142,7 @@ export type Database = {
           product_name: string | null
           quantity: number
           restaurant_id: string
+          restaurant_name: string | null
           unit_price: number
         }
         Insert: {
@@ -153,6 +154,7 @@ export type Database = {
           product_name?: string | null
           quantity: number
           restaurant_id: string
+          restaurant_name?: string | null
           unit_price: number
         }
         Update: {
@@ -164,6 +166,7 @@ export type Database = {
           product_name?: string | null
           quantity?: number
           restaurant_id?: string
+          restaurant_name?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -194,7 +197,7 @@ export type Database = {
         Row: {
           address_id: string
           created_at: string
-          customer_id: string
+          customer_id: string | null
           id: string
           notes: string | null
           status: Database["public"]["Enums"]["order_status"]
@@ -204,7 +207,7 @@ export type Database = {
         Insert: {
           address_id: string
           created_at?: string
-          customer_id: string
+          customer_id?: string | null
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -214,7 +217,7 @@ export type Database = {
         Update: {
           address_id?: string
           created_at?: string
-          customer_id?: string
+          customer_id?: string | null
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -301,6 +304,7 @@ export type Database = {
           created_at: string
           document_number: string | null
           document_type: string | null
+          email: string | null
           full_name: string
           id: string
           is_active: boolean
@@ -314,6 +318,7 @@ export type Database = {
           created_at?: string
           document_number?: string | null
           document_type?: string | null
+          email?: string | null
           full_name: string
           id?: string
           is_active?: boolean
@@ -327,6 +332,7 @@ export type Database = {
           created_at?: string
           document_number?: string | null
           document_type?: string | null
+          email?: string | null
           full_name?: string
           id?: string
           is_active?: boolean
@@ -417,6 +423,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_approved: boolean
+          is_open: boolean
           latitude: number | null
           logo_file_id: string | null
           logo_url: string | null
@@ -434,6 +441,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_approved?: boolean
+          is_open?: boolean
           latitude?: number | null
           logo_file_id?: string | null
           logo_url?: string | null
@@ -451,6 +459,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_approved?: boolean
+          is_open?: boolean
           latitude?: number | null
           logo_file_id?: string | null
           logo_url?: string | null

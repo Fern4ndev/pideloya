@@ -4,16 +4,11 @@ import { ChevronRightIcon } from '@animateicons/react/huge'
 export function HeroSection() {
   return (
     <section className="relative w-full overflow-hidden bg-transparent text-[#f5f2ea]">
-      {/* Blobs decorativos */}
+      {/* Único momento atmosférico del hero — coral como calidez, sin segunda mancha violeta */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-40 -right-[120px] z-0 h-[520px] w-[520px] rounded-full opacity-50 blur-[90px]"
         style={{ background: 'var(--coral)' }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-[-120px] top-[560px] z-0 h-[420px] w-[420px] rounded-full opacity-35 blur-[90px]"
-        style={{ background: 'var(--violet)' }}
       />
 
       {/* Contenido principal */}
@@ -31,7 +26,7 @@ export function HeroSection() {
             </h1>
 
             {/* Descripción */}
-            <p className="mx-left mt-7 max-w-md leading-relaxed text-[#9b978c] max-sm:text-sm md:text-base">
+            <p className="mt-7 max-w-md leading-relaxed text-[#9b978c] max-sm:text-sm md:text-base">
               Comida, mercado, farmacia y hasta lo que se te ocurra. Mensajeros
               locales, seguimiento en vivo y entrega promedio de 12 minutos.
             </p>
@@ -50,9 +45,9 @@ export function HeroSection() {
                   suppressHydrationWarning
                 />
               </div>
-              <button type="button" className="button-coral max-sm:w-full" suppressHydrationWarning>
+              <button type="button" className="button-lime max-sm:w-full" suppressHydrationWarning>
                 <span>Pide ya</span>
-                <ChevronRightIcon size={24} duration={1.5} color="#ffffff" />
+                <ChevronRightIcon size={24} duration={1.5} color="#151517" />
               </button>
             </div>
           </div>
@@ -64,7 +59,7 @@ export function HeroSection() {
               loop
               muted
               playsInline
-              className="h-full w-full object-contain"
+              className="h-full w-full object-contain pointer-events-none"
               src="/videos/landing.mp4"
             />
           </div>

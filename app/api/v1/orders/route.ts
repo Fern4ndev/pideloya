@@ -1,6 +1,6 @@
 import { withApi, successResponse, errorResponse } from '@/lib/api/response'
 import { authenticateRequest, adminClient } from '@/lib/api/auth'
-import { createClient } from '@/lib/db/server'
+import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,6 +134,30 @@ export const POST = withApi(async (request: Request) => {
     return errorResponse('No puedes pedir de más de un restaurante a la vez', 400)
   }
 
+  // Guard de atención: el restaurante debe estar aprobado, activo y dentro
+  // del horario (is_open + restaurant_hours). La API usa service role y
+  // salta RLS, por eso la validación es explícita aquí.
+  const restaurantId = Array.from(restaurantIds)[0]
+  const { data: restaurant } = await client
+    .from('restaurants')
+    .select('is_approved, is_active, is_open')
+    .eq('id', restaurantId)
+    .maybeSingle()
+  if (!restaurant || !restaurant.is_active || !restaurant.is_approved) {
+    return errorResponse('El negocio ya no está disponible', 409)
+  }
+
+  const { data: hours } = await client
+    .from('restaurant_hours')
+    .select('day_of_week, open_time, close_time, is_closed')
+    .eq('restaurant_id', restaurantId)
+  if (!isRestaurantOpenNow(restaurant.is_open, hours ?? [])) {
+    return errorResponse(
+      'El negocio está cerrado en este momento. No se pueden recibir pedidos.',
+      409
+    )
+  }
+
   const total = items.reduce((sum, item) => {
     const product = products.find((p) => p.id === item.product_id)!
     if (!item.quantity || !Number.isInteger(item.quantity) || item.quantity <= 0) {
@@ -166,7 +190,10 @@ export const POST = withApi(async (request: Request) => {
       product_name: product.name,
       image_url: product.image_url,
       restaurant_id: product.restaurant_id,
-      restaurant_name: (product.restaurants as unknown as Array<{ name: string }> | null)?.[0]?.name ?? null,
+      restaurant_name:
+        (product.restaurants as unknown as { name: string } | { name: string }[] | null) instanceof Array
+          ? (product.restaurants as unknown as { name: string }[])[0]?.name ?? null
+          : (product.restaurants as unknown as { name: string } | null)?.name ?? null,
       quantity: item.quantity,
       unit_price: product.price,
     }

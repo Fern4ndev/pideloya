@@ -85,25 +85,22 @@ export async function updateRestaurant(input: RestaurantInput) {
       whatsapp: data.whatsapp || null,
       food_type: data.foodType,
       slug,
-      // Solo lo escribimos si viene en el payload: el estado del negocio
-      // lo controla setRestaurantActive desde el header, no este form.
-      ...(data.isActive !== undefined ? { is_active: data.isActive } : {}),
     })
     .eq('id', restaurantId)
 
   if (error) throw new Error(error.message)
 
   revalidatePath(`/restaurantes/${slug}`)
-  revalidatePath(`/public/restaurantes/${slug}`)
   revalidatePath('/restaurante')
   return { success: true }
 }
 
 /**
- * Abre o cierra el negocio (is_active) desde el header de "Mi negocio".
- * Solo toca el estado del restaurante y no desactiva perfiles.
+ * Abre o cierra el negocio (is_open) desde el header de "Mi negocio".
+ * Solo toca la señal que ve el cliente ("Cerrado / No hay atención");
+ * NO modifica is_active (visibilidad/aprobación del admin).
  */
-export async function setRestaurantActive(isActive: boolean) {
+export async function setRestaurantOpen(isOpen: boolean) {
   const { supabase, restaurantId } = await getMyRestaurantId()
 
   const { data: restaurant } = await supabase
@@ -116,15 +113,16 @@ export async function setRestaurantActive(isActive: boolean) {
 
   const { error } = await supabase
     .from('restaurants')
-    .update({ is_active: isActive })
+    .update({ is_open: isOpen })
     .eq('id', restaurantId)
 
   if (error) throw new Error(error.message)
 
   revalidatePath(`/restaurantes/${restaurant.slug}`)
-  revalidatePath(`/public/restaurantes/${restaurant.slug}`)
+  revalidatePath(`/cliente/restaurantes/${restaurant.slug}`)
   revalidatePath('/restaurante/negocio')
   revalidatePath('/restaurante')
+  revalidatePath('/cliente')
   return { success: true }
 }
 

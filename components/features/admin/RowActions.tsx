@@ -8,7 +8,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 
 type RowActionsProps = {
   onApprove?: () => Promise<{ success: boolean; message?: string }>
-  onEdit: () => void
+  onEdit?: () => void
   onDelete?: () => Promise<{ success: boolean; message?: string }>
   entityName: string
   approveLabel?: string
@@ -81,14 +81,16 @@ export function RowActions({
             <CheckIcon className="h-4 w-4 text-green-600" />
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onEdit}
-          title="Editar"
-        >
-          <PencilIcon className="h-4 w-4" />
-        </Button>
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onEdit}
+            title="Editar"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+        )}
         {onDelete && (
           <Button
             variant="ghost"

@@ -319,11 +319,11 @@
    ============================================================================ */
 
 .shadow-glow {
-  box-shadow: 0 0 40px rgba(250, 183, 28, 0.08);
+  box-shadow: 0 0 40px rgba(216, 255, 62, 0.08);
 }
 
 .shadow-glowStrong {
-  box-shadow: 0 0 50px rgba(250, 183, 28, 0.18);
+  box-shadow: 0 0 50px rgba(216, 255, 62, 0.18);
 }
 
 .join-form input,
@@ -369,3 +369,25 @@
     -webkit-mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, black 0%, transparent 100%);
     mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, black 0%, transparent 100%);
   }
+
+/* ============================================================================
+   Accesibilidad
+   ============================================================================ */
+
+/* Foco visible de teclado (los componentes con focus-visible propio siguen mandando) */
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* prefers-reduced-motion: respetar la preferencia del sistema */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

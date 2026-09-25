@@ -48,7 +48,7 @@ export function PublicHeader() {
 
           <button
             type="button"
-            className="relative z-70 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-white transition-colors hover:border-lime hover:text-lime md:hidden"
+            className="relative z-70 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/10 text-white transition-colors hover:border-lime hover:text-lime md:hidden"
             aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={isMenuOpen}
             aria-controls="mobile-navigation"

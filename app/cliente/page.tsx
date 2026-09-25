@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/server'
+import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import { ClienteHomeClient } from '@/components/features/cliente-home/ClienteHomeClient'
 import type { RestaurantCardData } from '@/components/features/restaurants/RestaurantCard'
 import type { FeaturedProduct } from '@/components/features/products/FeaturedProductCard'
@@ -10,8 +11,40 @@ export default async function ClienteHomePage() {
   // is_approved = true e is_active = true — no hace falta repetirlo aquí.
   const { data: restaurants, error } = await supabase
     .from('restaurants')
-    .select('slug, name, description, logo_url, address_text, food_type')
+    .select(
+      'id, slug, name, description, logo_url, address_text, food_type, is_open'
+    )
     .order('name')
+
+  // Horarios de los negocios visibles para saber si están atendiendo ahora
+  // (policy "restaurant_hours_select_public", migración 20260924000000).
+  const restaurantIds = (restaurants ?? []).map((r) => r.id)
+  const { data: hours } = restaurantIds.length
+    ? await supabase
+        .from('restaurant_hours')
+        .select('restaurant_id, day_of_week, open_time, close_time, is_closed')
+        .in('restaurant_id', restaurantIds)
+    : { data: [] }
+
+  const openByRestaurantId = new Map<string, boolean>()
+  for (const r of restaurants ?? []) {
+    const restaurantHours = (hours ?? []).filter((h) => h.restaurant_id === r.id)
+    openByRestaurantId.set(r.id, isRestaurantOpenNow(r.is_open, restaurantHours))
+  }
+
+  const listedRestaurants: RestaurantCardData[] = (restaurants ?? []).map((r) => ({
+    slug: r.slug,
+    name: r.name,
+    description: r.description,
+    logo_url: r.logo_url,
+    address_text: r.address_text,
+    food_type: r.food_type,
+    isOpen: openByRestaurantId.get(r.id) ?? true,
+  }))
+
+  const closedRestaurantIds = (restaurants ?? [])
+    .filter((r) => !(openByRestaurantId.get(r.id) ?? true))
+    .map((r) => r.id)
 
   // "Platos populares": últimos productos disponibles, con el restaurante
   // embebido para poder agregarlos al carrito directo desde la home.
@@ -49,8 +82,9 @@ export default async function ClienteHomePage() {
 
       {!error && restaurants && restaurants.length > 0 && (
         <ClienteHomeClient
-          restaurants={restaurants as RestaurantCardData[]}
+          restaurants={listedRestaurants}
           popularProducts={popularProducts}
+          closedRestaurantIds={closedRestaurantIds}
         />
       )}
     </div>

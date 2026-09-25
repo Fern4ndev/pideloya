@@ -12,13 +12,22 @@ export default async function ClienteRestaurantMenuPage({
 
   const { data: restaurant } = await supabase
     .from('restaurants')
-    .select('id, name, description, logo_url, address_text, whatsapp, food_type')
+    .select(
+      'id, name, description, logo_url, address_text, whatsapp, food_type, is_open'
+    )
     .eq('slug', slug)
     .eq('is_approved', true)
     .eq('is_active', true)
     .maybeSingle()
 
   if (!restaurant) notFound()
+
+  // Horarios de atención (policy "restaurant_hours_select_public") para
+  // avisar "Abierto/Cerrado" en vivo y deshabilitar los botones de pedido.
+  const { data: hours } = await supabase
+    .from('restaurant_hours')
+    .select('day_of_week, open_time, close_time, is_closed')
+    .eq('restaurant_id', restaurant.id)
 
   const { data: products } = await supabase
     .from('products')
@@ -34,6 +43,11 @@ export default async function ClienteRestaurantMenuPage({
     .order('sort_order', { ascending: true })
 
   return (
-    <RestaurantMenuView restaurant={restaurant} products={products ?? []} categories={categories ?? []} />
+    <RestaurantMenuView
+      restaurant={restaurant}
+      products={products ?? []}
+      categories={categories ?? []}
+      hours={hours ?? []}
+    />
   )
 }

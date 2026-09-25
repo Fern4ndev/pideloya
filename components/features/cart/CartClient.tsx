@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCartStore, cartTotal } from '@/lib/hooks/use-cart'
-import { createOrder } from '@/lib/actions/orders'
+import { createOrder, getRestaurantCheckoutState } from '@/lib/actions/orders'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -14,6 +14,7 @@ import {
   Trash2Icon,
   ShoppingBagIcon,
   CheckCircle2Icon,
+  ClockIcon,
 } from 'lucide-react'
 
 export interface AddressOption {
@@ -24,14 +25,33 @@ export interface AddressOption {
 
 export function CartClient({ addresses }: { addresses: AddressOption[] }) {
   const router = useRouter()
-  const { restaurantName, items, setQuantity, removeItem, clear } = useCartStore()
+  const { restaurantId, restaurantName, items, setQuantity, removeItem, clear } = useCartStore()
   const address = addresses[0] ?? null
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [restaurantOpen, setRestaurantOpen] = useState<boolean | null>(null)
 
   const total = cartTotal(items)
+
+  // Consulta si el negocio está atendiendo ahora mismo (source of truth en
+  // el servidor al confirmar; aquí solo para avisar y deshabilitar la UI).
+  useEffect(() => {
+    if (!restaurantId) {
+      setRestaurantOpen(null)
+      return
+    }
+    let cancelled = false
+    getRestaurantCheckoutState(restaurantId).then((res) => {
+      if (!cancelled) setRestaurantOpen(res.isOpenNow)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [restaurantId])
+
+  const isRestaurantClosed = restaurantOpen === false
 
   function handleConfirm() {
     setError(null)
@@ -41,6 +61,10 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
     }
     if (!address) {
       setError('Agrega una dirección de entrega para continuar')
+      return
+    }
+    if (isRestaurantClosed) {
+      setError('El negocio está cerrado en este momento. No se pueden recibir pedidos.')
       return
     }
 
@@ -95,6 +119,16 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
 
   return (
     <div className="space-y-6">
+      {isRestaurantClosed && (
+        <div className="flex items-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          <ClockIcon className="h-4 w-4 shrink-0" />
+          <span>
+            El negocio está cerrado en este momento. Puedes dejar tu pedido
+            guardado y confirmarlo cuando vuelva a atender.
+          </span>
+        </div>
+      )}
+
       <div>
         <h2 className="text-sm font-medium text-muted-foreground">Pedido de {restaurantName}</h2>
         <div className="mt-3 space-y-3">
@@ -191,7 +225,11 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
         <p className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>
       )}
 
-      <Button className="w-full rounded-full" disabled={isPending || !address} onClick={handleConfirm}>
+      <Button
+        className="w-full rounded-full"
+        disabled={isPending || !address || isRestaurantClosed}
+        onClick={handleConfirm}
+      >
         {isPending ? 'Enviando pedido…' : 'Confirmar pedido'}
       </Button>
     </div>
