@@ -29,17 +29,17 @@ export async function DashboardCards() {
       description: 'Todos los roles',
     },
     {
-      title: 'Restaurantes pendientes',
-      value: pendingRestaurants ?? 0,
+      title: 'Restaurantes activos',
+      value: activeRestaurants ?? 0,
       icon: StoreIcon,
-      description: `${activeRestaurants ?? 0} activos`,
+      description: `${pendingRestaurants ?? 0} pendientes`,
       tone: (pendingRestaurants ?? 0) > 0 ? 'warning' : 'default',
     },
     {
-      title: 'Repartidores pendientes',
-      value: pendingDelivery ?? 0,
+      title: 'Repartidores activos',
+      value: activeDelivery ?? 0,
       icon: TruckIcon,
-      description: `${activeDelivery ?? 0} activos`,
+      description: `${pendingDelivery ?? 0} pendientes`,
       tone: (pendingDelivery ?? 0) > 0 ? 'warning' : 'default',
     },
     {
