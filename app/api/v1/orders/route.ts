@@ -103,6 +103,10 @@ export const POST = withApi(async (request: Request) => {
     return errorResponse('address_id e items (no vacío) son obligatorios', 400)
   }
 
+  if (items.some((i) => !Number.isInteger(i.quantity) || i.quantity <= 0)) {
+    return errorResponse('quantity debe ser un entero positivo', 400)
+  }
+
   const client = adminClient()
 
   // Verifica que la dirección pertenece al cliente.
@@ -160,9 +164,6 @@ export const POST = withApi(async (request: Request) => {
 
   const total = items.reduce((sum, item) => {
     const product = products.find((p) => p.id === item.product_id)!
-    if (!item.quantity || !Number.isInteger(item.quantity) || item.quantity <= 0) {
-      throw new Error('quantity debe ser un entero positivo')
-    }
     return sum + Number(product.price) * item.quantity
   }, 0)
 
