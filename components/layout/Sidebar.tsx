@@ -59,10 +59,11 @@ export function Sidebar({
   const [isDesktop, setIsDesktop] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-
-  useEffect(() => {
+  const [lastPathname, setLastPathname] = useState(pathname)
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname)
     setMobileOpen(false)
-  }, [pathname])
+  }
 
   // Sincroniza el modo escritorio con el breakpoint lg. Al volver a
   // pantalla grande (cruzando a lg) el sidebar colapsado se re-expande;

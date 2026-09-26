@@ -196,7 +196,6 @@ export function RestaurantTable({
                   <TableCell>
                     <RestaurantRowActions
                       id={r.id}
-                      name={r.name}
                       isApproved={r.is_approved}
                       isActive={r.is_active}
                       restaurant={{

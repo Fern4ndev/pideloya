@@ -1,31 +1,26 @@
 import { createClient } from '@/lib/db/server'
 import { DailySalesChart } from './DailySalesChart'
 import { TopProductsChart } from './TopProductsChart'
+import { DAY_MS, limaDayKey } from '@/lib/dates'
 
-const DAY_MS = 86_400_000
-
-function limaDayKey(date: Date): string {
-  return date.toLocaleDateString('sv-SE', { timeZone: 'America/Lima' })
-}
-
-export async function RestaurantDashboardCharts() {
+export async function RestaurantDashboardCharts({ todayKey }: { todayKey: string }) {
   const supabase = await createClient()
-  const now = Date.now()
+  const dayStart = Date.parse(`${todayKey}T00:00:00-05:00`)
 
   const dayKeys: string[] = []
   for (let i = 6; i >= 0; i--) {
-    dayKeys.push(limaDayKey(new Date(now - i * DAY_MS)))
+    dayKeys.push(limaDayKey(new Date(dayStart - i * DAY_MS)))
   }
 
   const [salesRes, topRes] = await Promise.all([
     supabase
       .from('order_items')
       .select('created_at, unit_price, quantity')
-      .gte('created_at', new Date(now - 8 * DAY_MS).toISOString()),
+      .gte('created_at', new Date(dayStart - 8 * DAY_MS).toISOString()),
     supabase
       .from('order_items')
       .select('product_name, quantity')
-      .gte('created_at', new Date(now - 30 * DAY_MS).toISOString())
+      .gte('created_at', new Date(dayStart - 30 * DAY_MS).toISOString())
       .limit(1000),
   ])
 

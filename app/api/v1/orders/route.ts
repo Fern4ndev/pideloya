@@ -74,7 +74,7 @@ export const GET = withApi(async (request: Request) => {
       .order('created_at', { ascending: false })
     if (error) throw error
     const filtered = (data ?? []).filter(
-      (o: any) =>
+      (o) =>
         o.status === 'PENDING' ||
         o.deliveries?.delivery_person_id === context.profileId
     )
@@ -211,7 +211,7 @@ export const POST = withApi(async (request: Request) => {
     }
   })
 
-  const { error: itemsError } = await client.from('order_items').insert(orderItems as any)
+  const { error: itemsError } = await client.from('order_items').insert(orderItems)
   if (itemsError) {
     await client.from('orders').delete().eq('id', order.id)
     throw itemsError

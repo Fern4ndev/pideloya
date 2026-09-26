@@ -67,7 +67,7 @@ async function getOrderForContext(
       .select('restaurant_id')
       .eq('user_id', context.profileId)
     const restaurantIds = (members ?? []).map((m) => m.restaurant_id)
-    const hasItem = (data.order_items ?? []).some((i: any) =>
+    const hasItem = (data.order_items ?? []).some((i) =>
       restaurantIds.includes(i.restaurant_id)
     )
     if (!hasItem) throw new NotFoundError('Pedido no encontrado')

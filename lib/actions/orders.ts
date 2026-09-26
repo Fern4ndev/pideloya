@@ -189,7 +189,7 @@ export async function createOrder(input: CreateOrderInput) {
 
   const { error: itemsError } = await supabase
     .from('order_items')
-    .insert(orderItems as any)
+    .insert(orderItems)
 
   if (itemsError) {
     // El pedido quedó creado sin ítems — lo eliminamos para no dejar

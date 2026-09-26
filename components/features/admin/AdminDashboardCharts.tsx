@@ -27,7 +27,6 @@ import {
   MONTHS_FULL,
   addDays,
   dayParts,
-  formatFullDate,
   limaDayKey,
 } from '@/lib/dates'
 

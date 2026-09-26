@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
-import { CalendarIcon, EyeIcon, ReceiptTextIcon } from 'lucide-react'
+import { CalendarIcon, EyeIcon } from 'lucide-react'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
 export type OrderDetailItem = {

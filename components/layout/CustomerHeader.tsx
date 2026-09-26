@@ -41,13 +41,14 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
   const itemCount = useMemo(() => cartItemCount(items), [items])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
   const [menuOpen, setMenuOpen] = useState(false)
+  const [lastPathname, setLastPathname] = useState(pathname)
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname)
+    setMenuOpen(false)
+  }
 
   const search = useSearchStore((s) => s.query)
   const setSearch = useSearchStore((s) => s.setQuery)
-
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [pathname])
 
   useEffect(() => {
     if (!menuOpen) return

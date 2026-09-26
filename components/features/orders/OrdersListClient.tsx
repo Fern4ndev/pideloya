@@ -13,8 +13,9 @@ import {
 } from '@/lib/constants/order-status'
 import { cn } from '@/lib/utils'
 import { ChevronRightIcon, ReceiptIcon, SearchIcon } from 'lucide-react'
+import type { ApiOrder } from '@/types/order'
 
-async function fetchOrders(url: string) {
+async function fetchOrders(url: string): Promise<{ success: true; data: ApiOrder[] }> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -65,12 +66,10 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
   const router = useRouter()
   const activeFilter = status ?? null
 
-  const { data, error, isLoading, mutate } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR<{ success: true; data: ApiOrder[] }>(
     '/api/v1/orders',
     fetchOrders,
-    {
-      revalidateOnFocus: true,
-    }
+    { revalidateOnFocus: true }
   )
 
   useRealtimeInvalidate(
@@ -79,7 +78,7 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
   )
 
   const orders = useMemo(() => data?.data ?? [], [data])
-  const pendingCount = orders.filter((o: any) => o.status === 'PENDING').length
+  const pendingCount = orders.filter((o) => o.status === 'PENDING').length
   const showChips = isLoading || orders.length > 0
 
   const counts = useMemo(() => {
@@ -99,7 +98,7 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
   const filteredOrders = useMemo(
     () =>
       activeFilter
-        ? orders.filter((o: any) => matchesFilter(o.status, activeFilter))
+        ? orders.filter((o) => matchesFilter(o.status, activeFilter))
         : orders,
     [orders, activeFilter]
   )
@@ -184,9 +183,9 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
 
       {!error && !isLoading && filteredOrders.length > 0 && (
         <div className="mt-6 space-y-3">
-          {filteredOrders.map((order: any) => {
+          {filteredOrders.map((order) => {
             const itemsSummary = order.order_items
-              ?.map((i: any) => `${i.quantity}x ${i.product_name}`)
+              ?.map((i) => `${i.quantity}x ${i.product_name}`)
               .join(', ') ?? ''
             const previewItems = (order.order_items ?? []).slice(0, 3)
             return (
@@ -199,7 +198,7 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                   <div className="flex min-w-0 gap-3">
                     {previewItems.length > 0 ? (
                       <div className="mt-0.5 flex shrink-0 -space-x-2.5">
-                        {previewItems.map((item: any, i: number) => (
+                        {previewItems.map((item, i: number) => (
                           <div
                             key={i}
                             className="h-10 w-10 overflow-hidden rounded-2xl bg-muted ring-2 ring-white dark:ring-neutral-900"
