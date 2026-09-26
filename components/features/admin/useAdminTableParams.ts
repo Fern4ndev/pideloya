@@ -43,5 +43,5 @@ export function useAdminTableParams() {
     [searchParams, pathname, router]
   )
 
-  return { get, set }
+  return { get, set, searchParams }
 }

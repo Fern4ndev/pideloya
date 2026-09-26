@@ -46,7 +46,7 @@ export function AdminTableShell({
   pagination: AdminTableShellPagination
   children: React.ReactNode
 }) {
-  const { get, set } = useAdminTableParams()
+  const { get, set, searchParams } = useAdminTableParams()
 
   const currentQuery = get('q')
   // Estado local para el input (el querystring es la fuente de verdad del
@@ -88,8 +88,10 @@ export function AdminTableShell({
   function buildExportHref(): string {
     const params = new URLSearchParams()
     // Copia TODOS los filtros activos (q, status, sort, dir, from, to...)
-    // menos page: el export abarca el resultado completo filtrado.
-    for (const [key, value] of new URLSearchParams(window.location.search)) {
+    // menos page: el export abarca el resultado completo filtrado. Se leen
+    // de searchParams (no de window.location) porque este componente también
+    // se renderiza en el servidor, donde `window` no existe.
+    for (const [key, value] of searchParams) {
       if (key !== 'page' && value) params.set(key, value)
     }
     params.set('entity', exportEntity)
