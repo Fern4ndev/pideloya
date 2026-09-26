@@ -9,7 +9,6 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { Bar, BarChart, XAxis, YAxis } from 'recharts'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
+import { BarChart3Icon, CalendarIcon, TruckIcon } from 'lucide-react'
 import {
   DAY_MS,
   RANGE_MAX_DAYS,
@@ -57,12 +58,18 @@ const RANGE_ERROR_TEXT: Record<Exclude<RangeError, null>, string> = {
 }
 
 const salesConfig = {
-  count: { label: 'Pedidos', color: 'var(--color-primary)' },
+  count: { label: 'Pedidos', color: 'var(--color-lime)' },
 } satisfies ChartConfig
 
 const deliveriesConfig = {
-  count: { label: 'Entregados', color: 'var(--color-green-500)' },
+  count: { label: 'Entregados', color: 'var(--color-violet)' },
 } satisfies ChartConfig
+
+const GRANULARITY_OPTIONS = [
+  { key: 'day' as const, label: 'Día' },
+  { key: 'week' as const, label: 'Semana' },
+  { key: 'month' as const, label: 'Mes' },
+]
 
 type Bucket = { key: string; label: string; count: number; total: number }
 
@@ -190,21 +197,29 @@ export function AdminDashboardCharts({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-2xl border bg-muted/30 p-4">
         <div>
           <Label className="mb-1.5 block text-xs font-medium">Vista</Label>
-          <div className="flex gap-1">
-            {(['day', 'week', 'month'] as const).map((option) => (
-              <Button
-                key={option}
-                type="button"
-                size="sm"
-                variant={granularity === option ? 'default' : 'outline'}
-                onClick={() => setGranularity(option)}
-              >
-                {option === 'day' ? 'Día' : option === 'week' ? 'Semana' : 'Mes'}
-              </Button>
-            ))}
+          <div className="inline-flex items-center gap-1 rounded-full bg-muted p-1">
+            {GRANULARITY_OPTIONS.map((option) => {
+              const active = granularity === option.key
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setGranularity(option.key)}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-lime text-[#0C0C0E] shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -212,37 +227,52 @@ export function AdminDashboardCharts({
           <Label htmlFor="filter-from" className="text-xs font-medium">
             Desde
           </Label>
-          <Input
-            id="filter-from"
-            type="date"
-            className="w-40"
-            value={dateFrom}
-            max={dateTo || undefined}
-            aria-invalid={fromInvalid}
-            onChange={(event) => setDateFrom(event.target.value)}
-          />
+          <div className="relative">
+            <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="filter-from"
+              type="date"
+              className="w-40 pl-8"
+              value={dateFrom}
+              max={dateTo || undefined}
+              aria-invalid={fromInvalid}
+              onChange={(event) => setDateFrom(event.target.value)}
+            />
+          </div>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="filter-to" className="text-xs font-medium">
             Hasta
           </Label>
-          <Input
-            id="filter-to"
-            type="date"
-            className="w-40"
-            value={dateTo}
-            min={dateFrom || undefined}
-            aria-invalid={toInvalid}
-            onChange={(event) => setDateTo(event.target.value)}
-          />
+          <div className="relative">
+            <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="filter-to"
+              type="date"
+              className="w-40 pl-8"
+              value={dateTo}
+              min={dateFrom || undefined}
+              aria-invalid={toInvalid}
+              onChange={(event) => setDateTo(event.target.value)}
+            />
+          </div>
         </div>
+
+        {rangeError && (
+          <p role="alert" className="text-xs text-destructive">
+            {RANGE_ERROR_TEXT[rangeError]}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
-            <CardTitle className="text-base">Ventas</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="h-2 w-2 rounded-full bg-lime" aria-hidden />
+              Ventas
+            </CardTitle>
             <Select
               value={restaurantId}
               onValueChange={(value) => setRestaurantId(value ?? 'all')}
@@ -268,6 +298,12 @@ export function AdminDashboardCharts({
             {hasSales ? (
               <ChartContainer config={salesConfig} className="h-[300px] w-full">
                 <BarChart data={sales} accessibilityLayer>
+                  <defs>
+                    <linearGradient id="salesBarGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-count)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--color-count)" stopOpacity={0.55} />
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="label"
                     tickLine={false}
@@ -285,12 +321,13 @@ export function AdminDashboardCharts({
                     allowDecimals={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)" />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="url(#salesBarGradient)" />
                 </BarChart>
               </ChartContainer>
             ) : (
-              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                {salesEmptyMessage}
+              <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                <BarChart3Icon className="h-8 w-8 text-muted-foreground/40" aria-hidden />
+                <p className="max-w-52">{salesEmptyMessage}</p>
               </div>
             )}
           </CardContent>
@@ -298,7 +335,10 @@ export function AdminDashboardCharts({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
-            <CardTitle className="text-base">Entregas de repartidores</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="h-2 w-2 rounded-full bg-violet" aria-hidden />
+              Entregas de repartidores
+            </CardTitle>
             <Select
               value={deliveryPersonId}
               onValueChange={(value) => setDeliveryPersonId(value ?? 'all')}
@@ -324,6 +364,12 @@ export function AdminDashboardCharts({
             {hasDeliveries ? (
               <ChartContainer config={deliveriesConfig} className="h-[300px] w-full">
                 <BarChart data={delivered} accessibilityLayer>
+                  <defs>
+                    <linearGradient id="deliveriesBarGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-count)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--color-count)" stopOpacity={0.55} />
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="label"
                     tickLine={false}
@@ -341,12 +387,13 @@ export function AdminDashboardCharts({
                     allowDecimals={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)" />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="url(#deliveriesBarGradient)" />
                 </BarChart>
               </ChartContainer>
             ) : (
-              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                {deliveriesEmptyMessage}
+              <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                <TruckIcon className="h-8 w-8 text-muted-foreground/40" aria-hidden />
+                <p className="max-w-52">{deliveriesEmptyMessage}</p>
               </div>
             )}
           </CardContent>

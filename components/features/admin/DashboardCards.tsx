@@ -49,6 +49,7 @@ export async function DashboardCards() {
       tone: (pendingDelivery ?? 0) > 0 ? 'warning' : 'default',
     },
     {
+      // Único acento de marca del dashboard: el pulso del día.
       title: 'Pedidos hoy',
       value: ordersToday ?? 0,
       icon: ShoppingBagIcon,
@@ -59,6 +60,7 @@ export async function DashboardCards() {
         day: 'numeric',
         timeZone: 'America/Lima',
       }),
+      tone: 'accent',
     },
   ]
 
