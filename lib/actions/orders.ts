@@ -86,9 +86,13 @@ export async function createOrder(input: CreateOrderInput) {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('No autenticado')
 
+  // El snapshot (customer_name/customer_phone) se congela AQUÍ, al crear
+  // el pedido: es el nombre del cliente "al momento del pedido", igual
+  // que product_name en order_items. Si el cliente se elimina después
+  // (customer_id → null), el historial conserva quién hizo el pedido.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, full_name, phone')
     .eq('auth_id', user.id)
     .single()
   if (!profile) throw new Error('Perfil no encontrado')
@@ -152,6 +156,8 @@ export async function createOrder(input: CreateOrderInput) {
     .from('orders')
     .insert({
       customer_id: profile.id,
+      customer_name: profile.full_name,
+      customer_phone: profile.phone,
       address_id: data.addressId,
       status: 'PENDING',
       total,

@@ -45,6 +45,30 @@ export default async function AdminDeliveryPage({
     .order('created_at', { ascending: false })
     .range(pagination.start, pagination.end - 1)
 
+  // Flag hasDeliveries de TODA la página en UN solo batch (deliveries
+  // WHERE delivery_person_id IN ...): cero N+1. Service role porque
+  // el conteo cruza entregas de todos los repartidores (por RLS, el
+  // repartidor autenticado solo vería las suyas). Decide si el botón
+  // desactiva/elimina de verdad o es solo cosmético (el servidor
+  // anonimiza y banea en vez de borrar).
+  const hasDeliveriesMap = new Map<string, boolean>(
+    (pagedDeliveryPeople ?? []).map((d) => [d.id, false])
+  )
+  if (pagedDeliveryPeople && pagedDeliveryPeople.length > 0) {
+    const { data: deliveryRows } = await supabase
+      .from('deliveries')
+      .select('delivery_person_id')
+      .in(
+        'delivery_person_id',
+        pagedDeliveryPeople.map((d) => d.id)
+      )
+    for (const row of deliveryRows ?? []) {
+      if (row.delivery_person_id) {
+        hasDeliveriesMap.set(row.delivery_person_id, true)
+      }
+    }
+  }
+
   return (
     <PageContainer size="full">
       <PageHeader
@@ -111,6 +135,7 @@ export default async function AdminDeliveryPage({
                     <DeliveryRowActions
                       id={d.id}
                       isActive={d.is_active}
+                      hasDeliveries={hasDeliveriesMap.get(d.id) ?? false}
                       deliveryPerson={{
                         id: d.id,
                         full_name: d.full_name,

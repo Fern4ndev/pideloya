@@ -20,6 +20,7 @@ export async function RecentOrdersTable() {
       status,
       total,
       created_at,
+      customer_name,
       profiles:customer_id ( full_name ),
       order_items (
         product_name,
@@ -48,7 +49,12 @@ export async function RecentOrdersTable() {
             </TableHeader>
             <TableBody>
               {orders.map((order) => {
-                const customerName = (order.profiles as unknown as { full_name: string } | null)?.full_name ?? '—'
+                // Snapshot primero; el join a profiles es solo fallback
+                // para pedidos anteriores al backfill (si los hubiera).
+                const customerName =
+                  order.customer_name ??
+                  (order.profiles as unknown as { full_name: string } | null)?.full_name ??
+                  '—'
                 const restaurantName = (order.order_items?.[0] as unknown as { restaurant_name: string | null } | null)?.restaurant_name ?? '—'
                 const createdAt = new Date(order.created_at)
 

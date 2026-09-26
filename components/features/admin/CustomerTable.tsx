@@ -18,6 +18,8 @@ import { TableShell } from '@/components/ui/table-shell'
 
 export type CustomerRow = UserSummary & {
   registered: string
+  /** Server-side flag: el cliente tiene pedidos históricos (decide la acción de borrado). */
+  hasOrders: boolean
 }
 
 export function CustomerTable({
@@ -76,7 +78,7 @@ export function CustomerTable({
                   {c.registered}
                 </TableCell>
                 <TableCell>
-                  <UserRowActions user={c} />
+                  <UserRowActions user={c} hasHistory={c.hasOrders} />
                 </TableCell>
               </TableRow>
             )

@@ -109,6 +109,15 @@ export const POST = withApi(async (request: Request) => {
 
   const client = adminClient()
 
+  // Snapshot del cliente: nombre/teléfono "al momento del pedido", igual
+  // que product_name en order_items. Si el cliente se elimina después
+  // (customer_id → null), el historial conserva quién hizo el pedido.
+  const { data: customerProfile } = await client
+    .from('profiles')
+    .select('full_name, phone')
+    .eq('id', context.profileId)
+    .maybeSingle()
+
   // Verifica que la dirección pertenece al cliente.
   const { data: addr } = await client
     .from('addresses')
@@ -171,6 +180,8 @@ export const POST = withApi(async (request: Request) => {
     .from('orders')
     .insert({
       customer_id: context.profileId,
+      customer_name: customerProfile?.full_name ?? null,
+      customer_phone: customerProfile?.phone ?? null,
       address_id: addressId,
       status: 'PENDING',
       total,

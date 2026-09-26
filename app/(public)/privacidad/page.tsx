@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Cómo PideloYa recopila, usa y protege tus datos personales.',
 }
 
-const UPDATED_AT = '12 de septiembre de 2026'
+const UPDATED_AT = '26 de septiembre de 2026'
 
 export default function PrivacidadPage() {
   return (
@@ -65,9 +65,21 @@ export default function PrivacidadPage() {
 
       <LegalSection title="6. Conservación de datos">
         <p>
-          Conservamos tus datos mientras mantengas una cuenta activa en PideloYa y,
-          después de darla de baja, durante el plazo necesario para cumplir
-          obligaciones legales, contables o de atención de reclamos.
+          Conservamos tus datos mientras mantengas una cuenta activa en PideloYa.
+        </p>
+        <p>
+          Si solicitas la eliminación de tu cuenta y tienes historial de pedidos,
+          tus datos de identificación (nombre, contacto, documento y direcciones)
+          se anonimizan y tu cuenta pierde el acceso de forma permanente; el
+          registro de la transacción (pedidos, montos y fechas, sin datos que te
+          identifiquen directamente) se conserva por 5 años, plazo exigido por
+          obligaciones contables y tributarias (SUNAT, Código Tributario).
+        </p>
+        <p>
+          Si tu cuenta no registra pedidos, se elimina por completo junto con sus
+          datos. Los pedidos ya realizados conservan el nombre y teléfono que
+          tenías al momento de cada pedido, como parte del comprobante de la
+          transacción.
         </p>
       </LegalSection>
 

@@ -1,13 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import { EyeIcon, TrashIcon } from 'lucide-react'
+import { EyeIcon, TrashIcon, UserXIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { deleteUser } from '@/lib/actions/admin'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ViewUserDialog, type UserSummary } from './ViewUserDialog'
 
-export function UserRowActions({ user }: { user: UserSummary }) {
+export function UserRowActions({
+  user,
+  hasHistory = false,
+}: {
+  user: UserSummary
+  /**
+   * Server-side flag: ¿el cliente tiene pedidos históricos? Decide qué
+   * acción real ejecutará el servidor, así que la UI muestra el texto
+   * correcto ANTES de confirmar (evita expectativas incorrectas del
+   * admin: "eliminar" nunca borra una cuenta con historial).
+   */
+  hasHistory?: boolean
+}) {
   const [viewOpen, setViewOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -26,24 +38,46 @@ export function UserRowActions({ user }: { user: UserSummary }) {
           variant="ghost"
           size="icon-sm"
           onClick={() => setConfirmOpen(true)}
-          title="Eliminar"
+          title={hasHistory ? 'Desactivar y anonimizar' : 'Eliminar'}
         >
-          <TrashIcon className="h-4 w-4 text-destructive" />
+          {hasHistory ? (
+            <UserXIcon className="h-4 w-4 text-destructive" />
+          ) : (
+            <TrashIcon className="h-4 w-4 text-destructive" />
+          )}
         </Button>
       </div>
 
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Eliminar cliente"
-        description="¿Eliminar esta cuenta? El cliente ya no podrá iniciar sesión, pero su historial de pedidos se conservará. Esta acción no se puede deshacer."
-        confirmLabel="Eliminar"
-        variant="destructive"
-        onConfirm={async () => {
-          const result = await deleteUser(user.id)
-          return { ...result, message: 'Cliente eliminado' }
-        }}
-      />
+      {hasHistory ? (
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title="Desactivar y anonimizar cliente"
+          description="Este cliente tiene pedidos históricos: su cuenta NO se elimina. Se anonimizarán sus datos personales, perderá el acceso y su historial se conservará como evidencia. Esta acción no se puede deshacer."
+          confirmLabel="Desactivar y anonimizar"
+          variant="destructive"
+          onConfirm={async () => {
+            const result = await deleteUser(user.id)
+            return {
+              ...result,
+              message: result.message ?? 'Cliente desactivado y anonimizado',
+            }
+          }}
+        />
+      ) : (
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title="Eliminar cliente"
+          description="¿Eliminar esta cuenta? El cliente no tiene pedidos registrados, así que la cuenta se elimina por completo. Esta acción no se puede deshacer."
+          confirmLabel="Eliminar"
+          variant="destructive"
+          onConfirm={async () => {
+            const result = await deleteUser(user.id)
+            return { ...result, message: result.message ?? 'Cliente eliminado' }
+          }}
+        />
+      )}
 
       <ViewUserDialog open={viewOpen} onOpenChange={setViewOpen} user={user} />
     </>

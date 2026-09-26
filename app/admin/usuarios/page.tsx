@@ -40,6 +40,22 @@ export default async function UsuariosPage({
     return orFilter ? builder.or(orFilter) : builder
   }
 
+  /**
+   * Flags hasOrders de TODA la página en UN solo batch: orders WHERE
+   * customer_id IN (...ids de la página). Cero N+1. Se hace con service
+   * role porque el conteo cruza pedidos de todos los clientes (el admin
+   * autenticado solo vería los suyos por RLS de orders).
+   */
+  async function fetchHasOrdersMap(profileIds: string[]) {
+    if (profileIds.length === 0) return new Map<string, boolean>()
+    const { data } = await supabase
+      .from('orders')
+      .select('customer_id')
+      .in('customer_id', profileIds)
+    const withOrders = new Set((data ?? []).map((row) => row.customer_id))
+    return new Map(profileIds.map((id) => [id, withOrders.has(id)]))
+  }
+
   // El offset se deriva del parámetro de página (sin conocer el total)
   // para lanzar count y data en paralelo: 1 round-trip en vez de 2.
   const offset = (parsePage(page) - 1) * PAGE_SIZE
@@ -69,15 +85,24 @@ export default async function UsuariosPage({
   // La fecha se formatea aquí (Server Component) y el cliente solo renderiza
   // el string: evita mismatches de hidratación por diferencias de ICU entre
   // Node y el navegador.
-  const customers: CustomerRow[] | null =
-    rows?.map((row) => ({
-      ...row,
-      registered: new Date(row.created_at).toLocaleDateString('es-PE', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
-    })) ?? null
+  // El flag hasOrders decide si el admin ve "Eliminar" (sin historial →
+  // hard delete) o "Desactivar y anonimizar" (con historial → la cuenta
+  // nunca se purga de auth.users). También se resuelve si la página
+  // está fuera de rango (el retry trae filas distintas).
+  const rowsForFlags = error ? [] : (rows ?? []).map((r) => r.id)
+  const hasOrdersMap = await fetchHasOrdersMap(rowsForFlags)
+
+  const customers: CustomerRow[] | null = error
+    ? null
+    : rows?.map((row) => ({
+        ...row,
+        hasOrders: hasOrdersMap.get(row.id) ?? false,
+        registered: new Date(row.created_at).toLocaleDateString('es-PE', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+      })) ?? null
 
   const basePath = query
     ? `/admin/usuarios?q=${encodeURIComponent(query)}`
