@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_profile_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string | null
+          target_table: string
+        }
+        Insert: {
+          action: string
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_table: string
+        }
+        Update: {
+          action?: string
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       addresses: {
         Row: {
           address_text: string
@@ -306,6 +344,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          anonymized_at: string | null
           auth_id: string
           created_at: string
           document_number: string | null
@@ -320,6 +359,7 @@ export type Database = {
           vehicle_type: string | null
         }
         Insert: {
+          anonymized_at?: string | null
           auth_id: string
           created_at?: string
           document_number?: string | null
@@ -334,6 +374,7 @@ export type Database = {
           vehicle_type?: string | null
         }
         Update: {
+          anonymized_at?: string | null
           auth_id?: string
           created_at?: string
           document_number?: string | null

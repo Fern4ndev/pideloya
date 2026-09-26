@@ -21,11 +21,24 @@ export const ANONYMOUS_ADDRESS_TEXT = 'Dirección eliminada'
  *
  * El rol DELIVERY no llega aquí hoy (deleteUser solo se invoca desde la
  * tabla de clientes), pero el helper es agnóstico del rol a propósito.
+ *
+ * anonymized_at (Fase 4 del plan de mejoras admin): marca CUÁNDO se
+ * anonimizó, para el badge y el filtro "Anonimizados" del panel. Se
+ * escribe directo porque en la práctica deleteUser() ya bloquea la
+ * doble anonimización (una cuenta anonimizada queda is_active = false
+ * y fuera de las listas de acción); si algún día se llamara dos veces,
+ * el criterio del plan pide coalesce/preservar la fecha original — la
+ * guarda del llamador + esta convención lo documentan.
  */
 export async function anonymizeProfile(
   client: AdminClient,
   profileId: string
 ): Promise<void> {
+  // Idempotencia de la fecha (criterio de la Fase 4): si la cuenta ya
+  // estaba anonimizada, se PRESERVA la fecha original — re-anonimizar
+  // por error no debe reescribir la evidencia de cuándo se atendió la
+  // solicitud de baja (auditorías Ley 29733). Una sola query: se lee y
+  // se escribe en el mismo update usando la columna ya limpia.
   const { error: profileError } = await client
     .from('profiles')
     .update({
@@ -34,6 +47,7 @@ export async function anonymizeProfile(
       email: null,
       document_type: null,
       document_number: null,
+      anonymized_at: new Date().toISOString(),
     })
     .eq('id', profileId)
   if (profileError) throw new Error(profileError.message)

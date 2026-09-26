@@ -22,11 +22,15 @@ type DeliveryPerson = {
 export function DeliveryRowActions({
   id,
   isActive,
+  isAnonymized = false,
   hasDeliveries = false,
   deliveryPerson,
 }: {
   id: string
   isActive: boolean
+  /** Server-side flag: cuenta anonimizada — no tiene sentido reactivarla,
+   * editar su PII (ya fue limpiada) ni desactivarla de nuevo. Solo lectura. */
+  isAnonymized?: boolean
   /** Server-side flag: tiene entregas históricas (decide el texto del botón de borrado). */
   hasDeliveries?: boolean
   deliveryPerson: DeliveryPerson
@@ -38,16 +42,16 @@ export function DeliveryRowActions({
     <>
       <RowActions
         onApprove={
-          !isActive
+          !isActive && !isAnonymized
             ? async () => {
                 const result = await approveDeliveryPerson(id)
                 return { ...result, message: 'Repartidor activado' }
               }
             : undefined
         }
-        onEdit={() => setEditOpen(true)}
+        onEdit={isAnonymized ? undefined : () => setEditOpen(true)}
         onDelete={
-          isActive
+          isActive && !isAnonymized
             ? async () => {
                 const result = await deactivateUser(id)
                 return { ...result, message: 'Repartidor desactivado' }

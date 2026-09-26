@@ -16,39 +16,35 @@ import { AdminTableShell } from './AdminTableShell'
 import type { AdminTableShellPagination } from './AdminTableShell'
 import { SortableTableHead } from './SortableTableHead'
 import { BulkApproveBar } from './BulkApproveBar'
-import { RestaurantRowActions } from './RestaurantRowActions'
+import { DeliveryRowActions } from './DeliveryRowActions'
 
-export type RestaurantRow = {
+export type DeliveryRow = {
   id: string
-  name: string
-  slug: string
-  address_text: string | null
-  whatsapp: string | null
-  food_type: string | null
-  is_approved: boolean
+  full_name: string
+  phone: string | null
+  document_type: string | null
+  document_number: string | null
+  vehicle_type: string | null
   is_active: boolean
-  restaurant_members: {
-    profiles: {
-      full_name: string | null
-    } | null
-  }[] | null
+  created_at: string
+  /** Server-side flag: la cuenta fue anonimizada (badge + acciones reducidas). */
+  anonymizedAt: string | null
   /** Formateada en el servidor (Server Component) para evitar hydration mismatch. */
   registered: string
 }
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'Todos los estados' },
+  { value: '', label: 'Todos los repartidores' },
+  { value: 'active', label: 'Activos' },
   { value: 'pending', label: 'Pendientes de aprobar' },
-  { value: 'active', label: 'Aprobados y activos' },
-  { value: 'suspended', label: 'Desactivados' },
+  { value: 'on_route', label: 'En ruta ahora mismo' },
 ]
 
-/** Espejo de SORTABLE_RESTAURANTS de la página (whitelist compartida a
+/** Espejo de SORTABLE_DELIVERIES de la página (whitelist compartida a
  * propósito: la página valida, esta tabla solo construye hrefs). */
 const SORTABLE = [
-  { key: 'name', label: 'Negocio' },
-  { key: 'owner', label: 'Dueño' },
-  { key: 'food_type', label: 'Tipo' },
+  { key: 'full_name', label: 'Nombre' },
+  { key: 'document_number', label: 'DNI' },
   { key: 'created_at', label: 'Registro' },
 ] as const
 
@@ -66,38 +62,41 @@ function sortHref(
   if (status) params.set('status', status)
   params.set('sort', column)
   params.set('dir', nextDir)
-  return `/admin/restaurantes?${params.toString()}`
+  return `/admin/repartidores?${params.toString()}`
 }
 
-export function RestaurantTable({
-  restaurants,
+export function DeliveryTable({
+  deliveries,
   initialQuery,
   startIndex,
   currentStatus = '',
   currentSort = '',
   currentDir = 'desc',
+  hasDeliveriesMap,
   pagination,
 }: {
-  restaurants: RestaurantRow[]
+  deliveries: DeliveryRow[]
   initialQuery: string
   startIndex: number
   currentStatus?: string
   currentSort?: string
   currentDir?: 'asc' | 'desc'
+  /** Server-side flag: tiene entregas históricas (decide la acción de borrado). */
+  hasDeliveriesMap: Record<string, boolean>
   pagination: AdminTableShellPagination
 }) {
-  // Selección para aprobación EN LOTE (Fase 8). Vive en estado local a
-  // propósito: es UI transitoria (se pierde al navegar, como en todo
-  // panel admin), no estado compartible — lo que sí vive en querystring
-  // es el universo filtrado sobre el que se selecciona.
+  // Selección para aprobación EN LOTE (Fase 8). Solo filas inactivas son
+  // seleccionables (aprobar ya-activo no cambia nada) y nunca cuentas
+  // anonimizadas (reactivarlas sería un error operativo: la cuenta está
+  // de baja permanentemente).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // Solo filas pendientes son seleccionables (aprobar ya-activo no hace
-  // nada; aprobar desactivado reactiva — también vale la pena permitirlo,
-  // mismo efecto que el botón individual "Reactivar").
   const selectableIds = useMemo(
-    () => restaurants.map((r) => r.id),
-    [restaurants]
+    () =>
+      deliveries
+        .filter((d) => !d.is_active && !d.anonymizedAt)
+        .map((d) => d.id),
+    [deliveries]
   )
 
   const allSelected =
@@ -116,9 +115,9 @@ export function RestaurantTable({
 
   return (
     <AdminTableShell
-      searchPlaceholder="Buscar por negocio, dueño o tipo..."
+      searchPlaceholder="Buscar por nombre, DNI o teléfono..."
       statusOptions={STATUS_OPTIONS}
-      exportEntity="restaurants"
+      exportEntity="deliveries"
       pagination={pagination}
     >
       <TableShell>
@@ -132,7 +131,7 @@ export function RestaurantTable({
                   onCheckedChange={(checked) =>
                     setSelectedIds(checked ? new Set(selectableIds) : new Set())
                   }
-                  aria-label="Seleccionar todos los restaurantes de la página"
+                  aria-label="Seleccionar todos los repartidores pendientes de la página"
                 />
               </TableHead>
               <TableHead className="w-10">N°</TableHead>
@@ -144,67 +143,86 @@ export function RestaurantTable({
                   activeSort={currentSort}
                   activeDir={currentDir}
                   nextHref={sortHref(col.key, currentSort, currentDir, initialQuery, currentStatus)}
-                  className={col.key === 'created_at' ? 'w-28 text-center' : 'w-28'}
+                  className={
+                    col.key === 'full_name' ? 'w-48' : col.key === 'document_number' ? 'w-24' : 'w-28 text-center'
+                  }
                 />
               ))}
-              <TableHead className="w-28">WhatsApp</TableHead>
+              <TableHead className="w-28">Vehículo</TableHead>
+              <TableHead className="w-24">Teléfono</TableHead>
               <TableHead className="w-24">Estado</TableHead>
-              <TableHead className="w-28">Acciones</TableHead>
+              <TableHead className="w-20">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {restaurants.map((r, index) => {
-              const ownerName =
-                r.restaurant_members?.[0]?.profiles?.full_name ?? '—'
-              const isSelected = selectedIds.has(r.id)
+            {deliveries.map((d, index) => {
+              const isSelectable = !d.is_active && !d.anonymizedAt
+              const isSelected = selectedIds.has(d.id)
 
               return (
                 <TableRow
-                  key={r.id}
+                  key={d.id}
                   data-state={isSelected ? 'selected' : undefined}
                 >
                   <TableCell>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleOne(r.id)}
-                      aria-label={`Seleccionar ${r.name}`}
-                    />
+                    {isSelectable && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleOne(d.id)}
+                        aria-label={`Seleccionar ${d.full_name}`}
+                      />
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {startIndex + index + 1}
                   </TableCell>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>{ownerName}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {r.food_type ?? '—'}
+                  <TableCell className="max-w-48 font-medium">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate" title={d.full_name ?? ''}>
+                        {d.full_name}
+                      </span>
+                      {d.anonymizedAt && (
+                        <Badge
+                          variant="outline"
+                          title={`Anonimizada el ${d.anonymizedAt}`}
+                        >
+                          Anonimizado
+                        </Badge>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground tabular-nums">
+                    {d.document_number ?? '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {r.whatsapp ?? '—'}
+                    {d.vehicle_type ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground tabular-nums">
+                    {d.phone ?? '—'}
                   </TableCell>
                   <TableCell>
-                    {r.is_approved && r.is_active ? (
-                      <Badge>Aprobado</Badge>
-                    ) : r.is_approved && !r.is_active ? (
-                      <Badge variant="secondary">Desactivado</Badge>
+                    {d.is_active ? (
+                      <Badge variant="secondary">Activo</Badge>
                     ) : (
-                      <Badge variant="outline">Pendiente</Badge>
+                      <Badge variant="outline">Inactivo</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
-                    {r.registered}
+                    {d.registered}
                   </TableCell>
                   <TableCell>
-                    <RestaurantRowActions
-                      id={r.id}
-                      name={r.name}
-                      isApproved={r.is_approved}
-                      isActive={r.is_active}
-                      restaurant={{
-                        id: r.id,
-                        name: r.name,
-                        food_type: r.food_type,
-                        whatsapp: r.whatsapp,
-                        address_text: r.address_text,
+                    <DeliveryRowActions
+                      id={d.id}
+                      isActive={d.is_active}
+                      isAnonymized={!!d.anonymizedAt}
+                      hasDeliveries={hasDeliveriesMap[d.id] ?? false}
+                      deliveryPerson={{
+                        id: d.id,
+                        full_name: d.full_name,
+                        phone: d.phone,
+                        document_type: d.document_type,
+                        document_number: d.document_number,
+                        vehicle_type: d.vehicle_type,
                       }}
                     />
                   </TableCell>
@@ -216,7 +234,7 @@ export function RestaurantTable({
       </TableShell>
 
       <BulkApproveBar
-        entity="restaurants"
+        entity="deliveries"
         selectedIds={[...selectedIds]}
         onClear={() => setSelectedIds(new Set())}
       />

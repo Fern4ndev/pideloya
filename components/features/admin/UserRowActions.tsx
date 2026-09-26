@@ -10,6 +10,7 @@ import { ViewUserDialog, type UserSummary } from './ViewUserDialog'
 export function UserRowActions({
   user,
   hasHistory = false,
+  isAnonymized = false,
 }: {
   user: UserSummary
   /**
@@ -19,6 +20,9 @@ export function UserRowActions({
    * admin: "eliminar" nunca borra una cuenta con historial).
    */
   hasHistory?: boolean
+  /** Server-side flag: cuenta ya anonimizada — la PII fue limpiada y el
+   * login baneado; solo queda inspección de solo lectura. */
+  isAnonymized?: boolean
 }) {
   const [viewOpen, setViewOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -34,18 +38,20 @@ export function UserRowActions({
         >
           <EyeIcon className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setConfirmOpen(true)}
-          title={hasHistory ? 'Desactivar y anonimizar' : 'Eliminar'}
-        >
-          {hasHistory ? (
-            <UserXIcon className="h-4 w-4 text-destructive" />
-          ) : (
-            <TrashIcon className="h-4 w-4 text-destructive" />
-          )}
-        </Button>
+        {!isAnonymized && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setConfirmOpen(true)}
+            title={hasHistory ? 'Desactivar y anonimizar' : 'Eliminar'}
+          >
+            {hasHistory ? (
+              <UserXIcon className="h-4 w-4 text-destructive" />
+            ) : (
+              <TrashIcon className="h-4 w-4 text-destructive" />
+            )}
+          </Button>
+        )}
       </div>
 
       {hasHistory ? (
