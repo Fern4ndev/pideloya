@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -8,24 +7,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { OrderDetailsDialog, type OrderDetail } from '@/components/features/orders/OrderDetailsDialog'
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  PENDING: 'outline',
-  ASSIGNED: 'secondary',
-  PICKED_UP: 'secondary',
-  ON_THE_WAY: 'secondary',
-  DELIVERED: 'default',
-  CANCELLED: 'destructive',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pendiente',
-  ASSIGNED: 'Asignado',
-  PICKED_UP: 'Recogido',
-  ON_THE_WAY: 'En camino',
-  DELIVERED: 'Entregado',
-  CANCELLED: 'Cancelado',
-}
+import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 
 export function RestaurantOrdersTable({
   orders,
@@ -70,9 +52,7 @@ export function RestaurantOrdersTable({
                 {itemsText || '—'}
               </TableCell>
               <TableCell>
-                <Badge variant={STATUS_VARIANT[order.status] ?? 'outline'}>
-                  {STATUS_LABELS[order.status] ?? order.status}
-                </Badge>
+                <OrderStatusBadge status={order.status} />
               </TableCell>
               <TableCell className="text-right font-medium">
                 S/ {order.total.toFixed(2)}

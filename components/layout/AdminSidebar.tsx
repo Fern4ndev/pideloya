@@ -1,13 +1,21 @@
 'use client'
 
 import { Sidebar } from './Sidebar'
-import { LayoutDashboardIcon, StoreIcon, Motorbike, UsersIcon, UserIcon } from 'lucide-react'
+import {
+  LayoutDashboardIcon,
+  ScrollTextIcon,
+  StoreIcon,
+  Motorbike,
+  UsersIcon,
+  UserIcon,
+} from 'lucide-react'
 
 const ADMIN_LINKS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboardIcon },
   { href: '/admin/restaurantes', label: 'Restaurantes', icon: StoreIcon },
   { href: '/admin/repartidores', label: 'Repartidores', icon: Motorbike },
   { href: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon },
+  { href: '/admin/auditoria', label: 'Auditoría', icon: ScrollTextIcon },
   { href: '/admin/perfil', label: 'Perfil', icon: UserIcon },
 ]
 

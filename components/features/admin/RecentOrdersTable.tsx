@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/db/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -9,24 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  PENDING: 'outline',
-  ASSIGNED: 'secondary',
-  PICKED_UP: 'secondary',
-  ON_THE_WAY: 'secondary',
-  DELIVERED: 'default',
-  CANCELLED: 'destructive',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pendiente',
-  ASSIGNED: 'Asignado',
-  PICKED_UP: 'Recogido',
-  ON_THE_WAY: 'En camino',
-  DELIVERED: 'Entregado',
-  CANCELLED: 'Cancelado',
-}
+import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 
 export async function RecentOrdersTable() {
   const supabase = await createClient()
@@ -38,6 +20,7 @@ export async function RecentOrdersTable() {
       status,
       total,
       created_at,
+      customer_name,
       profiles:customer_id ( full_name ),
       order_items (
         product_name,
@@ -66,7 +49,12 @@ export async function RecentOrdersTable() {
             </TableHeader>
             <TableBody>
               {orders.map((order) => {
-                const customerName = (order.profiles as unknown as { full_name: string } | null)?.full_name ?? '—'
+                // Snapshot primero; el join a profiles es solo fallback
+                // para pedidos anteriores al backfill (si los hubiera).
+                const customerName =
+                  order.customer_name ??
+                  (order.profiles as unknown as { full_name: string } | null)?.full_name ??
+                  '—'
                 const restaurantName = (order.order_items?.[0] as unknown as { restaurant_name: string | null } | null)?.restaurant_name ?? '—'
                 const createdAt = new Date(order.created_at)
 
@@ -75,12 +63,10 @@ export async function RecentOrdersTable() {
                     <TableCell className="font-medium">{customerName}</TableCell>
                     <TableCell className="text-muted-foreground">{restaurantName}</TableCell>
                     <TableCell>
-                      <Badge variant={STATUS_VARIANT[order.status] ?? 'outline'}>
-                        {STATUS_LABELS[order.status] ?? order.status}
-                      </Badge>
+                      <OrderStatusBadge status={order.status} />
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      S/ {order.total.toFixed(2)}
+                      S/ {Number(order.total).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {createdAt.toLocaleDateString('es-PE', {

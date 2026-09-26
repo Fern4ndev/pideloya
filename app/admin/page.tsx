@@ -3,6 +3,9 @@ import { limaDayKey } from '@/lib/dates'
 import { DashboardCards } from '@/components/features/admin/DashboardCards'
 import { AdminDashboardCharts } from '@/components/features/admin/AdminDashboardCharts'
 import { RecentOrdersTable } from '@/components/features/admin/RecentOrdersTable'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageContainer } from '@/components/layout/PageContainer'
+import { RealtimeRefresh } from '@/components/ui/realtime-refresh'
 
 export default async function AdminHomePage() {
   const supabase = await createClient()
@@ -52,28 +55,29 @@ export default async function AdminHomePage() {
       : { data: [] }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Panel de administración
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Aprueba negocios y repartidores, y supervisa la plataforma.
-        </p>
-      </div>
+    <PageContainer size="full">
+      {/* KPIs, gráficos y pedidos recientes se actualizan solos con cada cambio en orders */}
+      <RealtimeRefresh channelName="admin-orders" table="orders" />
 
-      <DashboardCards />
-
-      <AdminDashboardCharts
-        orders={orders ?? []}
-        orderItems={orderItems ?? []}
-        restaurants={restaurants ?? []}
-        deliveries={deliveries ?? []}
-        deliveryPersons={deliveryPersons ?? []}
-        todayKey={todayKey}
+      <PageHeader
+        title="Panel de administración"
+        description="Aprueba negocios y repartidores, y supervisa la plataforma."
       />
 
-      <RecentOrdersTable />
-    </div>
+      <div className="mt-6 space-y-6">
+        <DashboardCards />
+
+        <AdminDashboardCharts
+          orders={orders ?? []}
+          orderItems={orderItems ?? []}
+          restaurants={restaurants ?? []}
+          deliveries={deliveries ?? []}
+          deliveryPersons={deliveryPersons ?? []}
+          todayKey={todayKey}
+        />
+
+        <RecentOrdersTable />
+      </div>
+    </PageContainer>
   )
 }

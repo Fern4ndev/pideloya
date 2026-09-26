@@ -19,13 +19,11 @@ type Restaurant = {
 
 export function RestaurantRowActions({
   id,
-  name,
   isApproved,
   isActive,
   restaurant,
 }: {
   id: string
-  name: string
   isApproved: boolean
   isActive: boolean
   restaurant: Restaurant

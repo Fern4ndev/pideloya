@@ -21,9 +21,13 @@ export default async function NewProductPage() {
     .eq('user_id', profile!.id)
     .single()
 
+  // Filtramos explícitamente por nuestro restaurante: la policy pública
+  // "categories_select_customer" no excluía al rol RESTAURANT, así que sin
+  // este .eq() el Select mostraría categorías de otros restaurantes.
   const { data: categories } = await supabase
     .from('categories')
     .select('id, name')
+    .eq('restaurant_id', member!.restaurant_id)
     .order('sort_order', { ascending: true })
 
   return (

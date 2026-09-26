@@ -31,27 +31,25 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
   const [error, setError] = useState<string | null>(null)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [restaurantOpen, setRestaurantOpen] = useState<boolean | null>(null)
+  const [openState, setOpenState] = useState<{ id: string; isOpen: boolean } | null>(null)
 
   const total = cartTotal(items)
 
   // Consulta si el negocio está atendiendo ahora mismo (source of truth en
   // el servidor al confirmar; aquí solo para avisar y deshabilitar la UI).
   useEffect(() => {
-    if (!restaurantId) {
-      setRestaurantOpen(null)
-      return
-    }
+    if (!restaurantId) return
     let cancelled = false
     getRestaurantCheckoutState(restaurantId).then((res) => {
-      if (!cancelled) setRestaurantOpen(res.isOpenNow)
+      if (!cancelled) setOpenState({ id: restaurantId, isOpen: res.isOpenNow })
     })
     return () => {
       cancelled = true
     }
   }, [restaurantId])
 
-  const isRestaurantClosed = restaurantOpen === false
+  // stale guard: si cambió el restaurante, el resultado viejo no aplica
+  const isRestaurantClosed = openState?.id === restaurantId && !openState.isOpen
 
   function handleConfirm() {
     setError(null)

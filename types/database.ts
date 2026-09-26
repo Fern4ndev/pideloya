@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_profile_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string | null
+          target_table: string
+        }
+        Insert: {
+          action: string
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_table: string
+        }
+        Update: {
+          action?: string
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       addresses: {
         Row: {
           address_text: string
@@ -138,7 +176,7 @@ export type Database = {
           id: string
           image_url: string | null
           order_id: string
-          product_id: string
+          product_id: string | null
           product_name: string | null
           quantity: number
           restaurant_id: string
@@ -150,7 +188,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           order_id: string
-          product_id: string
+          product_id?: string | null
           product_name?: string | null
           quantity: number
           restaurant_id: string
@@ -162,7 +200,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           order_id?: string
-          product_id?: string
+          product_id?: string | null
           product_name?: string | null
           quantity?: number
           restaurant_id?: string
@@ -198,6 +236,8 @@ export type Database = {
           address_id: string
           created_at: string
           customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
           id: string
           notes: string | null
           status: Database["public"]["Enums"]["order_status"]
@@ -208,6 +248,8 @@ export type Database = {
           address_id: string
           created_at?: string
           customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -218,6 +260,8 @@ export type Database = {
           address_id?: string
           created_at?: string
           customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -300,6 +344,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          anonymized_at: string | null
           auth_id: string
           created_at: string
           document_number: string | null
@@ -314,6 +359,7 @@ export type Database = {
           vehicle_type: string | null
         }
         Insert: {
+          anonymized_at?: string | null
           auth_id: string
           created_at?: string
           document_number?: string | null
@@ -328,6 +374,7 @@ export type Database = {
           vehicle_type?: string | null
         }
         Update: {
+          anonymized_at?: string | null
           auth_id?: string
           created_at?: string
           document_number?: string | null

@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { advanceOrderStatus } from '@/lib/actions/deliveries'
 import { Button } from '@/components/ui/button'
 import type { OrderStatus } from '@/types/order'
+import { useToast } from '@/components/ui/toast'
 
 const NEXT_LABEL: Record<string, string> = {
   ASSIGNED: 'Marcar como recogido',
@@ -20,6 +21,7 @@ export function AdvanceStatusButton({
 }) {
   const [isPending, startTransition] = useTransition()
   const label = NEXT_LABEL[currentStatus]
+  const { success, error } = useToast()
 
   if (!label) return null
 
@@ -27,14 +29,15 @@ export function AdvanceStatusButton({
     startTransition(async () => {
       try {
         await advanceOrderStatus(orderId, currentStatus)
+        success('Estado actualizado')
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'Algo salió mal')
+        error('Algo salió mal', err instanceof Error ? err.message : undefined)
       }
     })
   }
 
   return (
-    <Button size="sm" disabled={isPending} onClick={handleClick}>
+    <Button size="sm" variant="lime" disabled={isPending} onClick={handleClick}>
       {isPending ? 'Actualizando…' : label}
     </Button>
   )

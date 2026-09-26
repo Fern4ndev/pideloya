@@ -1,9 +1,10 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { deleteProduct } from '@/lib/actions/products'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/features/admin/ConfirmDialog'
 import { ProductEditDialog } from './ProductEditDialog'
 import type { ProductFormData } from './ProductForm'
 import { TrashIcon } from 'lucide-react'
@@ -15,17 +16,12 @@ export function ProductRowActions({
   product: ProductFormData & { id: string; restaurantId: string }
   categories: { id: string; name: string }[]
 }) {
-  const [isPending, startTransition] = useTransition()
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const router = useRouter()
 
-  function handleDelete() {
-    if (!confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
-      return
-    }
-    startTransition(async () => {
-      await deleteProduct(product.id)
-      router.refresh()
-    })
+  async function handleDelete() {
+    await deleteProduct(product.id)
+    router.refresh()
   }
 
   return (
@@ -35,12 +31,19 @@ export function ProductRowActions({
         variant="ghost"
         size="icon-sm"
         className="text-destructive hover:text-destructive"
-        disabled={isPending}
-        onClick={handleDelete}
+        onClick={() => setConfirmOpen(true)}
         title="Eliminar"
       >
         <TrashIcon className="h-4 w-4" />
       </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="¿Eliminar producto?"
+        description="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

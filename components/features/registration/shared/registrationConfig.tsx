@@ -49,7 +49,7 @@ function validatePassword(value: string): string | null {
     : 'Mínimo 8 caracteres, con letras y números'
 }
 
-function validateName(value: string, minLen = 2): string | null {
+function validateName(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return 'Ingresa un nombre'
   if (!NAME_REGEX.test(trimmed)) return 'Solo letras y espacios'
@@ -111,7 +111,18 @@ export const deliveryConfig: RegistrationConfig = {
   fields: DELIVERY_FIELDS,
   fieldOrder: DELIVERY_FIELDS.map((f) => f.name),
   validate: validateDelivery,
-  onSubmit: (form) => registerDeliveryPerson({ ...form, documentType: 'DNI', vehicleType: 'Moto' } as any),
+  onSubmit: (form) =>
+    registerDeliveryPerson({
+      fullName: String(form.fullName ?? ''),
+      documentType: 'DNI',
+      documentNumber: String(form.documentNumber ?? ''),
+      vehicleType: 'Moto',
+      phone: String(form.phone ?? ''),
+      email: String(form.email ?? ''),
+      password: String(form.password ?? ''),
+      ageConfirmed: form.ageConfirmed === true,
+      consent: form.consent === true,
+    }),
   successTitle: 'Recibimos tu registro',
   successDescription:
     'Vamos a validar tus datos y activar tu cuenta. Te contactaremos por WhatsApp.',
@@ -177,7 +188,18 @@ export const restaurantConfig: RegistrationConfig = {
   fields: RESTAURANT_FIELDS,
   fieldOrder: RESTAURANT_FIELDS.map((f) => f.name),
   validate: validateRestaurant,
-  onSubmit: (form) => registerRestaurant(form as any),
+  onSubmit: (form) =>
+    registerRestaurant({
+      restaurantName: String(form.restaurantName ?? ''),
+      foodType: String(form.foodType ?? ''),
+      addressText: String(form.addressText ?? ''),
+      whatsapp: String(form.whatsapp ?? ''),
+      ownerFullName: String(form.ownerFullName ?? ''),
+      ownerPhone: String(form.ownerPhone ?? ''),
+      ownerEmail: String(form.ownerEmail ?? ''),
+      password: String(form.password ?? ''),
+      consent: form.consent === true,
+    }),
   successTitle: 'Registramos tu negocio',
   successDescription:
     'Vamos a revisar tu información y activar tu cuenta. Te contactaremos por WhatsApp al número que registraste.',

@@ -207,10 +207,10 @@ export function ProductForm({
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
           <div className="flex gap-2 pt-1">
-            <Button type="submit" disabled={isPending} className="flex-1">
+            <Button type="submit" variant="lime" disabled={isPending} className="flex-1">
               {isPending
                 ? 'Guardando…'
                 : productId

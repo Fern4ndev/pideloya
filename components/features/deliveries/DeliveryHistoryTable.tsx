@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/db/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -8,11 +7,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { TableShell } from '@/components/ui/table-shell'
+import { EmptyState } from '@/components/ui/empty-state'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { DeliveryDetailsDialog } from '@/components/features/deliveries/DeliveryDetailsDialog'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { getPagination } from '@/lib/pagination'
-import { PackageIcon } from 'lucide-react'
+import { HistoryIcon } from 'lucide-react'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
 async function getMyProfileId(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -52,7 +53,7 @@ type DeliveryRow = {
 /**
  * Historial completo de entregas del repartidor autenticado — reutiliza
  * el mismo patrón de tabla que RestaurantRecentOrders/RecentOrdersTable
- * (Card + Table) y el mismo OrderStatusBadge que ya usan pedidos y
+ * (TableShell + Table) y el mismo OrderStatusBadge que ya usan pedidos y
  * "Mis entregas", en vez de redefinir los colores/labels de estado.
  */
 export async function DeliveryHistoryTable({ page }: { page?: string }) {
@@ -91,13 +92,9 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
 
   if (error) {
     return (
-      <Card>
-        <CardContent>
-          <p className="py-8 text-center text-sm text-destructive">
-            No se pudo cargar tu historial de entregas.
-          </p>
-        </CardContent>
-      </Card>
+      <p role="alert" className="mt-6 text-sm text-destructive">
+        No se pudo cargar tu historial de entregas.
+      </p>
     )
   }
 
@@ -126,78 +123,74 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
     }
   })
 
+  if (total === 0) {
+    return (
+      <EmptyState
+        icon={HistoryIcon}
+        title="Todavía no tienes entregas en tu historial"
+        description="Cuando aceptes y completes pedidos, aparecerán aquí."
+      />
+    )
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Historial de entregas</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {total > 0 ? (
-          <>
-            <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10 text-right">Nº</TableHead>
-                <TableHead>Restaurante</TableHead>
-                <TableHead>Productos</TableHead>
-                <TableHead>Dirección</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+    <>
+      <TableShell>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10 text-right">Nº</TableHead>
+              <TableHead>Restaurante</TableHead>
+              <TableHead>Productos</TableHead>
+              <TableHead>Dirección</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow key={row.id}>
+                <TableCell className="w-10 text-right text-muted-foreground tabular-nums">
+                  {pagination.start + index + 1}
+                </TableCell>
+                <TableCell className="font-medium">{row.restaurantName}</TableCell>
+                <TableCell className="max-w-[220px] truncate text-muted-foreground">
+                  {row.itemsSummary}
+                </TableCell>
+                <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                  {row.addressText}
+                </TableCell>
+                <TableCell>
+                  <OrderStatusBadge status={row.status} />
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  S/ {Number(row.total).toFixed(2)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <DeliveryDetailsDialog
+                    delivery={{
+                      id: row.id,
+                      restaurantName: row.restaurantName,
+                      items: row.items,
+                      addressText: row.addressText,
+                      status: row.status,
+                      total: row.total,
+                      acceptedAt: row.acceptedAt,
+                      deliveredAt: row.deliveredAt,
+                    }}
+                  />
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, index) => (
-                <TableRow key={row.id}>
-                  <TableCell className="w-10 text-right text-muted-foreground tabular-nums">
-                    {pagination.start + index + 1}
-                  </TableCell>
-                  <TableCell className="font-medium">{row.restaurantName}</TableCell>
-                  <TableCell className="max-w-[220px] truncate text-muted-foreground">
-                    {row.itemsSummary}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                    {row.addressText}
-                  </TableCell>
-                  <TableCell>
-                    <OrderStatusBadge status={row.status} />
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    S/ {Number(row.total).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DeliveryDetailsDialog
-                      delivery={{
-                        id: row.id,
-                        restaurantName: row.restaurantName,
-                        items: row.items,
-                        addressText: row.addressText,
-                        status: row.status,
-                        total: row.total,
-                        acceptedAt: row.acceptedAt,
-                        deliveredAt: row.deliveredAt,
-                      }}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-            <TablePagination
-              basePath="/repartidor/historial"
-              page={pagination.page}
-              pageCount={pagination.pageCount}
-            />
-          </>
-        ) : (
-          <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
-            <PackageIcon className="h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              Todavía no tienes entregas en tu historial.
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            ))}
+          </TableBody>
+        </Table>
+      </TableShell>
+      <TablePagination
+        basePath="/repartidor/historial"
+        page={pagination.page}
+        pageCount={pagination.pageCount}
+      />
+    </>
   )
 }

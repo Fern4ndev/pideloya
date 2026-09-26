@@ -41,13 +41,14 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
   const itemCount = useMemo(() => cartItemCount(items), [items])
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
   const [menuOpen, setMenuOpen] = useState(false)
+  const [lastPathname, setLastPathname] = useState(pathname)
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname)
+    setMenuOpen(false)
+  }
 
   const search = useSearchStore((s) => s.query)
   const setSearch = useSearchStore((s) => s.setQuery)
-
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [pathname])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -149,7 +150,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <button className="rounded-full outline-none ring-brand-500/40 transition-shadow focus-visible:ring-2" />
+                <button className="rounded-full outline-none" />
               }
             >
               <Avatar className="h-9 w-9 ring-1 ring-black/5 dark:ring-white/10">

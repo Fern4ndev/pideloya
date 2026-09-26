@@ -9,9 +9,6 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { Bar, BarChart, XAxis, YAxis } from 'recharts'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -19,18 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { BarChart3Icon, TruckIcon } from 'lucide-react'
+import { addDays } from '@/lib/dates'
 import {
-  DAY_MS,
-  RANGE_MAX_DAYS,
-  WEEKDAYS_FULL,
-  MONTHS_FULL,
-  addDays,
-  dayParts,
-  formatFullDate,
-  limaDayKey,
-} from '@/lib/dates'
-
-type Granularity = 'day' | 'week' | 'month'
+  aggregateOrders,
+  filterByRange,
+  validateDateRange,
+  type Granularity,
+} from '@/lib/dashboard/chart-utils'
+import { DashboardRangeFilterBar } from '@/components/features/dashboard/DashboardRangeFilterBar'
 
 type AdminChartOrder = { id: string; status: string; total: number; created_at: string }
 type AdminChartOrderItem = { order_id: string; restaurant_id: string }
@@ -47,59 +41,13 @@ type AdminDashboardChartsProps = {
   todayKey: string
 }
 
-type RangeError = 'empty-from' | 'empty-to' | 'inverted' | 'too-long' | null
-
-const RANGE_ERROR_TEXT: Record<Exclude<RangeError, null>, string> = {
-  'empty-from': 'Selecciona la fecha «desde».',
-  'empty-to': 'Selecciona la fecha «hasta».',
-  inverted: 'La fecha «desde» debe ser anterior o igual a la «hasta».',
-  'too-long': 'El rango no puede superar 366 días.',
-}
-
 const salesConfig = {
-  count: { label: 'Pedidos', color: 'var(--color-primary)' },
+  count: { label: 'Pedidos', color: 'var(--color-lime)' },
 } satisfies ChartConfig
 
 const deliveriesConfig = {
-  count: { label: 'Entregados', color: 'var(--color-green-500)' },
+  count: { label: 'Entregados', color: 'var(--color-violet)' },
 } satisfies ChartConfig
-
-type Bucket = { key: string; label: string; count: number; total: number }
-
-const FIXED_BUCKETS: Record<Granularity, { key: string; label: string }[]> = {
-  day: WEEKDAYS_FULL.map((label, index) => ({ key: String(index), label })),
-  week: Array.from({ length: 5 }, (_, index) => ({ key: String(index + 1), label: `Sem ${index + 1}` })),
-  month: MONTHS_FULL.map((label, index) => ({ key: String(index), label })),
-}
-
-function bucketKeyFor(createdAt: string, granularity: Granularity): string {
-  const { month, day, weekday } = dayParts(limaDayKey(new Date(createdAt)))
-  if (granularity === 'day') return String(weekday)
-  if (granularity === 'week') return String(Math.floor((day - 1) / 7) + 1)
-  return String(month - 1)
-}
-
-function buildBuckets(
-  granularity: Granularity,
-  counts: Map<string, { count: number; total: number }>
-): Bucket[] {
-  return FIXED_BUCKETS[granularity].map(({ key, label }) => {
-    const current = counts.get(key) ?? { count: 0, total: 0 }
-    return { key, label, count: current.count, total: current.total }
-  })
-}
-
-function aggregate(orders: AdminChartOrder[], granularity: Granularity): Bucket[] {
-  const counts = new Map<string, { count: number; total: number }>()
-  for (const order of orders) {
-    const key = bucketKeyFor(order.created_at, granularity)
-    const current = counts.get(key) ?? { count: 0, total: 0 }
-    current.count += 1
-    current.total += Number(order.total)
-    counts.set(key, current)
-  }
-  return buildBuckets(granularity, counts)
-}
 
 export function AdminDashboardCharts({
   orders,
@@ -115,33 +63,12 @@ export function AdminDashboardCharts({
   const [restaurantId, setRestaurantId] = useState('all')
   const [deliveryPersonId, setDeliveryPersonId] = useState('all')
 
-  const rangeError = useMemo<RangeError>(() => {
-    if (!dateFrom) return 'empty-from'
-    if (!dateTo) return 'empty-to'
-    if (dateFrom > dateTo) return 'inverted'
-
-    const diffDays = Math.round(
-      (new Date(`${dateTo}T12:00:00-05:00`).getTime() - new Date(`${dateFrom}T12:00:00-05:00`).getTime()) /
-        DAY_MS
-    )
-    if (diffDays >= RANGE_MAX_DAYS) return 'too-long'
-
-    return null
-  }, [dateFrom, dateTo])
-
-  const fromInvalid = rangeError === 'empty-from' || rangeError === 'inverted' || rangeError === 'too-long'
-  const toInvalid = rangeError === 'empty-to' || rangeError === 'inverted' || rangeError === 'too-long'
+  const rangeError = useMemo(() => validateDateRange(dateFrom, dateTo), [dateFrom, dateTo])
 
   const spanOrders = useMemo(() => {
     if (rangeError) return []
 
-    const fromTs = new Date(`${dateFrom}T00:00:00-05:00`).getTime()
-    const toTs = new Date(`${dateTo}T23:59:59-05:00`).getTime()
-
-    return orders.filter((order) => {
-      const ts = new Date(order.created_at).getTime()
-      return ts >= fromTs && ts <= toTs
-    })
+    return filterByRange(orders, dateFrom, dateTo)
   }, [orders, dateFrom, dateTo, rangeError])
 
   const sales = useMemo(() => {
@@ -161,7 +88,7 @@ export function AdminDashboardCharts({
         ? spanOrders
         : spanOrders.filter((order) => restaurantOrderIds.has(order.id))
 
-    return aggregate(relevant, granularity)
+    return aggregateOrders(relevant, granularity)
   }, [spanOrders, orderItems, restaurantId, granularity, rangeError])
 
   const delivered = useMemo(() => {
@@ -175,7 +102,7 @@ export function AdminDashboardCharts({
       return personId !== undefined && (deliveryPersonId === 'all' || personId === deliveryPersonId)
     })
 
-    return aggregate(relevant, granularity)
+    return aggregateOrders(relevant, granularity)
   }, [spanOrders, deliveries, deliveryPersonId, granularity, rangeError])
 
   const hasSales = sales.some((bucket) => bucket.count > 0)
@@ -190,71 +117,23 @@ export function AdminDashboardCharts({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-        <div>
-          <Label className="mb-1.5 block text-xs font-medium">Vista</Label>
-          <div className="flex gap-1">
-            {(['day', 'week', 'month'] as const).map((option) => (
-              <Button
-                key={option}
-                type="button"
-                size="sm"
-                variant={granularity === option ? 'default' : 'outline'}
-                onClick={() => setGranularity(option)}
-              >
-                {option === 'day' ? 'Día' : option === 'week' ? 'Semana' : 'Mes'}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="filter-from" className="text-xs font-medium">
-            Desde
-          </Label>
-          <Input
-            id="filter-from"
-            type="date"
-            className="w-40"
-            value={dateFrom}
-            max={dateTo || undefined}
-            aria-invalid={fromInvalid}
-            onChange={(event) => setDateFrom(event.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="filter-to" className="text-xs font-medium">
-            Hasta
-          </Label>
-          <Input
-            id="filter-to"
-            type="date"
-            className="w-40"
-            value={dateTo}
-            min={dateFrom || undefined}
-            aria-invalid={toInvalid}
-            onChange={(event) => setDateTo(event.target.value)}
-          />
-        </div>
-
-        <div className="pb-1.5 text-xs text-muted-foreground">
-          {rangeError ? (
-            <p role="alert" className="text-destructive">
-              {RANGE_ERROR_TEXT[rangeError]}
-            </p>
-          ) : (
-            <p>
-              Mostrando: {formatFullDate(dateFrom)} – {formatFullDate(dateTo)}
-            </p>
-          )}
-        </div>
-      </div>
+      <DashboardRangeFilterBar
+        granularity={granularity}
+        onGranularityChange={setGranularity}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        rangeError={rangeError}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
-            <CardTitle className="text-base">Ventas</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="h-2 w-2 rounded-full bg-lime" aria-hidden />
+              Ventas
+            </CardTitle>
             <Select
               value={restaurantId}
               onValueChange={(value) => setRestaurantId(value ?? 'all')}
@@ -280,6 +159,12 @@ export function AdminDashboardCharts({
             {hasSales ? (
               <ChartContainer config={salesConfig} className="h-[300px] w-full">
                 <BarChart data={sales} accessibilityLayer>
+                  <defs>
+                    <linearGradient id="salesBarGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-count)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--color-count)" stopOpacity={0.55} />
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="label"
                     tickLine={false}
@@ -297,12 +182,13 @@ export function AdminDashboardCharts({
                     allowDecimals={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)" />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="url(#salesBarGradient)" />
                 </BarChart>
               </ChartContainer>
             ) : (
-              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                {salesEmptyMessage}
+              <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                <BarChart3Icon className="h-8 w-8 text-muted-foreground/40" aria-hidden />
+                <p className="max-w-52">{salesEmptyMessage}</p>
               </div>
             )}
           </CardContent>
@@ -310,7 +196,10 @@ export function AdminDashboardCharts({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
-            <CardTitle className="text-base">Entregas de repartidores</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="h-2 w-2 rounded-full bg-violet" aria-hidden />
+              Entregas de repartidores
+            </CardTitle>
             <Select
               value={deliveryPersonId}
               onValueChange={(value) => setDeliveryPersonId(value ?? 'all')}
@@ -336,6 +225,12 @@ export function AdminDashboardCharts({
             {hasDeliveries ? (
               <ChartContainer config={deliveriesConfig} className="h-[300px] w-full">
                 <BarChart data={delivered} accessibilityLayer>
+                  <defs>
+                    <linearGradient id="deliveriesBarGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-count)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--color-count)" stopOpacity={0.55} />
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="label"
                     tickLine={false}
@@ -353,12 +248,13 @@ export function AdminDashboardCharts({
                     allowDecimals={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)" />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="url(#deliveriesBarGradient)" />
                 </BarChart>
               </ChartContainer>
             ) : (
-              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                {deliveriesEmptyMessage}
+              <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                <TruckIcon className="h-8 w-8 text-muted-foreground/40" aria-hidden />
+                <p className="max-w-52">{deliveriesEmptyMessage}</p>
               </div>
             )}
           </CardContent>

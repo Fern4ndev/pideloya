@@ -26,9 +26,10 @@
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
 
-  /* Único acento de color del sistema: azul, uso moderado (links, focus, badges de estado) */
+  /* Tinte azul claro: hover de menús/selects (accent-foreground oscuro encima,
+     contraste ≈ 10:1 — antes era blanco sobre blanco e ilegible) */
   --accent: oklch(93.354% 0.00183 249.164);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: oklch(0.205 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
@@ -61,7 +62,8 @@
   --muted-foreground: oklch(0.708 0 0);
 
   --accent: oklch(0.65 0.17 258.3);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Texto oscuro sobre el accent azul (L0.65) → ≈ 6:1 */
+  --accent-foreground: oklch(0.205 0 0);
 
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
@@ -118,10 +120,10 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Foco visible consistente en toda la app — accesibilidad, no decoración */
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+  /* Checklist UX: los controles activos muestran mano (los disabled no) */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
   }
 }
 
@@ -314,10 +316,6 @@
   }
 }
 
-/* ============================================================================
-   Shared component styles
-   ============================================================================ */
-
 .shadow-glow {
   box-shadow: 0 0 40px rgba(216, 255, 62, 0.08);
 }
@@ -370,17 +368,17 @@
     mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, black 0%, transparent 100%);
   }
 
-/* ============================================================================
-   Accesibilidad
-   ============================================================================ */
-
-/* Foco visible de teclado (los componentes con focus-visible propio siguen mandando) */
+/*
+ * Foco visible de click y de teclado: ÚNICO indicador de focus de la app.
+ * Los controles (input, button, select…) ya no traen su propio ring gris
+ * para no apilar dos tratamientos distintos — todo enfoca en lima.
+ * Los errores de validación (aria-invalid) siguen usando rojo aparte.
+ */
 :focus-visible {
   outline: 2px solid var(--lime);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
-/* prefers-reduced-motion: respetar la preferencia del sistema */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -389,5 +387,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fade-up-sm {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer utilities {
+  .animate-stat-in {
+    animation: fade-up-sm 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 }

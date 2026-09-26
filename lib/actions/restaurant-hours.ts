@@ -37,19 +37,6 @@ async function getMyRestaurantId() {
   return { supabase, restaurantId: member.restaurant_id as string }
 }
 
-export async function getRestaurantHours() {
-  const { supabase, restaurantId } = await getMyRestaurantId()
-
-  const { data, error } = await supabase
-    .from('restaurant_hours')
-    .select('day_of_week, open_time, close_time, is_closed')
-    .eq('restaurant_id', restaurantId)
-    .order('day_of_week')
-
-  if (error) throw new Error(error.message)
-  return data
-}
-
 export async function updateRestaurantHours(hours: DayHours[]) {
   const { supabase, restaurantId } = await getMyRestaurantId()
 

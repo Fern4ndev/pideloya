@@ -1,56 +1,67 @@
-import Link from 'next/link'
+import { createClient } from '@/lib/db/server'
 import { DeliveryDashboardCards } from '@/components/features/deliveries/DeliveryDashboardCards'
+import {
+  DeliveryDashboardCharts,
+  type DashboardDelivery,
+} from '@/components/features/deliveries/DeliveryDashboardCharts'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
-import { Card, CardContent } from '@/components/ui/card'
-import { MapPinIcon, PackageIcon, ChevronRightIcon } from 'lucide-react'
+import { RANGE_MAX_DAYS, addDays, limaDayKey } from '@/lib/dates'
 
-const QUICK_LINKS = [
-  {
-    href: '/repartidor/disponibles',
-    title: 'Ver pedidos disponibles',
-    description: 'Acepta un pedido nuevo para empezar a repartirlo.',
-    icon: MapPinIcon,
-  },
-  {
-    href: '/repartidor/pedidos',
-    title: 'Mis entregas',
-    description: 'Revisa y actualiza el estado de lo que ya aceptaste.',
-    icon: PackageIcon,
-  },
-]
+/**
+ * Tope de filas del payload. El dashboard trae hasta `RANGE_MAX_DAYS` (366) de
+ * entregas y filtra/agrega en el cliente, igual que /admin y /restaurante. Con
+ * `.order('delivered_at', desc)` el tope recorta lo más viejo, nunca lo reciente.
+ */
+const DELIVERIES_LIMIT = 5000
 
-export default function RepartidorHomePage() {
+export default async function RepartidorHomePage() {
+  const supabase = await createClient()
+
+  // Snapshot del "hoy" en Lima: se calcula en el servidor y viaja dentro del
+  // HTML. Así el componente cliente no recalcula new Date() al hidratar y no
+  // hay hydration mismatch por fecha (ver lib/dates.ts).
+  const todayKey = limaDayKey(new Date())
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('auth_id', user!.id)
+    .single()
+
+  const profileId = profile?.id ?? null
+
+  // Ventana en medianoche de Lima, derivada de `todayKey` (no de Date.now():
+  // la regla react-hooks/purity rechaza leer el reloj dentro del componente).
+  // Solo entregas ya completadas dentro del rango: los gráficos son históricos.
+  const since = new Date(`${addDays(todayKey, -RANGE_MAX_DAYS)}T00:00:00-05:00`).toISOString()
+
+  const deliveries: DashboardDelivery[] = profileId
+    ? ((await supabase
+        .from('deliveries')
+        .select('delivered_at, orders(status, total)')
+        .eq('delivery_person_id', profileId)
+        .gte('delivered_at', since)
+        .order('delivered_at', { ascending: false })
+        .limit(DELIVERIES_LIMIT)).data ?? [])
+    : []
+
   return (
-    <PageContainer size="lg">
+    // "full" como /admin y /restaurante: los gráficos a dos columnas no deben
+    // pelearse con un max-w-4xl heredado de "lg".
+    <PageContainer size="full">
       <PageHeader
         title="Panel de reparto"
-        description="Ve a Disponibles para aceptar pedidos, o Mis entregas para ver los que ya tienes asignados."
+        description="Usa el menú de la izquierda para ir a Disponibles (aceptar pedidos) o Mis entregas (los que ya tienes asignados)."
       />
 
       <div className="mt-6 space-y-6">
         <DeliveryDashboardCards />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {QUICK_LINKS.map((link) => (
-            <Link key={link.href} href={link.href}>
-              <Card className="h-full transition-colors hover:bg-muted/40">
-                <CardContent className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <link.icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{link.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {link.description}
-                    </p>
-                  </div>
-                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <DeliveryDashboardCharts deliveries={deliveries} todayKey={todayKey} />
       </div>
     </PageContainer>
   )

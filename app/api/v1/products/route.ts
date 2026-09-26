@@ -61,7 +61,9 @@ export const GET = withApi(async (request: Request) => {
     return successResponse(data)
   }
 
-  // CUSTOMER / DELIVERY: solo disponibles.
+  // CUSTOMER: solo productos disponibles. DELIVERY ya no entra aquí: la
+  // policy products_select_customer lo excluye (allowlist anon/CUSTOMER/ADMIN),
+  // así que para un token de reparto la query devuelve lista vacía.
   const supabase = await createClient()
   let query = supabase
     .from('products')

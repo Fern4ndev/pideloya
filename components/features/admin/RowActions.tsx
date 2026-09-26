@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { toast } from 'sonner'
+import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { PencilIcon, TrashIcon, CheckIcon } from 'lucide-react'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -38,6 +38,7 @@ export function RowActions({
     action: () => Promise<{ success: boolean; message?: string }>
   } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const { success, error } = useToast()
 
   function handleDelete() {
     if (!onDelete) return
@@ -58,11 +59,9 @@ export function RowActions({
     startTransition(async () => {
       try {
         const result = await onApprove()
-        toast.success(result.message ?? 'Operación completada')
+        success('Operación completada', result.message)
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : 'No se pudo completar la acción'
-        )
+        error('No se pudo completar la acción', err instanceof Error ? err.message : undefined)
       }
     })
   }

@@ -22,10 +22,17 @@ type DeliveryPerson = {
 export function DeliveryRowActions({
   id,
   isActive,
+  isAnonymized = false,
+  hasDeliveries = false,
   deliveryPerson,
 }: {
   id: string
   isActive: boolean
+  /** Server-side flag: cuenta anonimizada — no tiene sentido reactivarla,
+   * editar su PII (ya fue limpiada) ni desactivarla de nuevo. Solo lectura. */
+  isAnonymized?: boolean
+  /** Server-side flag: tiene entregas históricas (decide el texto del botón de borrado). */
+  hasDeliveries?: boolean
   deliveryPerson: DeliveryPerson
 }) {
   const [editOpen, setEditOpen] = useState(false)
@@ -35,16 +42,16 @@ export function DeliveryRowActions({
     <>
       <RowActions
         onApprove={
-          !isActive
+          !isActive && !isAnonymized
             ? async () => {
                 const result = await approveDeliveryPerson(id)
                 return { ...result, message: 'Repartidor activado' }
               }
             : undefined
         }
-        onEdit={() => setEditOpen(true)}
+        onEdit={isAnonymized ? undefined : () => setEditOpen(true)}
         onDelete={
-          isActive
+          isActive && !isAnonymized
             ? async () => {
                 const result = await deactivateUser(id)
                 return { ...result, message: 'Repartidor desactivado' }
@@ -54,7 +61,11 @@ export function DeliveryRowActions({
         entityName="repartidor"
         approveLabel="Reactivar"
         deleteTitle="Desactivar repartidor"
-        deleteDescription="¿Desactivar este repartidor? Podrás reactivarlo cuando quieras. Su historial de entregas se conserva."
+        deleteDescription={
+          hasDeliveries
+            ? '¿Desactivar este repartidor? Tiene entregas históricas: si en el futuro lo eliminas, sus datos se anonimizarán en vez de borrarse (su historial se conserva como evidencia). Podrás reactivarlo cuando quieras.'
+            : '¿Desactivar este repartidor? Podrás reactivarlo cuando quieras. Su historial de entregas se conserva.'
+        }
         deleteConfirmLabel="Desactivar"
         deleteIcon={<UserXIcon className="h-4 w-4 text-destructive" />}
       />
