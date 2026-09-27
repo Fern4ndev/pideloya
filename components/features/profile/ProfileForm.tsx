@@ -138,10 +138,6 @@ export function ProfileForm({
         </Button>
       </form>
 
-      {/* El separador se queda aquí y no dentro de PasswordChangeForm: en
-          esta página separa dos bloques del mismo formulario, pero en la
-          página del repartidor el componente va en su propia tarjeta, con
-          título propio, donde un borde superior sobraría. */}
       {showPasswordChange && (
         <div className="border-t pt-6">
           <PasswordChangeForm />

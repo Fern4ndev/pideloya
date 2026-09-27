@@ -3,11 +3,11 @@ import { createClient } from '@/lib/db/server'
 import { ProfileForm } from '@/components/features/profile/ProfileForm'
 import { AvatarUploader } from '@/components/features/profile/AvatarUploader'
 import { YapeQrUploader } from '@/components/features/profile/YapeQrUploader'
-import { PasswordChangeForm } from '@/components/features/profile/PasswordChangeForm'
+import { PasswordChangeDialog } from '@/components/features/profile/PasswordChangeDialog'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ImageIcon, QrCodeIcon, ShieldCheckIcon, UserIcon } from 'lucide-react'
+import { ImageIcon, QrCodeIcon, UserIcon } from 'lucide-react'
 
 export default async function RepartidorProfilePage() {
   const supabase = await createClient()
@@ -93,18 +93,9 @@ export default async function RepartidorProfilePage() {
                 }}
                 showDeliveryFields
               />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ShieldCheckIcon className="size-4 text-muted-foreground" />
-                Seguridad
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PasswordChangeForm />
+              <div className="mt-6">
+                <PasswordChangeDialog />
+              </div>
             </CardContent>
           </Card>
         </div>
