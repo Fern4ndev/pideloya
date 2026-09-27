@@ -1,3 +1,4 @@
+import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
 import type { createServiceRoleClient } from '@/lib/db/server'
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>
@@ -11,6 +12,12 @@ export const ANONYMOUS_ADDRESS_TEXT = 'Dirección eliminada'
  *
  *   - profiles: full_name, phone, document_type, document_number, email
  *     son dato personal identificable → se limpian.
+ *   - profiles: avatar_url/yape_qr_url (y sus fileId) también. Son las
+ *     primeras IMÁGENES de PII del sistema, y una foto de rostro
+ *     identifica más que un nombre. No basta con nullar la columna: la
+ *     URL de ImageKit es pública, así que el archivo se borra también de
+ *     ImageKit — si no, la cara del usuario seguiría accesible para
+ *     siempre por su enlace directo.
  *   - addresses: address_text/reference también identifican → se limpian.
  *     NO se borran las filas: orders.address_id sigue apuntando a una
  *     fila válida (y lat/lng se conservan para métricas agregadas; no
@@ -19,8 +26,11 @@ export const ANONYMOUS_ADDRESS_TEXT = 'Dirección eliminada'
  *     histórico intencional "al momento del pedido" (igual que
  *     product_name en order_items), no dato vivo del perfil.
  *
- * El rol DELIVERY no llega aquí hoy (deleteUser solo se invoca desde la
- * tabla de clientes), pero el helper es agnóstico del rol a propósito.
+ * Llega cualquier rol con historial transaccional: deleteUser() deriva a
+ * CUSTOMER y a DELIVERY (los repartidores con al menos una entrega
+ * pasan por aquí), y el helper es agnóstico del rol a propósito. Por eso
+ * la limpieza de la foto de perfil y del QR de Yape importa: son campos
+ * que hoy solo llena un repartidor.
  *
  * anonymized_at (Fase 4 del plan de mejoras admin): marca CUÁNDO se
  * anonimizó, para el badge y el filtro "Anonimizados" del panel. Se
@@ -34,6 +44,14 @@ export async function anonymizeProfile(
   client: AdminClient,
   profileId: string
 ): Promise<void> {
+  // Los fileId se leen ANTES de nullarlos: son la única forma de borrar
+  // los archivos de ImageKit, y el update de abajo los saca de la fila.
+  const { data: current } = await client
+    .from('profiles')
+    .select('avatar_file_id, yape_qr_file_id')
+    .eq('id', profileId)
+    .maybeSingle()
+
   // Idempotencia de la fecha (criterio de la Fase 4): si la cuenta ya
   // estaba anonimizada, se PRESERVA la fecha original — re-anonimizar
   // por error no debe reescribir la evidencia de cuándo se atendió la
@@ -47,10 +65,25 @@ export async function anonymizeProfile(
       email: null,
       document_type: null,
       document_number: null,
+      avatar_url: null,
+      avatar_file_id: null,
+      yape_qr_url: null,
+      yape_qr_file_id: null,
       anonymized_at: new Date().toISOString(),
     })
     .eq('id', profileId)
   if (profileError) throw new Error(profileError.message)
+
+  // Se borran de ImageKit apenas la fila deja de referenciarlos, y ANTES
+  // de las direcciones: así la ventana en que una foto de rostro sigue
+  // públicamente accesible es lo más corta posible aunque el paso
+  // siguiente falle. `deleteImageKitFileSafe` nunca lanza (mejor
+  // esfuerzo): un fallo de red hacia ImageKit no debe dejar la
+  // anonimización de la cuenta a medias.
+  await Promise.all([
+    deleteImageKitFileSafe(current?.avatar_file_id),
+    deleteImageKitFileSafe(current?.yape_qr_file_id),
+  ])
 
   const { error: addressError } = await client
     .from('addresses')

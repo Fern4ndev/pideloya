@@ -17,6 +17,7 @@ type DeliveryPerson = {
   document_type: string | null
   document_number: string | null
   vehicle_type: string | null
+  avatar_url: string | null
 }
 
 export function DeliveryRowActions({

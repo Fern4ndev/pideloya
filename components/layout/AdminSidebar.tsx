@@ -19,12 +19,38 @@ const ADMIN_LINKS = [
   { href: '/admin/perfil', label: 'Perfil', icon: UserIcon },
 ]
 
-export function AdminSidebar({ fullName }: { fullName?: string }) {
+export function AdminSidebar({
+  fullName,
+  pendingRestaurants = 0,
+  pendingDeliveries = 0,
+}: {
+  fullName?: string
+  /** Pendientes de aprobación, contados en el layout (Fase 10). */
+  pendingRestaurants?: number
+  pendingDeliveries?: number
+}) {
+  // Los badges se inyectan aquí en vez de vivir dentro de ADMIN_LINKS: el
+  // orden del menú sigue siendo una sola lista, y los conteos llegan del
+  // servidor (cero fetching en el cliente).
+  const links = ADMIN_LINKS.map((link) =>
+    link.href === '/admin/restaurantes'
+      ? {
+          ...link,
+          badge: { count: pendingRestaurants, label: 'pendientes de aprobación' },
+        }
+      : link.href === '/admin/repartidores'
+        ? {
+            ...link,
+            badge: { count: pendingDeliveries, label: 'pendientes de aprobación' },
+          }
+        : link
+  )
+
   return (
     <Sidebar
       section="Admin"
       homeHref="/admin"
-      links={ADMIN_LINKS}
+      links={links}
       fullName={fullName}
     />
   )

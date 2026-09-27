@@ -34,6 +34,8 @@ export function ImageUploader({
   helpText = 'JPG, PNG o WEBP · máx. 3MB',
   size = 'md',
   align = 'left',
+  shape = 'square',
+  fit = 'cover',
 }: {
   label: string
   currentUrl: string | null
@@ -48,6 +50,17 @@ export function ImageUploader({
    * pensado para formularios donde la foto es el elemento principal
    * (ej. producto). "left" (default) los pone lado a lado. */
   align?: 'left' | 'center'
+  /** Forma del recuadro de vista previa. "circle" para la foto de una
+   * persona (avatar del repartidor): un círculo comunica "esto eres tú"
+   * y separa visualmente el avatar de los logos/QR. "square" (default)
+   * para logo y QR, donde recortar las esquinas perjudica la lectura. */
+  shape?: 'square' | 'circle'
+  /** Cómo encaja la imagen en el recuadro. "cover" (default) la recorta
+   * para llenarlo — correcto para un logo o una foto de perfil. "contain"
+   * la muestra completa con fondo alrededor — imprescindible para un QR:
+   * una foto rectangular recortada a cuadrado puede cortar el propio
+   * código y dejarlo imposible de escanear. */
+  fit?: 'cover' | 'contain'
 }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -151,8 +164,9 @@ export function ImageUploader({
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           className={cn(
-            'group/uploader relative flex shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 bg-muted/40 transition-colors',
+            'group/uploader relative flex shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden border-2 bg-muted/40 transition-colors',
             SIZE_CLASSES[size],
+            shape === 'circle' ? 'rounded-full' : 'rounded-2xl',
             preview ? 'border-solid border-transparent' : 'border-dashed',
             !preview &&
               (isDragging
@@ -166,7 +180,10 @@ export function ImageUploader({
               <img
                 src={preview}
                 alt={label}
-                className="h-full w-full object-cover"
+                className={cn(
+                  'h-full w-full',
+                  fit === 'contain' ? 'object-contain' : 'object-cover'
+                )}
               />
 
               {/* Overlay "Cambiar" al pasar el mouse */}
@@ -182,7 +199,25 @@ export function ImageUploader({
                 <button
                   type="button"
                   onClick={handleRemove}
-                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover/uploader:opacity-100"
+                  className={cn(
+                    'absolute flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-opacity hover:bg-black/80 focus-visible:opacity-100',
+                    shape === 'circle'
+                      ? // En un círculo, `right-1.5 top-1.5` cae fuera de la
+                        // circunferencia: la esquina superior derecha es
+                        // justo lo que el `rounded-full` elimina, y el
+                        // `overflow-hidden` del recuadro recortaría el
+                        // botón hasta dejarlo invisible. Anclado abajo al
+                        // centro entra completo en cualquier tamaño.
+                        // Además, en un dispositivo táctil no existe
+                        // `:hover` (los repartidores usan el celular):
+                        // mostrarlo siempre donde no hay puntero fino, o
+                        // si recibe foco por teclado. El avatar es el
+                        // único que necesita esto; logo/QR conservan el
+                        // comportamiento de siempre (aparece al pasar el
+                        // mouse) para no alterar su UI ya validada.
+                        'bottom-1.5 left-1/2 -translate-x-1/2 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/uploader:opacity-100'
+                      : 'right-1.5 top-1.5 opacity-0 group-hover/uploader:opacity-100'
+                  )}
                   aria-label="Quitar foto"
                 >
                   <XIcon className="h-3.5 w-3.5" />

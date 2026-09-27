@@ -198,6 +198,7 @@ export function applyDeliveryFilters<
     or: (cols: string) => T
     eq: (col: string, val: boolean) => T
     in: (col: string, vals: string[]) => T
+    is: (col: string, val: null) => T
   },
 >(
   builder: T,
@@ -215,8 +216,12 @@ export function applyDeliveryFilters<
     )
   }
   if (status === 'active') builder = builder.eq('is_active', true)
-  // Pendiente de aprobar = is_active false (el alta nace desactivada).
-  if (status === 'pending') builder = builder.eq('is_active', false)
+  // Pendiente de aprobar = is_active false (el alta nace desactivada) y
+  // NUNCA anonimizada: una cuenta anonimizada está de baja permanente (su
+  // fila no ofrece ni aprobar ni reactivar), así que listarla como
+  // "pendiente" era un pendiente fantasma que nunca se podía cerrar.
+  if (status === 'pending')
+    builder = builder.eq('is_active', false).is('anonymized_at', null)
   if (status === 'on_route' && onRouteIds) {
     builder = builder.in(
       'id',
@@ -225,4 +230,45 @@ export function applyDeliveryFilters<
     )
   }
   return builder
+}
+
+// ============================================================================
+// BADGES DEL SIDEBAR (Fase 10 del plan del panel admin)
+// ============================================================================
+
+/**
+ * Pendientes de aprobación de restaurantes y repartidores, para los
+ * badges del sidebar.
+ *
+ * Usa los MISMOS appliers que las listas (`status: 'pending'`) en lugar de
+ * repetir el `eq(...)` a mano: así el badge no puede divergir del filtro
+ * "Pendientes de aprobar" al que enlaza. Si mañana cambia la definición
+ * de "pendiente", el badge cambia con ella.
+ *
+ * Son dos `count` con `head: true` (Postgres cuenta, no se traen filas) y
+ * salen en paralelo. Quien llama decide qué hacer si esto falla — el
+ * layout lo trata como best-effort, porque un adorno no puede tumbar todo
+ * el panel.
+ */
+export async function fetchPendingApprovalCounts(
+  client: DbClient
+): Promise<{ restaurants: number; deliveries: number }> {
+  const [restaurants, deliveries] = await Promise.all([
+    applyRestaurantFilters(
+      client.from('restaurants').select('id', { count: 'exact', head: true }),
+      { query: '', status: 'pending' }
+    ),
+    applyDeliveryFilters(
+      client
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'DELIVERY'),
+      { query: '', status: 'pending', onRouteIds: null }
+    ),
+  ])
+
+  return {
+    restaurants: restaurants.count ?? 0,
+    deliveries: deliveries.count ?? 0,
+  }
 }

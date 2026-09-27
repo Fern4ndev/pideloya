@@ -346,6 +346,8 @@ export type Database = {
         Row: {
           anonymized_at: string | null
           auth_id: string
+          avatar_file_id: string | null
+          avatar_url: string | null
           created_at: string
           document_number: string | null
           document_type: string | null
@@ -357,9 +359,13 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           vehicle_type: string | null
+          yape_qr_file_id: string | null
+          yape_qr_url: string | null
         }
         Insert: {
           anonymized_at?: string | null
+          avatar_file_id?: string | null
+          avatar_url?: string | null
           auth_id: string
           created_at?: string
           document_number?: string | null
@@ -372,9 +378,13 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           vehicle_type?: string | null
+          yape_qr_file_id?: string | null
+          yape_qr_url?: string | null
         }
         Update: {
           anonymized_at?: string | null
+          avatar_file_id?: string | null
+          avatar_url?: string | null
           auth_id?: string
           created_at?: string
           document_number?: string | null
@@ -387,6 +397,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           vehicle_type?: string | null
+          yape_qr_file_id?: string | null
+          yape_qr_url?: string | null
         }
         Relationships: []
       }
