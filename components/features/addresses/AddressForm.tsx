@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MapPinIcon, LocateFixedIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const AddressMapPicker = dynamic(() => import('./AddressMapPicker'), {
   ssr: false,
@@ -39,6 +40,7 @@ export function AddressForm({
       : null
   )
   const [error, setError] = useState<string | null>(null)
+  const [isLocating, setIsLocating] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   function handleUseMyLocation() {
@@ -46,12 +48,21 @@ export function AddressForm({
       setError('Tu navegador no soporta geolocalización')
       return
     }
+    // getCurrentPosition puede tardar 1-3s: sin este estado el botón queda
+    // inerte y parece que el toque no registró.
+    setError(null)
+    setIsLocating(true)
     navigator.geolocation.getCurrentPosition(
-      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () =>
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setIsLocating(false)
+      },
+      () => {
+        setIsLocating(false)
         setError(
           'No pudimos obtener tu ubicación. Ubica el pin manualmente en el mapa.'
         )
+      }
     )
   }
 
@@ -136,17 +147,28 @@ export function AddressForm({
             variant="ghost"
             className="gap-1.5"
             onClick={handleUseMyLocation}
+            disabled={isLocating}
           >
-            <LocateFixedIcon className="h-3.5 w-3.5" />
-            Usar mi ubicación
+            <LocateFixedIcon
+              className={cn('h-3.5 w-3.5', isLocating && 'animate-spin')}
+            />
+            {isLocating ? 'Ubicando…' : 'Usar mi ubicación'}
           </Button>
         </div>
-        <div className="overflow-hidden rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
+        <div className="relative overflow-hidden rounded-3xl ring-1 ring-black/5 dark:ring-white/10">
           <AddressMapPicker
             latitude={coords?.lat ?? null}
             longitude={coords?.lng ?? null}
             onChange={(lat, lng) => setCoords({ lat, lng })}
           />
+          {/* Instrucción en el punto donde se necesita. Sólo mientras no hay
+              coordenadas: en edición `coords` ya viene del servidor, así que
+              no reaparece sobre un mapa ya ubicado. */}
+          {!coords && (
+            <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur">
+              Toca para ubicar
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           Toca el mapa o arrastra el pin para ajustar la ubicación.

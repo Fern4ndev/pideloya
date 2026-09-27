@@ -139,3 +139,45 @@ Fuente: `docs/plans/plan-mejora-panel-admin.md` (tarea 3, la única que faltaba:
 - **Bug de filtro que el badge destapó (corregido):** `applyDeliveryFilters` con `status: 'pending'` filtraba solo `is_active = false`, lo que incluía cuentas **anonimizadas**. Una cuenta anonimizada está de baja permanente y su fila no ofrece ni aprobar ni reactivar, así que era un "pendiente" que nunca se podía cerrar. Ahora es `is_active = false AND anonymized_at IS NULL`. Sin este arreglo, el badge habría contado esas cuentas y al hacer clic el admin habría visto una lista con más filas que el número mostrado. Efecto colateral deseado: la lista "Pendientes de aprobar" y el CSV con ese filtro dejan de listarlas.
 - **UI:** el badge no se dibuja en el sidebar colapsado (ahí tampoco hay label), pero el conteo viaja en el `title` del botón para no perderse. Se usa `Badge variant="secondary"` y no `outline` ni lima: es la única variante legible sobre los DOS fondos posibles del link (activo en lima, inactivo transparente) y en ambos temas — lima desaparecería sobre el link activo, y `outline` (texto `foreground`) se volvería blanco sobre lima en modo oscuro.
 - **`count: 0` no dibuja nada**: un badge con "0" es ruido, no información.
+
+## 2026-09-27 — Rediseño visual del panel de cliente (`docs/plans/plan-mejora-ui-panel-cliente.md`)
+
+Alcance: `/cliente` (home, carta, carrito, pedidos, direcciones, perfil, favoritos). 22 archivos, cero archivos nuevos de implementación. Verificación completa en `docs/qa/qa-checklist-panel-cliente.md`.
+
+### Fase 0 — tokens propios del panel
+
+- **Tailwind v4 no tiene namespace `--duration-*`** (sólo `--ease-*`, verificado en `node_modules/tailwindcss/theme.css`): `--duration-client-fast/base/slow` del plan no generarían utilidades, así que quedaron como variables de referencia documentadas y las clases usan los valores numéricos equivalentes. `--ease-client` sí genera `ease-client` y se usa como curva del panel.
+- **Se verificó que las utilidades emiten CSS real**, no sólo que el build pase: `shadow-client-card` sale como `--tw-shadow: var(--client-shadow-card)` y `ease-client` como `cubic-bezier(.16,1,.3,1)`. Una utilidad mal escrita se pierde en silencio; el checklist de QA ahora incluye esa comprobación para los valores arbitrarios.
+
+### Fase 1 — header
+
+- **El estado de scroll se lee como store externo (`useSyncExternalStore`), no con `useState` + listener.** El snapshot es un boolean, así que React sólo re-renderiza al cruzar el umbral (no en cada evento de scroll) y no hay `setState` dentro de un efecto. Los tres callbacks viven fuera del componente, de modo que la suscripción nunca se recrea. Además `getServerSnapshot` devuelve `false`, así que el HTML del servidor coincide con el primer render del cliente y una recarga ya scrolleada no produce hydration mismatch (React corrige después de hidratar).
+- **Se completaron las dos ramas de `supports-[backdrop-filter]`,** no sólo la base: en Tailwind las variantes se emiten después de las utilidades, así que un `bg-white/90` pelado nunca le ganaría al `supports-[backdrop-filter]:bg-white/60` del estado plano y el header no se opacaría al scrollear en ningún navegador moderno. Mismo motivo por el que se cambió el par completo.
+- **El badge del carrito pulsa con `key={itemCount}`** sobre el `<span>`: un re-mount dispara `animate-stat-in` sin estado extra ni temporizador.
+
+### Fases 2 a 6 — decisiones que el plan no fijaba
+
+- **El saludo horario se calcula en el servidor y se formatea en `en-US`** con `timeZone: 'America/Lima'` (`hour: 'numeric'`, `hour12: false`): es el único locale que devuelve el número pelado, sin sufijo, y `Number()` no depende de eso. Calcularlo en el cliente habría arriesgado hydration mismatch entre franjas horarias.
+- **Lime no puede ser color de texto sobre blanco** (1.2:1): el "Agregado ✓" va como chip `bg-lime` con texto `#0C0C0E` (≈15:1), nunca como texto suelto.
+- **El `+` pulsa con un `@keyframes add-pulse` nuevo** en `globals.css` (Tailwind no tiene un pulso de escala; `animate-pulse` es de opacidad e infinito). La limitación conocida: si se agrega dos veces el mismo producto dentro de 1.2s, el botón no vuelve a pulsar (la clase ya está aplicada) — el badge del header sí pulsa siempre, porque su `key` cambia con el número.
+- **El "Ver menú" de la tarjeta de restaurante pasó de `opacity-0` + hover a siempre visible con `bg-white/95`.** En táctil no existe `:hover`, así que el affordance nunca se veía; y animar la opacidad del pill completo también bajaba el contraste de su texto. Se arregló el color (`text-brand-700`) y no la opacidad.
+- **El reloj que "hace el tic" (`animate-clock-tick`) es el lenguaje único de "esperando":** carta cerrada, carrito con negocio cerrado y pedido buscando repartidor (antes usaban tres íconos distintos). No se extrajo un componente compartido: el plan lo prohíbe (cero archivos nuevos) y los dos banners ya tenían clases idénticas, así que la divergencia posible era sólo el ícono.
+- **`ProductOrderCard` es exclusivo de `/cliente`** (verificado: su único consumidor es `RestaurantMenuView`; la carta pública usa otro markup), así que el stepper unificado y las 40×40 no afectan a la zona pública.
+- **El rail del timeline se centra con `left-[11px]`** para un círculo de 24px con línea de 2px, y el círculo lleva `relative` a propósito: sin posicionarlo, el rail (absoluto) se pintaría encima del número. Arranca en `top-6` con `h-[calc(100%-0.75rem)]`, que cubre exactamente el hueco del `space-y-3`.
+- **El paso activo usa un halo con `animate-ping` en vez de `animate-pulse` en el círculo:** animar la opacidad del círculo completo apaga el número la mitad del ciclo. El halo se pinta antes del texto, así que la legibilidad no cambia.
+- **La `CartBar` queda montada e invisible (`opacity-0` + `translate-y-4` + `inert` + `aria-hidden`) en vez de desmontarse:** es lo que permite animar la salida al vaciar el carrito. El `inert` es obligatorio, no decorativo: sin él quedaría un enlace a `/cliente/carrito` invisible pero enfocable por teclado. En `/cliente/carrito` sigue sin renderizarse (eso no cambió).
+- **El total del checkout es `sticky`, no `fixed`:** conserva su lugar en el flujo, así que no tapa el último ítem al llegar al final de la lista.
+- **`ProfileForm` es compartido por los cuatro paneles:** el avatar de solo lectura se activa con una prop opcional (`showAccountAvatar`), que sólo pasa `/cliente/perfil`. Sin la prop, restaurante/repartidor/admin quedan idénticos. Sigue el precedente de `showPasswordChange`.
+- **Los estados vacíos de `/cliente` adoptaron el `EmptyState` compartido** con `className` para conservar el contenedor que ya tenían (dashed, `bg-black/[0.02]`, `rounded-3xl`). Se pierde el cuadro con gradiente de marca como ícono: `EmptyState` sólo acepta un `LucideIcon`, y agregarle un slot de nodo habría cambiado un componente compartido con admin/restaurante/repartidor. Se prefirió la consistencia entre paneles.
+- **Excepción deliberada:** el aviso dashed "No tienes una dirección guardada" dentro del checkout **no** se convirtió en `EmptyState` — es un aviso compacto en medio del flujo, y el bloque centrado de `py-14` lo rompería.
+
+### Fase 8 — accesibilidad
+
+- **Contraste: se corrigieron los textos pequeños que estaban en archivos ya en alcance** (`text-xs`/`text-sm` en `brand-600`, que da ~3.3:1) subiéndolos a `brand-700` (~5.2:1): etiqueta de `AddressCard`, la del diálogo de dirección, los tres textos del carrito y el hover del título de `RestaurantCard`. También `text-green-600` → `green-700` en el "Guardado." de `ProfileForm` (~3.3:1 → ~5:1).
+- **Los que quedan NO se tocaron y están documentados en el checklist:** el subtítulo del hero (`text-white/85` sobre el gradiente de marca, ~2.6:1), el badge coral del carrito (blanco 10px, 3.3:1) y el badge de `food_type` (blanco 12px sobre `brand-500`, 3.6:1). El plan acota la verificación de contraste a los puntos **nuevos** de esta ronda; cambiarlos implica rediseñar elementos de identidad, así que se listaron con la corrección sugerida para que se decida aparte.
+- **`env(safe-area-inset-bottom)` no se usó:** el proyecto no declara `viewport-fit=cover` en ningún layout, así que la variable resolvería `0` — habría sido código inútil con apariencia de soporte. El plan lo pedía "si hace falta"; no hace falta hasta habilitar `viewport-fit=cover`.
+
+### Hallazgos abiertos (fuera de alcance, no corregidos)
+
+- **`app/cliente/loading.tsx` renderiza su propio header skeleton** mientras el layout ya monta el `CustomerHeader` real: durante la carga se ven **dos** headers. Es pre-existente; el plan sólo pedía alinear el radio del skeleton (hecho). Candidato claro a limpieza en un próximo pase.
+

@@ -12,7 +12,8 @@ import {
   type OrderStatusFilter,
 } from '@/lib/constants/order-status'
 import { cn } from '@/lib/utils'
-import { ChevronRightIcon, ReceiptIcon, SearchIcon } from 'lucide-react'
+import { ChevronRightIcon, ClockIcon, ReceiptIcon } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import type { ApiOrder } from '@/types/order'
 
 async function fetchOrders(url: string): Promise<{ success: true; data: ApiOrder[] }> {
@@ -126,9 +127,9 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                 onClick={() => setFilter(chip.key)}
                 aria-pressed={isActive}
                 className={cn(
-                  'shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium backdrop-blur transition-colors',
+                  'shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur transition-all duration-150 active:scale-95',
                   isActive
-                    ? 'border-brand-500 bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                    ? 'border-brand-500 bg-brand-500 text-white shadow-client-card'
                     : 'border-black/5 bg-white/70 text-muted-foreground hover:border-brand-300 hover:text-foreground dark:border-white/10 dark:bg-white/5'
                 )}
               >
@@ -153,8 +154,10 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
 
       {pendingCount > 0 && (!activeFilter || activeFilter === 'active') && (
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm">
+          {/* Mismo reloj con "tic" que la carta cerrada y el carrito con el
+              negocio cerrado: un solo lenguaje visual para "esperando". */}
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-            <SearchIcon className="h-4 w-4" />
+            <ClockIcon className="h-4 w-4 animate-clock-tick" />
           </span>
           <div>
             <p className="text-sm font-medium text-amber-800">
@@ -192,7 +195,7 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
               <Link
                 key={order.id}
                 href={`/cliente/pedidos/${order.id}`}
-                className="group block rounded-3xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                className="group block rounded-3xl border border-black/5 bg-white/70 p-4 shadow-client-card backdrop-blur-xl transition-all duration-300 ease-client hover:-translate-y-0.5 hover:shadow-client-card-hover dark:border-white/10 dark:bg-white/5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 gap-3">
@@ -201,7 +204,7 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                         {previewItems.map((item, i: number) => (
                           <div
                             key={i}
-                            className="h-10 w-10 overflow-hidden rounded-2xl bg-muted ring-2 ring-white dark:ring-neutral-900"
+                            className="h-10 w-10 overflow-hidden rounded-2xl bg-muted shadow-sm ring-2 ring-white dark:ring-neutral-900"
                           >
                             {item.image_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
@@ -251,27 +254,21 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
       )}
 
       {!error && !isLoading && orders.length > 0 && filteredOrders.length === 0 && activeFilter && (
-        <div className="mt-6 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-12 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-            <ReceiptIcon className="h-6 w-6 text-muted-foreground" />
-          </span>
-          <p className="mt-4 font-medium">{EMPTY_STATE_BY_FILTER[activeFilter].title}</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            {EMPTY_STATE_BY_FILTER[activeFilter].description}
-          </p>
-        </div>
+        <EmptyState
+          icon={ReceiptIcon}
+          title={EMPTY_STATE_BY_FILTER[activeFilter].title}
+          description={EMPTY_STATE_BY_FILTER[activeFilter].description}
+          className="mt-6 rounded-3xl border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+        />
       )}
 
       {!error && !isLoading && orders.length === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-14 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white">
-            <ReceiptIcon className="h-6 w-6" />
-          </span>
-          <p className="mt-4 font-medium">Todavía no has hecho ningún pedido</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Ve a un negocio y arma tu primer pedido.
-          </p>
-        </div>
+        <EmptyState
+          icon={ReceiptIcon}
+          title="Todavía no has hecho ningún pedido"
+          description="Ve a un negocio y arma tu primer pedido."
+          className="mt-10 rounded-3xl border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+        />
       )}
     </>
   )

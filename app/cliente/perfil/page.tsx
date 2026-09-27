@@ -19,6 +19,7 @@ export default async function ClienteProfilePage() {
       <div className="mt-6">
         <ProfileForm
           email={user!.email ?? ''}
+          showAccountAvatar
           initialData={{
             fullName: profile?.full_name ?? '',
             phone: profile?.phone ?? '',

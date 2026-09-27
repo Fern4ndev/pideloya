@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
@@ -34,6 +34,33 @@ const NAV_LINKS = [
   { href: '/cliente/direcciones', label: 'Dirección', icon: MapPinIcon },
 ]
 
+/**
+ * Elevación del header al hacer scroll.
+ *
+ * Se lee como store externo con `useSyncExternalStore` en vez de
+ * `useState` + listener: el snapshot es un boolean, así que React sólo
+ * re-renderiza cuando cruza el umbral (no en cada evento de scroll) y no hay
+ * `setState` dentro de un efecto. Los tres callbacks viven fuera del
+ * componente para que la suscripción nunca se recree.
+ */
+const ELEVATION_THRESHOLD = 8
+
+function subscribeScroll(onStoreChange: () => void) {
+  window.addEventListener('scroll', onStoreChange, { passive: true })
+  return () => window.removeEventListener('scroll', onStoreChange)
+}
+
+function getScrolled() {
+  return window.scrollY > ELEVATION_THRESHOLD
+}
+
+// En el servidor (y en el primer render del cliente) el header arranca plano;
+// tras hidratar, React compara y aplica la sombra si la página ya venía
+// scrolleada, sin hydration mismatch.
+function getScrolledOnServer() {
+  return false
+}
+
 export function CustomerHeader({ fullName }: { fullName: string }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -42,6 +69,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
   const initial = fullName.trim().charAt(0).toUpperCase() || '?'
   const [menuOpen, setMenuOpen] = useState(false)
   const [lastPathname, setLastPathname] = useState(pathname)
+  const scrolled = useSyncExternalStore(subscribeScroll, getScrolled, getScrolledOnServer)
   if (pathname !== lastPathname) {
     setLastPathname(pathname)
     setMenuOpen(false)
@@ -76,7 +104,14 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
 
   return (
     <>
-    <header className="sticky top-0 z-40 border-b border-black/5 bg-white/70 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-neutral-950/60">
+    <header
+      className={cn(
+        'sticky top-0 z-40 border-b border-black/5 backdrop-blur-xl backdrop-saturate-150 transition-[background-color,box-shadow] duration-200 ease-client dark:border-white/10',
+        scrolled
+          ? 'bg-white/90 shadow-client-floating supports-[backdrop-filter]:bg-white/85 dark:bg-neutral-950/85'
+          : 'bg-white/70 supports-[backdrop-filter]:bg-white/60 dark:bg-neutral-950/60'
+      )}
+    >
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
         {/* Hamburguesa — móvil y tablet */}
         <button
@@ -84,7 +119,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           onClick={() => setMenuOpen(true)}
           aria-label="Abrir menú"
           aria-expanded={menuOpen}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/5 bg-black/[0.03] text-foreground transition-colors hover:bg-black/5 lg:hidden dark:border-white/10 dark:bg-white/5"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/5 bg-black/[0.03] text-foreground transition-colors hover:bg-black/5 lg:hidden dark:border-white/10 dark:bg-white/5"
         >
           <MenuIcon className="h-4 w-4" />
         </button>
@@ -95,14 +130,14 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
 
         {/* Buscador — tablet en adelante */}
         <div className="hidden flex-1 max-w-xs md:block">
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <div className="group relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground transition-colors duration-150 group-focus-within:text-brand-500" />
             <input
               type="search"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Busca un restaurante o plato..."
-              className="h-9 w-full rounded-full border border-black/5 bg-black/[0.03] pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/5"
+              className="h-9 w-full rounded-full border border-black/5 bg-black/[0.03] pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground transition-colors duration-150 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5"
             />
           </div>
         </div>
@@ -116,13 +151,18 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
                 key={link.href}
                 onClick={() => navigate(link.href)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all',
+                  'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150',
                   active
-                    ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                    ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-client-card'
                     : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10'
                 )}
               >
-                <link.icon className="h-3.5 w-3.5" />
+                <link.icon
+                  className={cn(
+                    'h-3.5 w-3.5 transition-transform duration-150',
+                    active && 'scale-110'
+                  )}
+                />
                 {link.label}
               </button>
             )
@@ -133,7 +173,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           <Link
             href="/cliente/carrito"
             className={cn(
-              'relative flex h-9 w-9 items-center justify-center rounded-full border transition-colors',
+              'relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors',
               pathname === '/cliente/carrito'
                 ? 'border-brand-500 bg-brand-500 text-white'
                 : 'border-black/5 bg-black/[0.03] text-foreground hover:bg-black/5 dark:border-white/10 dark:bg-white/5'
@@ -141,7 +181,14 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
           >
             <ShoppingBagIcon className="h-4 w-4" />
             {itemCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1 text-[10px] font-bold text-white ring-2 ring-white">
+              // La `key` remonta el badge sólo cuando cambia el número: un
+              // re-mount dispara `animate-stat-in` de nuevo y el cliente ve
+              // que el producto entró al carrito, no un número que cambia
+              // en silencio.
+              <span
+                key={itemCount}
+                className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 animate-stat-in items-center justify-center rounded-full bg-coral px-1 text-[10px] font-bold text-white ring-2 ring-white"
+              >
                 {itemCount}
               </span>
             )}
@@ -153,7 +200,10 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
                 <button className="rounded-full outline-none" />
               }
             >
-              <Avatar className="h-9 w-9 ring-1 ring-black/5 dark:ring-white/10">
+              {/* Anillo blanco + hairline: el header es translúcido, así que
+                  el avatar necesita despegarse del contenido que pasa por
+                  detrás (banners con foto) sin depender del color de fondo. */}
+              <Avatar className="h-10 w-10 ring-2 ring-white ring-offset-2 ring-offset-black/10 dark:ring-offset-white/15">
                 <AvatarFallback className="bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-semibold text-white">
                   {initial}
                 </AvatarFallback>
@@ -186,14 +236,14 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
 
       {/* Buscador — celular */}
       <div className="border-t border-black/5 px-4 py-2 md:hidden dark:border-white/10">
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="group relative">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground transition-colors duration-150 group-focus-within:text-brand-500" />
           <input
             type="search"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Busca un restaurante o plato..."
-            className="h-9 w-full rounded-full border border-black/5 bg-black/[0.03] pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/5"
+            className="h-9 w-full rounded-full border border-black/5 bg-black/[0.03] pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground transition-colors duration-150 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/15 dark:border-white/10 dark:bg-white/5"
           />
         </div>
       </div>
@@ -202,7 +252,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
     {/* Fondo oscuro al abrir el menú en móvil/tablet */}
       {menuOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] lg:hidden"
           onClick={() => setMenuOpen(false)}
           aria-hidden
         />
@@ -214,7 +264,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
         aria-hidden={!menuOpen}
         inert={!menuOpen}
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex h-dvh w-64 flex-col border-l border-black/5 bg-white px-4 py-4 shadow-xl transition-transform duration-200 lg:hidden dark:border-white/10 dark:bg-neutral-950',
+          'fixed inset-y-0 right-0 z-50 flex h-dvh w-64 flex-col border-l border-black/5 bg-white px-4 py-4 shadow-client-floating transition-transform duration-300 ease-client lg:hidden dark:border-white/10 dark:bg-neutral-950',
           menuOpen ? 'translate-x-0' : 'translate-x-full'
         )}
       >
@@ -224,7 +274,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
             type="button"
             onClick={() => setMenuOpen(false)}
             aria-label="Cerrar menú"
-            className="absolute right-0 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-muted-foreground transition-colors hover:text-foreground dark:bg-white/10"
+            className="absolute right-0 flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.04] text-muted-foreground transition-colors hover:text-foreground dark:bg-white/10"
           >
             <XIcon className="h-4 w-4" />
           </button>
@@ -251,13 +301,15 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
                 type="button"
                 onClick={() => navigate(link.href)}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors duration-150',
                   active
-                    ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                    ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-client-card'
                     : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10'
                 )}
               >
-                <link.icon className="h-4 w-4 shrink-0" />
+                <link.icon
+                  className={cn('h-4 w-4 shrink-0 transition-transform duration-150', active && 'scale-110')}
+                />
                 {link.label}
               </button>
             )
@@ -269,13 +321,18 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
             type="button"
             onClick={() => navigate('/cliente/perfil')}
             className={cn(
-              'flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors',
+              'flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors duration-150',
               pathname === '/cliente/perfil'
-                ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-client-card'
                 : 'text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10'
             )}
           >
-            <UserIcon className="h-4 w-4 shrink-0" />
+            <UserIcon
+              className={cn(
+                'h-4 w-4 shrink-0 transition-transform duration-150',
+                pathname === '/cliente/perfil' && 'scale-110'
+              )}
+            />
             Mi perfil
           </button>
         </nav>

@@ -41,7 +41,7 @@ export default async function OrderDetailPage({
         })}
       </p>
 
-      <div className="mt-6 rounded-3xl border border-black/5 bg-white/70 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+      <div className="mt-6 rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
         <OrderStatusSection orderId={order.id} initialStatus={order.status} />
       </div>
 
@@ -51,9 +51,9 @@ export default async function OrderDetailPage({
           {order.order_items.map((item, index) => (
             <div
               key={index}
-              className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white/70 p-3 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+              className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
             >
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-muted">
                 {item.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -80,14 +80,18 @@ export default async function OrderDetailPage({
           ))}
         </div>
 
-        <div className="flex justify-between rounded-2xl bg-brand-500/5 px-4 py-3.5 text-sm font-semibold">
-          <span className="font-normal text-muted-foreground">Total</span>
-          <span className="text-brand-700">S/ {Number(order.total).toFixed(2)}</span>
+        {/* El total es el dato que el cliente probablemente vino a verificar:
+            tarjeta con peso propio y el precio en tamaño de dato principal. */}
+        <div className="flex items-center justify-between rounded-3xl bg-brand-500/5 px-4 py-3.5 shadow-client-card">
+          <span className="text-sm text-muted-foreground">Total</span>
+          <span className="text-xl font-bold text-brand-700">
+            S/ {Number(order.total).toFixed(2)}
+          </span>
         </div>
       </div>
 
       {order.addresses && (
-        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+        <div className="mt-6 flex items-start gap-3 rounded-3xl border border-black/5 bg-white/70 p-4 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
             <MapPinIcon className="h-4 w-4" />
           </span>
@@ -106,7 +110,7 @@ export default async function OrderDetailPage({
       )}
 
       {order.notes && (
-        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+        <div className="mt-4 flex items-start gap-3 rounded-3xl border border-black/5 bg-white/70 p-4 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
             <StickyNoteIcon className="h-4 w-4" />
           </span>

@@ -23,7 +23,7 @@ export function RestaurantCard({
 }) {
   return (
     <Link href={`${basePath}/${restaurant.slug}`} className="group block h-full">
-      <Card className="h-full overflow-hidden border-0 bg-white/70 p-0 shadow-sm ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-brand-300 dark:bg-white/5 dark:ring-white/10">
+      <Card className="h-full overflow-hidden border-0 bg-white/70 p-0 shadow-client-card ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 ease-client hover:-translate-y-1 hover:shadow-client-card-hover hover:ring-brand-300 dark:bg-white/5 dark:ring-white/10">
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
           {restaurant.logo_url ? (
             <Image
@@ -38,6 +38,11 @@ export function RestaurantCard({
               <UtensilsCrossedIcon className="h-10 w-10" />
             </div>
           )}
+          {/* Velo de "no disponible ahora": comunica el estado con la tarjeta
+              entera, no sólo con el badge de la esquina. */}
+          {restaurant.isOpen === false && (
+            <div aria-hidden className="absolute inset-0 bg-white/40" />
+          )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             {restaurant.isOpen === false && (
@@ -51,14 +56,18 @@ export function RestaurantCard({
               </Badge>
             )}
           </div>
-          <span className="absolute bottom-3 right-3 translate-y-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-600 opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+          {/* Siempre visible (atenuado por fondo semitransparente, no por
+              `opacity`: bajar la opacidad del pill completo también baja el
+              contraste del texto). En táctil no existe `:hover`, así que un
+              affordance que sólo aparece al pasar el mouse nunca se ve. */}
+          <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-brand-700 shadow-md backdrop-blur-sm transition-all duration-300 ease-client group-hover:bg-white group-hover:shadow-lg group-focus-visible:bg-white">
             Ver menú
           </span>
         </div>
 
         <CardContent className="flex items-start justify-between gap-2 py-4">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold group-hover:text-brand-600">
+            <h3 className="truncate text-base font-semibold group-hover:text-brand-700">
               {restaurant.name}
             </h3>
             {restaurant.description && (

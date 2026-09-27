@@ -1,8 +1,10 @@
 'use client'
 
 import Image from 'next/image'
+import { UtensilsCrossedIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 import { ProductOrderCard } from '@/components/features/products/ProductOrderCard'
 import { RestaurantOpenBanner } from '@/components/features/restaurants/RestaurantOpenBanner'
 import { useRestaurantOpen } from '@/lib/hooks/use-restaurant-open'
@@ -58,8 +60,25 @@ export function RestaurantMenuView({
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-10 pt-6">
-      {/* Banner con gradiente de marca */}
+      {/* Banner "ambient cover": con logo, el logo desenfocado de fondo y un
+          velo de marca encima (no hace falta ningún dato nuevo — el logo ya se
+          trae); sin logo queda el gradiente de marca como fallback. */}
       <div className="relative h-28 overflow-hidden rounded-[28px] bg-gradient-to-br from-brand-500 via-brand-600 to-violet sm:h-36">
+        {restaurant.logo_url && (
+          <>
+            <Image
+              src={restaurant.logo_url}
+              alt=""
+              fill
+              sizes="(min-width: 640px) 768px, 100vw"
+              className="scale-110 object-cover blur-2xl"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-gradient-to-br from-brand-500/70 via-brand-600/70 to-violet/70"
+            />
+          </>
+        )}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/15 blur-3xl"
@@ -68,7 +87,7 @@ export function RestaurantMenuView({
 
       {/* Tarjeta flotante — efecto glass sobre el banner */}
       <div className="relative z-10 -mt-12 sm:-mt-14">
-        <div className="flex gap-4 rounded-3xl border border-black/5 bg-white/80 p-4 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/70">
+        <div className="flex gap-4 rounded-3xl border border-black/5 bg-white/80 p-4 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/70">
           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted ring-4 ring-white dark:ring-neutral-900">
             {restaurant.logo_url ? (
               <Image src={restaurant.logo_url} alt={restaurant.name} fill sizes="80px" className="object-cover" />
@@ -90,7 +109,7 @@ export function RestaurantMenuView({
               )}
             </div>
             {restaurant.description && (
-              <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{restaurant.description}</p>
+              <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground/90">{restaurant.description}</p>
             )}
           </div>
         </div>
@@ -115,8 +134,11 @@ export function RestaurantMenuView({
       <div className="mt-8 space-y-8">
         {products.length > 0 ? (
           <>
-            {productsByCategory.map(({ category, products: categoryProducts }) => (
+            {productsByCategory.map(({ category, products: categoryProducts }, index) => (
               <div key={category.id}>
+                {/* Separador degradado entre secciones consecutivas: la carta
+                    se lee como secciones y no como una lista continua. */}
+                {index > 0 && <div className="section-divider mb-6" aria-hidden />}
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   {category.name}
                 </h2>
@@ -142,7 +164,12 @@ export function RestaurantMenuView({
             {uncategorized.length > 0 && (
               <div>
                 {productsByCategory.length > 0 && (
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Otros</h2>
+                  <>
+                    <div className="section-divider mb-6" aria-hidden />
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Otros
+                    </h2>
+                  </>
                 )}
                 <div className="mt-3 space-y-3">
                   {uncategorized.map((p) => (
@@ -164,7 +191,12 @@ export function RestaurantMenuView({
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Este negocio todavía no tiene productos publicados.</p>
+          <EmptyState
+            icon={UtensilsCrossedIcon}
+            title="Este negocio todavía no tiene productos publicados"
+            description="Vuelve a revisar la carta más tarde."
+            className="rounded-3xl"
+          />
         )}
       </div>
     </div>

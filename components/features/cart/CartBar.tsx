@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { ShoppingBagIcon } from 'lucide-react'
 import { useCartStore, cartItemCount, cartTotal } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export function CartBar() {
   const pathname = usePathname()
@@ -12,12 +13,26 @@ export function CartBar() {
   const restaurantName = useCartStore((state) => state.restaurantName)
   const itemCount = cartItemCount(items)
 
-  if (itemCount === 0 || pathname === '/cliente/carrito') return null
+  // En /cliente/carrito no se renderiza nunca (esa pantalla ya muestra el
+  // total). En el resto del panel queda montada y oculta en vez de
+  // desmontarse, para que la salida se pueda animar cuando el carrito se
+  // vacía; `inert` la saca del foco y del árbol de accesibilidad mientras
+  // está invisible (un enlace invisible pero enfocable es una trampa de
+  // teclado).
+  if (pathname === '/cliente/carrito') return null
 
+  const visible = itemCount > 0
   const total = cartTotal(items)
 
   return (
-    <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+    <div
+      className={cn(
+        'fixed inset-x-0 bottom-4 z-30 flex justify-center px-4 transition-all duration-300 ease-client',
+        visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
+      )}
+      aria-hidden={!visible}
+      inert={!visible}
+    >
       <Button
         render={<Link href="/cliente/carrito" />}
         nativeButton={false}
@@ -30,7 +45,7 @@ export function CartBar() {
             {restaurantName ? ` · ${restaurantName}` : ''}
           </span>
         </span>
-        <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-sm font-semibold">
+        <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-base font-bold">
           S/ {total.toFixed(2)}
         </span>
       </Button>

@@ -3,6 +3,7 @@
 import { useState, useTransition, type SubmitEvent } from 'react'
 import { updateProfile } from '@/lib/actions/profile'
 import { PasswordChangeForm } from './PasswordChangeForm'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,13 +36,23 @@ export function ProfileForm({
   initialData,
   showDeliveryFields = false,
   showPasswordChange = false,
+  showAccountAvatar = false,
 }: {
   email: string
   initialData: ProfileFormData
   showDeliveryFields?: boolean
   showPasswordChange?: boolean
+  /**
+   * Ancla visual de la cuenta (inicial del nombre con el gradiente de marca)
+   * arriba del formulario. Es opt-in porque este formulario lo comparten los
+   * cuatro paneles: sólo /cliente/perfil lo activa, el resto no cambia.
+   * No requiere ninguna columna nueva — usa `fullName`, que ya viene en
+   * `initialData`.
+   */
+  showAccountAvatar?: boolean
 }) {
   const [form, setForm] = useState(initialData)
+  const initial = form.fullName.trim().charAt(0).toUpperCase() || '?'
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -72,6 +83,22 @@ export function ProfileForm({
 
   return (
     <div className="max-w-md space-y-8">
+      {showAccountAvatar && (
+        <div className="flex items-center gap-3">
+          <Avatar size="lg" className="h-12 w-12">
+            <AvatarFallback className="bg-gradient-to-br from-brand-400 to-brand-600 text-base font-semibold text-white">
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {form.fullName || 'Tu cuenta'}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1">
           <Label>Correo</Label>
@@ -147,7 +174,9 @@ export function ProfileForm({
         )}
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-green-600">Guardado.</p>}
+        {/* green-700 en vez de green-600: el 600 queda en ~3.3:1 sobre blanco,
+            por debajo del 4.5:1 de texto pequeño (el 700 da ~5:1). */}
+        {success && <p className="text-sm text-green-700">Guardado.</p>}
 
         <Button type="submit" variant="lime" disabled={isPending}>
           {isPending ? 'Guardando…' : 'Guardar cambios'}

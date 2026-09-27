@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { useCartStore } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export interface OrderableProduct {
   id: string
@@ -53,21 +54,35 @@ export function ProductOrderCard({
   }
 
   return (
-    <div className="flex gap-4 rounded-xl border p-3">
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+    <div className="group relative flex gap-4 rounded-3xl p-3.5 shadow-client-card">
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
             alt={product.name}
             fill
             sizes="80px"
-            className="object-cover"
+            className="object-cover transition-transform duration-300 ease-client group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-lg font-medium text-muted-foreground">
             {product.name.charAt(0)}
           </div>
         )}
+
+        {/* Confirmación flotante sobre la foto en vez de reemplazar el texto
+            del botón: la región `aria-live` existe siempre en el DOM (si se
+            montara junto con su texto, los lectores de pantalla no
+            anunciarían el cambio). */}
+        <span
+          aria-live="polite"
+          className={cn(
+            'pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-lime px-2 py-0.5 text-[10px] font-bold text-[#0C0C0E] shadow-sm transition-opacity duration-150',
+            justAdded ? 'animate-stat-in opacity-100' : 'opacity-0'
+          )}
+        >
+          {justAdded ? 'Agregado ✓' : ''}
+        </span>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -82,29 +97,42 @@ export function ProductOrderCard({
         </p>
 
         <div className="mt-2 flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
+          {/* Stepper unificado (un control con fondo propio en vez de dos
+              botones sueltos con un número en medio). Los botones van a 40px
+              para cumplir el objetivo táctil mínimo de 40×40. */}
+          <div className="inline-flex items-center gap-1 rounded-full bg-muted/60 p-1">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon-sm"
+              className="h-10 w-10 rounded-full"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               disabled={disabled}
+              aria-label="Quitar una unidad"
             >
               −
             </Button>
-            <span className="w-5 text-center text-sm">{quantity}</span>
+            <span className="w-5 text-center text-sm font-medium tabular-nums">{quantity}</span>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon-sm"
+              className="h-10 w-10 rounded-full"
               onClick={() => setQuantity((q) => q + 1)}
               disabled={disabled}
+              aria-label="Agregar una unidad"
             >
               +
             </Button>
           </div>
-          <Button type="button" size="sm" onClick={handleAdd} disabled={disabled}>
-            {justAdded ? 'Agregado ✓' : 'Agregar'}
+          <Button
+            type="button"
+            size="sm"
+            className={cn('rounded-full', justAdded && 'animate-add-pulse')}
+            onClick={handleAdd}
+            disabled={disabled}
+          >
+            Agregar
           </Button>
         </div>
       </div>
