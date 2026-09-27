@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingBagIcon } from 'lucide-react'
+import { ShoppingCartIcon } from 'lucide-react'
 import { useCartStore, cartItemCount, cartTotal } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -39,7 +39,7 @@ export function CartBar() {
         className="flex h-auto w-full max-w-md items-center justify-between gap-3 rounded-full border border-white/20 bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-3.5 text-white shadow-xl shadow-brand-500/30 backdrop-blur-xl hover:from-brand-600 hover:to-brand-700"
       >
         <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-          <ShoppingBagIcon className="h-4 w-4 shrink-0" />
+          <ShoppingCartIcon className="h-4 w-4 shrink-0" />
           <span className="truncate">
             {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
             {restaurantName ? ` · ${restaurantName}` : ''}

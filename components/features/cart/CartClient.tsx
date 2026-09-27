@@ -13,7 +13,7 @@ import {
   MinusIcon,
   PlusIcon,
   Trash2Icon,
-  ShoppingBagIcon,
+  ShoppingCartIcon,
   CheckCircle2Icon,
   ClockIcon,
 } from 'lucide-react'
@@ -104,7 +104,7 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={ShoppingBagIcon}
+        icon={ShoppingCartIcon}
         title="Tu carrito está vacío"
         description="Ve a un negocio y agrega productos para empezar tu pedido."
         className="rounded-3xl border-black/10 bg-black/[0.02] py-14 dark:border-white/10 dark:bg-white/[0.02]"

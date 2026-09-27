@@ -24,7 +24,7 @@ import {
   LogOutIcon,
   PackageIcon,
   MapPinIcon,
-  ShoppingBagIcon,
+  ShoppingCartIcon,
   SearchIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -179,7 +179,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
                 : 'border-black/5 bg-black/[0.03] text-foreground hover:bg-black/5 dark:border-white/10 dark:bg-white/5'
             )}
           >
-            <ShoppingBagIcon className="h-4 w-4" />
+            <ShoppingCartIcon className="h-4 w-4" />
             {itemCount > 0 && (
               // La `key` remonta el badge sólo cuando cambia el número: un
               // re-mount dispara `animate-stat-in` de nuevo y el cliente ve
