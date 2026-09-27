@@ -30,18 +30,34 @@ export function ImageUploader({
   currentUrl,
   folder,
   onUploaded,
+  onStaged,
+  staged = false,
   onRemove,
   helpText = 'JPG, PNG o WEBP · máx. 3MB',
   size = 'md',
   align = 'left',
   shape = 'square',
   fit = 'cover',
+  disabled = false,
 }: {
   label: string
   currentUrl: string | null
   /** Carpeta dentro de ImageKit, solo para organización — ej. "/restaurants/abc123/logo" */
   folder: string
-  onUploaded: (image: UploadedImage) => void
+  /** Se ejecuta tras subir exitosamente a ImageKit (modo inmediato). */
+  onUploaded?: (image: UploadedImage) => void
+  /**
+   * Modo diferido (`staged`): en vez de subir a ImageKit, el archivo se
+   * queda en memoria y se notifica aquí. La subida real ocurre después,
+   * cuando la UI lo decida (ej. al pulsar "Guardar cambios").
+   */
+  onStaged?: (file: File) => void
+  /**
+   * Activa el modo diferido: validar + preview local, sin tocar ImageKit.
+   * Solo lo usan los uploaders del perfil de repartidor; logo/producto
+   * siguen en modo inmediato (default).
+   */
+  staged?: boolean
   /** Si se define, muestra un botón para quitar la foto sin subir una nueva */
   onRemove?: () => void
   helpText?: string
@@ -61,6 +77,9 @@ export function ImageUploader({
    * una foto rectangular recortada a cuadrado puede cortar el propio
    * código y dejarlo imposible de escanear. */
   fit?: 'cover' | 'contain'
+  /** Bloquea la selección mientras la UI principal está en proceso
+   * (ej. "Guardando…" con uploads diferidos pendientes). */
+  disabled?: boolean
 }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -70,7 +89,20 @@ export function ImageUploader({
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // El preview local (objectURL) y `currentUrl` del servidor conviven: si
+  // la URL del servidor cambia (la Server Action revalidó tras guardar),
+  // el preview pasa a ser esa URL — que es la fuente de verdad. Sin esto,
+  // un preview local quedaría mostrando el archivo viejo tras revalidar.
+  // Patrón "ajustar estado durante el render" (react.dev) en vez de un
+  // effect con setState, que este repo prohíbe en lint.
+  const [prevCurrentUrl, setPrevCurrentUrl] = useState(currentUrl)
+  if (currentUrl !== prevCurrentUrl) {
+    setPrevCurrentUrl(currentUrl)
+    setPreview(currentUrl)
+  }
+
   async function processFile(file: File) {
+    if (disabled) return
     if (!file.type.startsWith('image/')) {
       setError('El archivo debe ser una imagen')
       return
@@ -84,6 +116,16 @@ export function ImageUploader({
     // Vista previa inmediata con el archivo local, mientras sube de
     // verdad — así no se siente lento aunque la red esté lenta.
     setPreview(URL.createObjectURL(file))
+
+    // Modo diferido: la validación y el preview ya están; el archivo se
+    // guarda en el draft y NADA viaja a ImageKit hasta que la UI lo
+    // decida (p. ej. "Guardar cambios").
+    if (staged) {
+      onStaged?.(file)
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
+
     setIsUploading(true)
     setProgress(0)
 
@@ -104,7 +146,7 @@ export function ImageUploader({
         throw new Error('ImageKit no devolvió la URL esperada')
       }
 
-      onUploaded({ url: result.url, fileId: result.fileId })
+      onUploaded?.({ url: result.url, fileId: result.fileId })
       setPreview(result.url)
     } catch (err) {
       setError(
@@ -124,13 +166,13 @@ export function ImageUploader({
 
   function handleDragOver(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault()
-    if (!isUploading) setIsDragging(true)
+    if (!isUploading && !disabled) setIsDragging(true)
   }
 
   function handleDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault()
     setIsDragging(false)
-    if (isUploading) return
+    if (isUploading || disabled) return
     const file = e.dataTransfer.files?.[0]
     if (file) processFile(file)
   }
@@ -195,7 +237,7 @@ export function ImageUploader({
               </div>
 
               {/* Botón "Quitar" */}
-              {onRemove && !isUploading && (
+              {onRemove && !isUploading && !disabled && (
                 <button
                   type="button"
                   onClick={handleRemove}
@@ -247,7 +289,7 @@ export function ImageUploader({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={handleFileChange}
-            disabled={isUploading}
+            disabled={isUploading || disabled}
             className="sr-only"
           />
         </label>

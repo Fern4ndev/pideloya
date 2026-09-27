@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { PasswordChangeForm } from './PasswordChangeForm'
-import { KeyRoundIcon } from 'lucide-react'
 
 /**
  * Botón "Cambiar contraseña" + modal que monta `PasswordChangeForm`.
@@ -29,8 +28,7 @@ export function PasswordChangeDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="outline" className="gap-1.5">
-            <KeyRoundIcon className="size-4" />
+          <Button variant="outline">
             Cambiar contraseña
           </Button>
         }

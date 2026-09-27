@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/server'
 import { ProfileForm } from '@/components/features/profile/ProfileForm'
 import { AvatarUploader } from '@/components/features/profile/AvatarUploader'
 import { YapeQrUploader } from '@/components/features/profile/YapeQrUploader'
-import { PasswordChangeDialog } from '@/components/features/profile/PasswordChangeDialog'
+import { ProfileDraftProvider } from '@/components/features/profile/ProfileDraftProvider'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,70 +36,70 @@ export default async function RepartidorProfilePage() {
         description="Tus datos personales, tu foto y cómo te pagan tus clientes."
       />
 
-      <div className="mt-6 grid items-start gap-6 md:grid-cols-2">
-        <div className="space-y-6">
-          {profile && (
+      <ProfileDraftProvider>
+        <div className="mt-6 grid items-start gap-6 md:grid-cols-2">
+          <div className="space-y-6">
+            {profile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ImageIcon className="size-4 text-muted-foreground" />
+                    Foto de perfil
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AvatarUploader
+                    profileId={profile.id}
+                    currentAvatarUrl={profile.avatar_url ?? null}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {profile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <QrCodeIcon className="size-4 text-muted-foreground" />
+                    Cobro por Yape
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <YapeQrUploader
+                    profileId={profile.id}
+                    currentYapeQrUrl={profile.yape_qr_url ?? null}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <ImageIcon className="size-4 text-muted-foreground" />
-                  Foto de perfil
+                  <UserIcon className="size-4 text-muted-foreground" />
+                  Datos personales
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <AvatarUploader
-                  profileId={profile.id}
-                  currentAvatarUrl={profile.avatar_url ?? null}
+                <ProfileForm
+                  email={user?.email ?? ''}
+                  initialData={{
+                    fullName: profile?.full_name ?? '',
+                    phone: profile?.phone ?? '',
+                    documentType: profile?.document_type ?? '',
+                    documentNumber: profile?.document_number ?? '',
+                    vehicleType: profile?.vehicle_type ?? '',
+                  }}
+                  showDeliveryFields
+                  showPasswordModal
                 />
               </CardContent>
             </Card>
-          )}
-
-          {profile && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <QrCodeIcon className="size-4 text-muted-foreground" />
-                  Cobro por Yape
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <YapeQrUploader
-                  profileId={profile.id}
-                  currentYapeQrUrl={profile.yape_qr_url ?? null}
-                />
-              </CardContent>
-            </Card>
-          )}
+          </div>
         </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <UserIcon className="size-4 text-muted-foreground" />
-                Datos personales
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ProfileForm
-                email={user?.email ?? ''}
-                initialData={{
-                  fullName: profile?.full_name ?? '',
-                  phone: profile?.phone ?? '',
-                  documentType: profile?.document_type ?? '',
-                  documentNumber: profile?.document_number ?? '',
-                  vehicleType: profile?.vehicle_type ?? '',
-                }}
-                showDeliveryFields
-              />
-              <div className="mt-6">
-                <PasswordChangeDialog />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </ProfileDraftProvider>
     </PageContainer>
   )
 }

@@ -1,11 +1,11 @@
 'use client'
 
 import { useId, useState, useTransition, type SubmitEvent } from 'react'
-import { CheckCircle2Icon } from 'lucide-react'
 import { changePassword } from '@/lib/actions/profile'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
+import { useToast } from '@/components/ui/toast'
 
 /**
  * Cambio de contraseña del usuario autenticado.
@@ -29,13 +29,17 @@ export function PasswordChangeForm() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const { success: toastSuccess } = useToast()
 
   function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
+    // Este formulario vive dentro del árbol React de `ProfileForm` (en el
+    // modal, vía portal; en admin/restaurante, anidado en el DOM). Sin
+    // cortar la burbuja, el `submit` llega también al `onSubmit` externo
+    // y guarda los datos personales aunque la contraseña no haya cambiado.
+    e.stopPropagation()
     setError(null)
-    setSuccess(false)
 
     if (password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres')
@@ -51,7 +55,7 @@ export function PasswordChangeForm() {
         await changePassword(password)
         setPassword('')
         setConfirm('')
-        setSuccess(true)
+        toastSuccess('Contraseña actualizada.')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Algo salió mal')
       }
@@ -69,6 +73,7 @@ export function PasswordChangeForm() {
           // Le dice al gestor de contraseñas que genere y guarde una nueva,
           // en vez de ofrecer autocompletar la actual.
           autoComplete="new-password"
+          required
           aria-invalid={!!error}
         />
       </div>
@@ -80,6 +85,7 @@ export function PasswordChangeForm() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="new-password"
+          required
           aria-invalid={!!error}
         />
       </div>
@@ -89,14 +95,12 @@ export function PasswordChangeForm() {
           {error}
         </p>
       )}
-      {success && (
-        <p role="status" className="flex items-center gap-1.5 text-sm text-green-600">
-          <CheckCircle2Icon className="size-4" aria-hidden="true" />
-          Contraseña actualizada.
-        </p>
-      )}
 
-      <Button type="submit" variant="outline" disabled={isPending}>
+      <Button
+        type="submit"
+        variant="outline"
+        disabled={isPending || (password === '' && confirm === '')}
+      >
         {isPending ? 'Guardando…' : 'Actualizar contraseña'}
       </Button>
     </form>
