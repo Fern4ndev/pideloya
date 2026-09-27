@@ -30,80 +30,84 @@ export default async function RepartidorProfilePage() {
   }
 
   return (
-    <PageContainer size="sm">
+    <PageContainer size="lg">
       <PageHeader
         title="Mi perfil"
         description="Tus datos personales, tu foto y cómo te pagan tus clientes."
       />
 
-      <div className="mt-6 space-y-6">
-        {profile && (
+      <div className="mt-6 grid items-start gap-6 md:grid-cols-2">
+        <div className="space-y-6">
+          {profile && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ImageIcon className="size-4 text-muted-foreground" />
+                  Foto de perfil
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AvatarUploader
+                  profileId={profile.id}
+                  currentAvatarUrl={profile.avatar_url ?? null}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {profile && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <QrCodeIcon className="size-4 text-muted-foreground" />
+                  Cobro por Yape
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <YapeQrUploader
+                  profileId={profile.id}
+                  currentYapeQrUrl={profile.yape_qr_url ?? null}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <ImageIcon className="size-4 text-muted-foreground" />
-                Foto de perfil
+                <UserIcon className="size-4 text-muted-foreground" />
+                Datos personales
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <AvatarUploader
-                profileId={profile.id}
-                currentAvatarUrl={profile.avatar_url ?? null}
+              <ProfileForm
+                email={user?.email ?? ''}
+                initialData={{
+                  fullName: profile?.full_name ?? '',
+                  phone: profile?.phone ?? '',
+                  documentType: profile?.document_type ?? '',
+                  documentNumber: profile?.document_number ?? '',
+                  vehicleType: profile?.vehicle_type ?? '',
+                }}
+                showDeliveryFields
               />
             </CardContent>
           </Card>
-        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <UserIcon className="size-4 text-muted-foreground" />
-              Datos personales
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProfileForm
-              email={user?.email ?? ''}
-              initialData={{
-                fullName: profile?.full_name ?? '',
-                phone: profile?.phone ?? '',
-                documentType: profile?.document_type ?? '',
-                documentNumber: profile?.document_number ?? '',
-                vehicleType: profile?.vehicle_type ?? '',
-              }}
-              showDeliveryFields
-            />
-          </CardContent>
-        </Card>
-
-        {profile && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <QrCodeIcon className="size-4 text-muted-foreground" />
-                Cobro por Yape
+                <ShieldCheckIcon className="size-4 text-muted-foreground" />
+                Seguridad
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <YapeQrUploader
-                profileId={profile.id}
-                currentYapeQrUrl={profile.yape_qr_url ?? null}
-              />
+              <PasswordChangeForm />
             </CardContent>
           </Card>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheckIcon className="size-4 text-muted-foreground" />
-              Seguridad
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PasswordChangeForm />
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </PageContainer>
   )
