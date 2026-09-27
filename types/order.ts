@@ -58,3 +58,18 @@ export interface Order {
   createdAt: Date
   updatedAt: Date
 }
+
+/** Meta que acompaña al listado paginado de pedidos del cliente
+ *  (`GET /api/v1/orders?offset=&limit=&status=`). Los conteos son globales
+ *  (sin paginar): con páginas parciales ya no se pueden derivar en el cliente. */
+export interface ApiOrdersMeta {
+  counts: {
+    all: number
+    active: number
+    delivered: number
+    cancelled: number
+    pending: number
+  }
+  limit: number
+  offset: number
+}

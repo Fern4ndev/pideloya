@@ -41,8 +41,15 @@ export function OrderStatusSection({
     }
   }, [orderId])
 
+  // Entregado: la card de estados ya no aporta nada — el pedido terminó su
+  // ciclo. Se oculta completa (wrapper incluido) para que el resto del detalle
+  // suba sin un bloque vacío. Como `status` nace de `initialStatus` y se
+  // actualiza por realtime, aplica tanto al abrir un pedido ya entregado como
+  // a la transición en vivo mientras el cliente está en la página.
+  if (status === 'DELIVERED') return null
+
   return (
-    <>
+    <div className="mt-6 rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
       <OrderStatusTimeline status={status} />
       {/* Cancelable mientras el pago del envío NO esté confirmado (PENDING o
           AWAITING_PAYMENT): dentro de la plataforma todavía no se movió nada de
@@ -54,6 +61,6 @@ export function OrderStatusSection({
           <CancelOrderButton orderId={orderId} />
         </div>
       )}
-    </>
+    </div>
   )
 }

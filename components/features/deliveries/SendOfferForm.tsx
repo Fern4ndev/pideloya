@@ -61,8 +61,6 @@ export function SendOfferForm({
     <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
       <label htmlFor={inputId} className="text-sm text-muted-foreground">
         Tarifa de envío
-        {/* La distancia al lado del precio: es el dato con el que se decide la
-            tarifa, así que no tiene sentido esconderlo en otra tarjeta. */}
         {distanceKm !== null && (
           <span className="ml-1 text-muted-foreground/80 tabular-nums">
             · ≈ {formatDistanceKm(distanceKm)}

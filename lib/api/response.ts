@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
 import { ApiError } from '@/lib/api/auth'
 
-/** Respuesta exitosa: `{ success: true, data }`. */
-export function successResponse<T>(data: T, status = 200) {
-  return NextResponse.json({ success: true, data }, {
-    status,
-    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-  })
+/** Respuesta exitosa: `{ success: true, data }`. `meta` (si se pasa) viaja
+ *  junto a `data` sin romper a los consumidores que solo leen `data`. */
+export function successResponse<T, M>(data: T, status = 200, meta?: M) {
+  return NextResponse.json(
+    { success: true, data, ...(meta !== undefined ? { meta } : {}) },
+    {
+      status,
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    }
+  )
 }
 
 /** Respuesta de error genérica. */

@@ -79,9 +79,7 @@ export default async function OrderDetailPage({
         })}
       </p>
 
-      <div className="mt-6 rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
-        <OrderStatusSection orderId={order.id} initialStatus={order.status} />
-      </div>
+      <OrderStatusSection orderId={order.id} initialStatus={order.status} />
 
       {deliveryOffer && (
         <div className="mt-4">

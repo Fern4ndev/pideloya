@@ -94,7 +94,7 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
         <p className="mt-1 max-w-xs text-sm text-muted-foreground">
           Tu pedido está esperando a que un repartidor lo acepte. Te avisaremos cuando esté en camino.
         </p>
-        <Button className="mt-6 rounded-full" onClick={() => router.push('/cliente/pedidos')}>
+        <Button className="mt-6 rounded-full" onClick={() => router.push('/cliente/pedidos?status=active')}>
           Ver mis pedidos
         </Button>
       </div>
@@ -129,131 +129,157 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
         </div>
       )}
 
-      <div>
-        <h2 className="text-sm font-medium text-muted-foreground">Pedido de {restaurantName}</h2>
-        <div className="mt-3 space-y-3">
-          {items.map((item) => (
-            <div
-              key={item.productId}
-              className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3.5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-sm text-muted-foreground">S/ {item.price.toFixed(2)}</p>
-              </div>
-              {/* Stepper y papelera a 40×40px de objetivo táctil (el control
-                  es un icono, el área real es el botón). */}
-              <div className="flex items-center gap-1 rounded-full bg-black/[0.03] p-1 dark:bg-white/5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="h-10 w-10 rounded-full"
-                  onClick={() => setQuantity(item.productId, item.quantity - 1)}
-                  aria-label={`Quitar una unidad de ${item.name}`}
-                >
-                  <MinusIcon className="h-3.5 w-3.5" />
-                </Button>
-                <span className="w-5 text-center text-sm font-medium tabular-nums">
-                  {item.quantity}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="h-10 w-10 rounded-full"
-                  onClick={() => setQuantity(item.productId, item.quantity + 1)}
-                  aria-label={`Agregar una unidad de ${item.name}`}
-                >
-                  <PlusIcon className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="h-10 w-10 text-destructive hover:text-destructive"
-                onClick={() => removeItem(item.productId)}
-                aria-label={`Quitar ${item.name} del carrito`}
+      {/* En desktop el contenido se parte en 2 columnas 50/50: productos a la
+          izquierda y el resumen (dirección, notas, total) a la derecha, para
+          que nada se estire al ancho completo del `max-w-5xl` del layout. En
+          móvil todo sigue apilado en una sola columna. */}
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+        <div>
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Pedido de {restaurantName}
+          </h2>
+          <div className="mt-3 space-y-3">
+            {items.map((item) => (
+              <div
+                key={item.productId}
+                className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3.5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
               >
-                <Trash2Icon className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Dirección de entrega</p>
-        {address ? (
-          <div className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3.5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
-              <MapPinIcon className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              {address.label && (
-                <p className="text-xs font-medium text-brand-700">{address.label}</p>
-              )}
-              <p className="truncate text-sm">{address.addressText}</p>
-            </div>
-            <Link
-              href="/cliente/direcciones"
-              className="shrink-0 text-xs font-medium text-brand-700 hover:underline"
-            >
-              Cambiar
-            </Link>
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-2xl bg-muted shadow-sm">
+                  {item.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
+                      {item.name.charAt(0) ?? '?'}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">S/ {item.price.toFixed(2)}</p>
+                </div>
+                {/* Stepper y papelera a 40×40px de objetivo táctil (el control
+                    es un icono, el área real es el botón). */}
+                <div className="flex items-center gap-1 rounded-full bg-black/[0.03] p-1 dark:bg-white/5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-10 w-10 rounded-full"
+                    onClick={() => setQuantity(item.productId, item.quantity - 1)}
+                    aria-label={`Quitar una unidad de ${item.name}`}
+                  >
+                    <MinusIcon className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="w-5 text-center text-sm font-medium tabular-nums">
+                    {item.quantity}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-10 w-10 rounded-full"
+                    onClick={() => setQuantity(item.productId, item.quantity + 1)}
+                    aria-label={`Agregar una unidad de ${item.name}`}
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-10 w-10 text-destructive hover:text-destructive"
+                  onClick={() => removeItem(item.productId)}
+                  aria-label={`Quitar ${item.name} del carrito`}
+                >
+                  <Trash2Icon className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-sm dark:border-white/10 dark:bg-white/[0.02]">
-            No tienes una dirección guardada.{' '}
-            <Link
-              href="/cliente/direcciones"
-              className="font-medium text-brand-700 underline underline-offset-2"
-            >
-              Agrega una
-            </Link>{' '}
-            para poder continuar.
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">
-          Notas para el pedido{' '}
-          <span className="font-normal text-muted-foreground">(opcional)</span>
-        </p>
-        <Textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Sin cebolla, tocar el timbre 2 veces…"
-          rows={2}
-          className="rounded-2xl"
-        />
-      </div>
-
-      {/* Total + CTA anclados al borde inferior mientras se revisa el pedido:
-          el cliente nunca pierde de vista cuánto va a pagar. Se usa `sticky`
-          (no `fixed`) para que el bloque siga ocupando su lugar en el flujo y
-          no tape el último ítem al llegar al final de la lista. */}
-      <div className="sticky bottom-4 z-10 space-y-3">
-        <div className="flex items-center justify-between rounded-3xl bg-brand-500/5 px-4 py-3.5 shadow-client-floating backdrop-blur-xl">
-          <span className="text-sm text-muted-foreground">Total</span>
-          <span className="text-lg font-semibold text-brand-700">S/ {total.toFixed(2)}</span>
         </div>
 
-        {error && (
-          <p className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive backdrop-blur-xl">
-            {error}
-          </p>
-        )}
+        <div className="space-y-6">
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Dirección de entrega</p>
+            {address ? (
+              <div className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3.5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
+                  <MapPinIcon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  {address.label && (
+                    <p className="text-xs font-medium text-brand-700">{address.label}</p>
+                  )}
+                  <p className="truncate text-sm">{address.addressText}</p>
+                </div>
+                <Link
+                  href="/cliente/direcciones"
+                  className="shrink-0 text-xs font-medium text-brand-700 hover:underline"
+                >
+                  Cambiar
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-sm dark:border-white/10 dark:bg-white/[0.02]">
+                No tienes una dirección guardada.{' '}
+                <Link
+                  href="/cliente/direcciones"
+                  className="font-medium text-brand-700 underline underline-offset-2"
+                >
+                  Agrega una
+                </Link>{' '}
+                para poder continuar.
+              </div>
+            )}
+          </div>
 
-        <Button
-          className="w-full rounded-full"
-          disabled={isPending || !address || isRestaurantClosed}
-          onClick={handleConfirm}
-        >
-          {isPending ? 'Enviando pedido…' : 'Confirmar pedido'}
-        </Button>
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">
+              Notas para el pedido{' '}
+              <span className="font-normal text-muted-foreground">(opcional)</span>
+            </p>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Sin cebolla, tocar el timbre 2 veces…"
+              rows={2}
+              className="rounded-2xl"
+            />
+          </div>
+        </div>
+
+        {/* Total + CTA anclados al borde inferior mientras se revisa el pedido:
+            el cliente nunca pierde de vista cuánto va a pagar. Vive como hijo
+            directo del grid (no de la columna derecha) para que su contenedor
+            `sticky` sea el grid completo: si estuviera dentro de la columna,
+            su alto sería solo el suyo y el anclado no tendría recorrido.
+            `md:col-start-2` lo ubica bajo la columna de resumen en desktop. */}
+        <div className="sticky bottom-4 z-10 space-y-3 md:col-start-2">
+          <div className="flex items-center justify-between rounded-3xl bg-brand-500/5 px-4 py-3.5 shadow-client-floating backdrop-blur-xl">
+            <span className="text-sm text-muted-foreground">Total</span>
+            <span className="text-lg font-semibold text-brand-700">S/ {total.toFixed(2)}</span>
+          </div>
+
+          {error && (
+            <p className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive backdrop-blur-xl">
+              {error}
+            </p>
+          )}
+
+          <Button
+            className="w-full rounded-full"
+            disabled={isPending || !address || isRestaurantClosed}
+            onClick={handleConfirm}
+          >
+            {isPending ? 'Enviando pedido…' : 'Confirmar pedido'}
+          </Button>
+        </div>
       </div>
     </div>
   )
