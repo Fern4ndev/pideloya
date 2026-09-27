@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { createClient } from '@/lib/db/server'
+import { createClient, createServiceRoleClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import { createOrderSchema, type CreateOrderInput } from '@/lib/validations/order'
 
@@ -15,16 +15,17 @@ function toFriendlyMessage(err: unknown): string {
 }
 
 /**
- * Cancela un pedido. El cliente solo puede hacerlo mientras esté
- * PENDING (RLS "orders_update_own_customer_cancel" lo exige a nivel de
- * base de datos, no solo aquí). El admin puede cancelar en cualquier
- * momento vía su propia policy "orders_all_admin".
+ * Cancela un pedido. El cliente solo puede hacerlo mientras el pago del envío
+ * no esté confirmado — PENDING o AWAITING_PAYMENT (RLS
+ * "orders_update_own_customer_cancel" lo exige a nivel de base de datos, no
+ * solo aquí). El admin puede cancelar en cualquier momento vía su propia
+ * policy "orders_all_admin".
  */
 export async function cancelOrder(orderId: string) {
   const supabase = await createClient()
 
   // IMPORTANTE: encadenamos select().single() a propósito. Si RLS
-  // bloquea el update (porque el pedido ya no está PENDING, o no es
+  // bloquea el update (porque el pedido ya no está cancelable, o no es
   // del cliente que llama), Supabase actualiza 0 filas SIN devolver
   // un error — solo .single() lo detecta, al no encontrar ninguna
   // fila para devolver.
@@ -41,8 +42,66 @@ export async function cancelOrder(orderId: string) {
     )
   }
 
+  // Si el pedido estaba en AWAITING_PAYMENT, la oferta de envío queda
+  // huérfana. La cancelación ya está hecha y es lo que el cliente pidió, así
+  // que la limpieza es best-effort: si falla, queda una fila inerte en
+  // `deliveries` (el pedido ya es CANCELLED y nadie la lee), no un error para
+  // el usuario.
+  await releaseUnconfirmedOffer(orderId)
+
   revalidatePath('/cliente/pedidos')
   revalidatePath(`/cliente/pedidos/${orderId}`)
+  revalidatePath('/repartidor/disponibles')
+  revalidatePath('/repartidor/pedidos')
+  return { success: true }
+}
+
+/**
+ * Borra la oferta de envío sin confirmar de un pedido. Usa el cliente con
+ * service role porque el cliente NO tiene (ni debe tener) policy de DELETE
+ * sobre `deliveries`: era una tabla en la que solo el repartidor dueño podía
+ * escribir su propia fila, y la cancelación es del cliente. En vez de abrir
+ * una policy de DELETE para el cliente (que le daría permiso de borrar
+ * entregas ajenas si algún día se escribe mal el `using`), se resuelve con una
+ * operación privilegiada, puntual y con guarda explícita.
+ *
+ * El filtro `payment_confirmed_at is null` es la guarda dura: una entrega con
+ * el pago ya confirmado es historial de dinero cobrado y no se toca nunca.
+ */
+async function releaseUnconfirmedOffer(orderId: string) {
+  const admin = createServiceRoleClient()
+  const { error } = await admin
+    .from('deliveries')
+    .delete()
+    .eq('order_id', orderId)
+    .is('payment_confirmed_at', null)
+
+  if (error) {
+    console.error('[orders] no se pudo borrar la oferta huérfana:', error.message)
+  }
+}
+
+/**
+ * El cliente confirma que pagó la tarifa de envío por Yape. Llama a la función
+ * SECURITY DEFINER confirm_delivery_payment() (migración 20260928100200), que
+ * hace la transición AWAITING_PAYMENT -> ASSIGNED de forma atómica en dos
+ * tablas y escribe el snapshot `orders.delivery_fee`.
+ *
+ * No hay pasarela de pago integrada: es una confirmación de buena fe del
+ * cliente, no una verificación bancaria. La función valida por sí sola que el
+ * pedido sea suyo y que esté en el estado correcto, así que acá no hay que
+ * repetir esas comprobaciones.
+ */
+export async function confirmDeliveryPayment(orderId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('confirm_delivery_payment', {
+    p_order_id: orderId,
+  })
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/cliente/pedidos')
+  revalidatePath(`/cliente/pedidos/${orderId}`)
+  revalidatePath('/repartidor/pedidos')
   return { success: true }
 }
 

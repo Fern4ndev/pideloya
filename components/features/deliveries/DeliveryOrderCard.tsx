@@ -1,8 +1,8 @@
 /**
- * Tarjeta de pedido usada tanto en "Disponibles" (con botón Aceptar)
- * como en "Mis entregas" (con badge de estado + botón para avanzar).
- * Antes cada página tenía su propia copia casi idéntica de este bloque
- * — ahora solo cambian los props que le pasa cada página.
+ * Tarjeta de pedido usada tanto en "Disponibles" (con el formulario de
+ * oferta en el pie) como en "Mis entregas" (con badge de estado + botón para
+ * avanzar). Antes cada página tenía su propia copia casi idéntica de este
+ * bloque — ahora solo cambian los props que le pasa cada página.
  */
 import Link from 'next/link'
 
@@ -15,6 +15,7 @@ export function DeliveryOrderCard({
   total,
   badge,
   action,
+  footer,
   detailHref,
 }: {
   restaurantName: string
@@ -27,6 +28,10 @@ export function DeliveryOrderCard({
    * una fila inferior separada por un borde — así se ve "Mis entregas". */
   badge?: React.ReactNode
   action?: React.ReactNode
+  /** Bloque a lo ancho de la tarjeta, en su propia fila al pie. Para acciones
+   * que necesitan más espacio que un botón (ej. el formulario de oferta de
+   * envío, con su input de tarifa). */
+  footer?: React.ReactNode
   /** Si se pasa, el nombre del restaurante enlaza al detalle del pedido
    * (solo donde el pedido ya está aceptado y RLS permite verlo). */
   detailHref?: string
@@ -84,6 +89,8 @@ export function DeliveryOrderCard({
           {action}
         </div>
       )}
+
+      {footer && <div className="mt-3 border-t pt-3">{footer}</div>}
     </div>
   )
 }

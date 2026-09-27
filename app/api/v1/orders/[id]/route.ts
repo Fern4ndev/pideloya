@@ -1,5 +1,10 @@
-import { successResponse, errorResponse, withApi } from '@/lib/api/response'
-import { authenticateRequest, adminClient, NotFoundError } from '@/lib/api/auth'
+import {
+  successResponse,
+  errorResponse,
+  rpcErrorResponse,
+  withApi,
+} from '@/lib/api/response'
+import { authenticateRequest, adminClient, userClient, NotFoundError } from '@/lib/api/auth'
 import type { OrderStatus } from '@/types/order'
 
 export const dynamic = 'force-dynamic'
@@ -84,11 +89,16 @@ export const GET = withApi(async (_request: Request, ctx: RouteCtx) => {
   return successResponse(order)
 })
 
+// PENDING ya no está en el mapa: el salto a ASSIGNED solo lo produce la
+// confirmación del pago del envío (confirm_delivery_payment). Que el admin
+// lo "avanzara" a mano creaba un ASSIGNED sin repartidor y sin tarifa — el
+// cliente veía "repartidor en camino" y nadie iba por el pedido (Hallazgo 1
+// de la Fase 8). Si algún día se quiere un override de soporte, tiene que
+// crear la fila de deliveries, no saltarse el flujo.
 const NEXT_STATUS: Record<string, { next: OrderStatus }> = {
   ASSIGNED: { next: 'PICKED_UP' },
   PICKED_UP: { next: 'ON_THE_WAY' },
   ON_THE_WAY: { next: 'DELIVERED' },
-  PENDING: { next: 'ASSIGNED' },
   DELIVERED: { next: 'DELIVERED' },
   CANCELLED: { next: 'CANCELLED' },
 }
@@ -107,13 +117,20 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       return errorResponse('No tienes permiso para cancelar pedidos', 403)
     }
 
-    const { data, error } = await client
+    // adminClient salta RLS, así que el dueño del pedido hay que verificarlo
+    // EXPLÍCITAMENTE cuando quien llama es el cliente: sin este filtro, un
+    // cliente autenticado podía cancelar cualquier pedido PENDING ajeno con
+    // solo conocer su id (el rol ADMIN sí puede cancelar cualquiera).
+    let query = client
       .from('orders')
       .update({ status: 'CANCELLED' })
       .eq('id', id)
-      .eq('status', 'PENDING')
-      .select('id')
-      .maybeSingle()
+      // Mismo criterio que la policy orders_update_own_customer_cancel: el
+      // cliente puede cancelar mientras el pago del envío no esté confirmado.
+      .in('status', ['PENDING', 'AWAITING_PAYMENT'])
+    if (context.role === 'CUSTOMER') query = query.eq('customer_id', context.profileId)
+
+    const { data, error } = await query.select('id').maybeSingle()
 
     if (error) throw error
     if (!data) {
@@ -122,7 +139,35 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
         400
       )
     }
+
+    // Misma limpieza que la Server Action cancelOrder(): si el pedido estaba
+    // en AWAITING_PAYMENT, la oferta del repartidor queda huérfana. La guarda
+    // de `payment_confirmed_at` asegura que nunca se borre una entrega con
+    // dinero ya confirmado.
+    await client
+      .from('deliveries')
+      .delete()
+      .eq('order_id', id)
+      .is('payment_confirmed_at', null)
+
     return successResponse({ message: 'Pedido cancelado' })
+  }
+
+  if (action === 'confirm_payment') {
+    if (context.role !== 'CUSTOMER') {
+      return errorResponse('Solo el cliente puede confirmar el pago del envío', 403)
+    }
+
+    // userClient() y no adminClient(): confirm_delivery_payment() valida que el
+    // pedido sea del usuario que llama usando auth.uid(), que no existe en un
+    // cliente con service role. Con adminClient esto fallaría con 'No
+    // autenticado' — comportamiento buscado, no un bug de la ruta.
+    const { error } = await userClient(request).rpc('confirm_delivery_payment', {
+      p_order_id: id,
+    })
+    if (error) return rpcErrorResponse(error)
+
+    return successResponse({ status: 'ASSIGNED' })
   }
 
   if (action === 'advance') {
@@ -139,7 +184,12 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
 
     const transition = NEXT_STATUS[order.status]
     if (!transition || transition.next === order.status) {
-      return errorResponse('Este pedido no puede avanzar de estado', 400)
+      return errorResponse(
+        order.status === 'PENDING' || order.status === 'AWAITING_PAYMENT'
+          ? 'Este pedido necesita una oferta de envío y la confirmación de pago del cliente antes de avanzar.'
+          : 'Este pedido no puede avanzar de estado',
+        400
+      )
     }
 
     if (context.role === 'DELIVERY') {
@@ -177,7 +227,7 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
   }
 
   return errorResponse(
-    "Acción inválida. Usa { action: 'cancel' | 'advance' }",
+    "Acción inválida. Usa { action: 'cancel' | 'advance' | 'confirm_payment' }",
     400
   )
 })

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { RetractOfferButton } from '@/components/features/deliveries/RetractOfferButton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 import type { ApiOrder } from '@/types/order'
@@ -33,8 +34,11 @@ export function DeliveryOrdersClient() {
     { channelName: 'my-deliveries', table: 'orders', event: 'UPDATE' },
     () => mutate()
   )
+  // AWAITING_PAYMENT entra acá: la oferta ya enviada es trabajo en curso del
+  // repartidor (está "ocupado" hasta que el cliente pague o él se retire), así
+  // que tiene que verla y poder gestionarla desde el mismo lugar.
   const orders = (data?.data ?? []).filter((o) =>
-    ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'].includes(o.status)
+    ['AWAITING_PAYMENT', 'ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'].includes(o.status)
   )
 
   if (isLoading) {
@@ -64,6 +68,13 @@ export function DeliveryOrdersClient() {
               ?.map((i) => `${i.quantity}x ${i.product_name}`)
               .join(', ') ?? ''
 
+            // Mientras espera el pago no hay nada que "avanzar": el pedido
+            // arranca cuando el CLIENTE confirma. Lo único que puede hacer el
+            // repartidor es retirar su oferta, así que esa acción va en el pie
+            // de la tarjeta, con el monto que está cobrando a la vista.
+            const waitingPayment = order.status === 'AWAITING_PAYMENT'
+            const fee = order.deliveries?.delivery_fee ?? null
+
             return (
               <DeliveryOrderCard
                 key={order.id}
@@ -76,10 +87,24 @@ export function DeliveryOrdersClient() {
                 badge={<OrderStatusBadge status={order.status} />}
                 detailHref={`/repartidor/pedidos/${order.id}`}
                 action={
-                  <AdvanceStatusButton
-                    orderId={order.id}
-                    currentStatus={order.status}
-                  />
+                  waitingPayment ? undefined : (
+                    <AdvanceStatusButton
+                      orderId={order.id}
+                      currentStatus={order.status}
+                    />
+                  )
+                }
+                footer={
+                  waitingPayment ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {fee !== null
+                          ? `Tu envío: S/ ${fee.toFixed(2)} · esperando que el cliente confirme el pago.`
+                          : 'Esperando que el cliente confirme el pago del envío.'}
+                      </p>
+                      <RetractOfferButton orderId={order.id} deliveryFee={fee} />
+                    </div>
+                  ) : undefined
                 }
               />
             )
@@ -90,7 +115,7 @@ export function DeliveryOrdersClient() {
       {!error && orders.length === 0 && (
         <EmptyState
           title="No tienes entregas activas"
-          description="Ve a Disponibles para aceptar un pedido."
+          description="Ve a Disponibles para ofertar por un pedido."
           className="mt-10"
         />
       )}

@@ -20,8 +20,10 @@
 | 5 | Detalles de UX: privacidad de dirección, zoom de QR, tarifa sugerida | UX | Media |
 | 6 | Casos borde y ciclo de vida (cancelación, timeout, eliminación de cuentas) | Backend | Alta |
 | 7 | Corrección relacionada: "Ingresos generados" del repartidor usaba el precio de la comida, no su tarifa de envío | Bug fix | Media-Alta |
-| 8 | QA — checklist de pruebas manuales | QA | Obligatoria |
+| 8 | QA — suite E2E + checklist manual | QA | Obligatoria |
 | 9 | Orden de despliegue | DevOps | Obligatoria |
+
+**Estado (2026-09-27): plan implementado de punta a punta — fases 0 a 9.** Las cinco migraciones están aplicadas al proyecto vinculado y verificadas por REST. La Fase 8 quedó mayormente cubierta por dos suites E2E con sesiones reales (50 + 30 verificaciones, todo en verde, cero warnings) más la lectura con `service_role`; lo que queda sin marcar necesita pantalla o sesión de admin en navegador. El hallazgo del bypass del admin (Fase 8) quedó cerrado. La Fase 9 quedó con el estado real de despliegue y lo único que falta. Ver "Notas de implementación" al final de cada fase.
 
 Orden recomendado: **1 → 2 → 3 → 4 → 6 → 7 → 5 → 8 → 9**. Las fases 1-2 son invisibles para el usuario y de alto riesgo si se saltan (todo lo demás depende de ellas). La fase 7 se beneficia de tener ya `delivery_fee` disponible, así que va después de 1-2 pero puede ir en paralelo a 3-4.
 
@@ -181,6 +183,9 @@ with check (
 -- docs/decisions-and-learnings.md, sección final.) Una función angosta que
 -- SOLO hace esta transición es la superficie de ataque mínima posible.
 -- ----------------------------------------------------------------------------
+-- OJO: el cuerpo de abajo es la PROPUESTA del plan. La versión implementada
+-- difiere en el orden de las validaciones, en las guardas de identidad y en
+-- los errcode — ver "Notas de implementación (Fase 1)" al final de esta fase.
 create or replace function public.confirm_delivery_payment(p_order_id uuid)
 returns void
 language plpgsql
@@ -281,6 +286,28 @@ Agregar a mano (mismo criterio que las fases anteriores del proyecto — editar 
 - Un cliente **no** puede leer la fila `profiles` de un repartidor por ningún medio directo (solo vía `get_delivery_offer_profile`, y solo para pedidos propios).
 - Llamar `confirm_delivery_payment` dos veces seguidas la segunda vez lanza "El pago de este pedido ya fue confirmado" y no reescribe nada.
 - Llamar `confirm_delivery_payment` con el `order_id` de otro cliente lanza "No puedes confirmar el pago de un pedido que no es tuyo".
+
+### Notas de implementación (Fase 1) — desviaciones deliberadas respecto al plan
+
+Archivos creados (los tres ya aplicados al proyecto remoto `jtggpdqucheuovvcjqff`, en este orden):
+
+1. `supabase/migrations/20260928100000_order_status_awaiting_payment.sql` — enum, solo.
+2. `supabase/migrations/20260928100100_delivery_offer_columns.sql` — columnas + constraints.
+3. `supabase/migrations/20260928100200_delivery_offer_rls_and_functions.sql` — RLS + funciones.
+
+Decisiones donde el código final difiere (a propósito) del SQL de ejemplo de arriba:
+
+- **Orden de validaciones en `confirm_delivery_payment`.** El plan evaluaba el estado antes de la idempotencia, pero eso hacía imposible su propio criterio de aceptación: la segunda llamada encontraba el pedido ya en `ASSIGNED` y devolvía "no tiene una oferta esperando confirmación" en vez de "ya fue confirmado". Ahora la idempotencia (`payment_confirmed_at is not null`) se evalúa primero, con su mensaje propio, y el chequeo de estado después.
+- **Guardas de identidad con `is distinct from` (no `<>`) + rechazo explícito si no hay perfil.** Con `<>`, un llamador sin `auth.uid()` (por ejemplo `service_role` vía `adminClient()`) obtenía `NULL` en la comparación y el `if` no se disparaba: la confirmación pasaba de largo. Ahora falla con `42501` / 'No autenticado' — verificado contra la base real.
+- **`if not found` también tras el UPDATE de `orders`.** Si el estado cambió entre el SELECT y el UPDATE (cancelación en paralelo), se levanta excepción: como el RPC es su propia transacción, se revierte también el update de `deliveries`, así "pago confirmado" y "pedido arrancado" nunca quedan a medias.
+- **Ningún mensaje de error compite:** cada rechazo tiene su `errcode` (`42501` identidad, `P0002` no encontrado, `23505` ya confirmado, `22000` estado inválido, `40001` conflicto) para que la Fase 2 pueda distinguirlos si algún día lo necesita.
+- **CHECK de dinero añadido (no estaba en el plan):** `deliveries_delivery_fee_check` y `orders_delivery_fee_check` con `delivery_fee is null or delivery_fee > 0`. Zod valida el rango de producto (S/ 1–S/ 30) en el servidor; la base garantiza la invariante de datos (una tarifa nunca negativa) sin importar qué camino escriba la fila.
+- **`revoke ... from public, anon` (no solo `public`).** En Supabase, `anon` recibe EXECUTE por privilegios por defecto sobre funciones nuevas del schema `public`, así que revocar solo de `public` dejaba la puerta abierta. Verificado: `anon` → `42501 permission denied`.
+- **`pending_order_address_ids()` NO se revoca (a diferencia de las otras dos).** Las expresiones de una policy RLS se evalúan con los privilegios del rol que consulta: si un rol pierde EXECUTE sobre una función usada en un `USING`, la consulta falla con "permission denied for function" en vez de devolver cero filas. Es el mismo motivo por el que `current_role()` y compañía tampoco se revocan. Lo único que expone es el UUID de direcciones de pedidos `PENDING` — identificador no enumerable que no da acceso a la fila (`addresses` sigue protegida por RLS) y que cualquier repartidor ya ve por diseño.
+- **El plan subestimó una dependencia de tipos:** agregar el valor al enum hace que `Database["public"]["Enums"]["order_status"]` (que es el tipo de `orders.status` en todas las queries) deje de ser asignable al `OrderStatus` de la aplicación, que estaba duplicado y desactualizado. Para que `tsc` volviera a pasar hubo que propagar el estado también a `lib/constants/order-status.ts` (label, step, grupo `active`) y a `types/order.ts`, y dar entrada propia a `AWAITING_PAYMENT` en los dos mapas `NEXT_STATUS` (Server Action y ruta API). Sin eso, la Fase 1 rompía el build.
+- **`advanceOrderStatus` ahora corta cuando `next === currentStatus`** (igual que ya hacía la ruta API). Antes, un `DELIVERED` o `CANCELLED` ejecutaba un UPDATE sin efecto y revalidaba rutas de más; con `AWAITING_PAYMENT` en el mapa, ese silencio habría sido peor: sugiere avance sin pago confirmado.
+- **Pendiente y consciente:** `OrderStatusBadge` todavía no tiene rama propia para `AWAITING_PAYMENT` (hoy cae en el badge neutro con el label correcto). Es parte de la Fase 3, junto con el banner de cliente de la Fase 4.
+- **Verificación ejecutada:** `tsc --noEmit`, `eslint` sobre los 5 archivos tocados y `next build` en verde; `supabase db push` aplicado; y sobre la base real: columnas nuevas presentes, `status=eq.AWAITING_PAYMENT` aceptado como filtro, `get_delivery_offer_profile` devolviendo `[]` para un pedido ajeno/nulo, `confirm_delivery_payment` devolviendo `42501 No autenticado` sin sesión, `anon` bloqueado en ambas RPC, y el CHECK rechazando `delivery_fee = -5` con `23514`. Lo que **no** se pudo probar sin sesión real (repartidor/cliente): las policies nuevas de `addresses` y de cancelación, y la transición completa `PENDING → AWAITING_PAYMENT → ASSIGNED` — queda en el checklist manual de la Fase 8.
 
 ---
 
@@ -503,6 +530,36 @@ Los mismos cambios de estado y campos deben reflejarse en:
 - `retractDeliveryOffer` falla con un mensaje claro si el cliente ya confirmó el pago (no se puede "deshacer" un pago ya confirmado).
 - `pnpm run typecheck` sin errores tras actualizar los dos `OrderStatus` (constants + types).
 
+### Notas de implementación (Fase 2) — desviaciones deliberadas
+
+**La desviación principal: ofertar y retirar son funciones SQL, no Server Actions con service role.**
+
+El plan las resolvía en TypeScript (2.3): `sendDeliveryOffer` con el cliente autenticado (INSERT + UPDATE encadenados) y `retractDeliveryOffer` con `createServiceRoleClient()`. Ambas son transiciones que tocan DOS tablas y que deben ser atómicas, y las dos dejaban una ventana de estado inconsistente:
+
+- Oferta a medias → fila en `deliveries` con el pedido todavía `PENDING`: el repartidor NO la ve en "Mis entregas" (esa lista filtra por estado del pedido), el pedido sigue apareciendo en "Disponibles" para otros y el `UNIQUE(order_id)` les impide tomarlo. Callejón sin salida para las dos partes.
+- Retirada a medias → pedido en `AWAITING_PAYMENT` sin repartidor: el cliente ve "confirma el pago" para siempre, sin QR al que pagarle.
+
+Además, la regla "un repartidor, una oferta o entrega activa" no se puede garantizar con un SELECT previo en la capa de aplicación: dos peticiones simultáneas del mismo repartidor (doble clic, dos pestañas) pasan las dos por el chequeo. Y el plan ya había aceptado este mismo criterio para `confirm_delivery_payment` ("la operación toca DOS tablas y debe ser atómica").
+
+Por eso la migración `20260928100300_delivery_offer_functions.sql` agrega `offer_delivery(uuid, numeric)` y `retract_delivery_offer(uuid)`, ambas `SECURITY DEFINER`, con la autorización adentro. Efectos secundarios, todos buenos:
+
+1. No hay cliente privilegiado en ningún paso nuevo del flujo (la retirada ya no usa service role).
+2. `offer_delivery` bloquea la fila de `profiles` del repartidor: la regla de "una sola activa" pasa a ser atómica de verdad, no best-effort.
+3. Las Server Actions **y** las rutas de `app/api/v1/**` comparten una única implementación — el plan advertía que la ruta API "replicaría la lógica de 2.3", que es justo donde las reglas se desincronizan.
+4. `retract_delivery_offer` toma los locks en el orden `orders` → `deliveries`, el mismo que `confirm_delivery_payment`, para no exponerse a un deadlock AB-BA cuando el cliente confirma en el mismo instante en que el repartidor se retira.
+
+**Resto de cambios de la fase, y por qué:**
+
+- `ACTIVE_DELIVERY_STATUSES` (2.2) ahora es la ÚNICA fuente de la regla "una entrega activa": `acceptOrder` (Server Action) y `POST /api/v1/deliveries/[orderId]/accept` tenían la lista `['ASSIGNED','PICKED_UP','ON_THE_WAY']` copiada a mano en cada uno. Con AWAITING_PAYMENT agregado en un solo lugar, los tres caminos (ofertar, aceptar, desactivar/eliminar cuenta desde admin) quedan consistentes por construcción.
+- `cancelOrder` (2.4 + ítem 10 del checklist de QA): además de cancelar, borra la oferta sin confirmar. La cancelación ya ocurrió y es lo que el cliente pidió, así que la limpieza es best-effort (si falla, deja una fila inerte que nadie lee) y usa service role porque el cliente no tiene —ni debe tener— policy de DELETE sobre `deliveries`. La guarda `payment_confirmed_at is null` es dura: una entrega con dinero ya confirmado no se borra nunca.
+- **Bug de autorización corregido de paso en la API**: `PUT /api/v1/orders/[id]` con `action: 'cancel'` usaba `adminClient()` (salta RLS) y solo verificaba el ROL, nunca el dueño del pedido — un cliente autenticado podía cancelar cualquier pedido PENDING ajeno conociendo su id. Ahora filtra `customer_id = context.profileId` cuando quien llama es CUSTOMER. Se corrige acá porque al ampliar la cancelación a AWAITING_PAYMENT el agujero se agrandaba.
+- `lib/api/auth.ts::userClient(request)` (nuevo): cliente con el mismo Bearer token, necesario para las RPC que resuelven identidad con `auth.uid()`. El plan (2.6) advertía que `adminClient()` rompe estas funciones; con este helper las rutas quedan a una línea de la función en vez de reimplementar sus validaciones.
+- `lib/api/response.ts::rpcErrorResponse()` (nuevo): traduce el `errcode` de las funciones SQL a status HTTP (42501→403, P0002→404, 23505/40001→409, resto 400). Es la razón por la que cada `raise exception` lleva errcode explícito: la API distingue causa sin parsear mensajes.
+- `confirm_payment` en la API delega en `userClient(request).rpc(...)`, exactamente como pedía la nota de diseño del 2.6.
+- `GET /api/v1/orders` (rol DELIVERY) incluye `AWAITING_PAYMENT` en el filtro de estados: sin eso, la oferta del repartidor no aparecía en "Mis entregas" y el botón de retirarla era inalcanzable. `ApiOrder` incorpora `delivery_fee` (snapshot del pedido) y `deliveries.delivery_fee` (la tarifa ofertada, que necesita el diálogo de retirada).
+- **Pendiente consciente (Fase 4):** el backend ya permite cancelar en AWAITING_PAYMENT, pero `OrderStatusSection` todavía muestra el botón "Cancelar pedido" solo en PENDING. La UI del cliente se reescribe en la Fase 4; no tiene sentido parchearla ahora.
+- **Verificación ejecutada:** `tsc --noEmit`, `eslint` de todo lo tocado y `next build` en verde (incluidas las dos rutas nuevas); migración aplicada; y contra la base real: `anon` recibe `42501 permission denied` en las dos funciones nuevas, y `service_role` (sin `auth.uid()`) recibe `42501 No autenticado` en ambas — la guarda de identidad funciona. Los caminos felices (ofertar, confirmar, retirar) requieren una sesión real de repartidor/cliente: quedan para la Fase 8.
+
 ---
 
 ## Fase 3 — UI del Repartidor
@@ -622,6 +679,20 @@ action={
 - Un repartidor ve la dirección de entrega y puede enviar una oferta con la tarifa que quiera (dentro de S/1–S/30) directamente desde "Disponibles".
 - Mientras espera confirmación, "Mis entregas" muestra el pedido con un badge distinto y la opción de retirar la oferta — no aparece el botón "Marcar como recogido" hasta que el cliente pague.
 - Intentar ofertar en un segundo pedido mientras hay una oferta activa muestra el toast de error correspondiente.
+
+### Notas de implementación (Fase 3)
+
+- **El formulario de oferta va en un pie a lo ancho de la tarjeta, no junto al total.** `DeliveryOrderCard` ganó un slot `footer` (`mt-3 border-t pt-3`) y `AvailableOrdersClient` lo usa en vez de `action`. Motivo: el `action` original sólo alojaba un botón; el formulario necesita un input, y en un teléfono de 360px meterlo a la derecha del nombre del restaurante comprimía la columna de texto hasta hacerla inusable. Con el pie, el repartidor ve el pedido completo arriba y decide la tarifa abajo.
+- **Label visible en vez de sólo `aria-label`.** El input de tarifa lleva `<label>` "Tarifa de envío" (con `useId()`, porque hay un formulario por tarjeta en la lista) y el `S/` va como prefijo `aria-hidden`. Un placeholder no es un label: cuando el usuario empieza a escribir, deja de existir para quien necesita el contexto.
+- **Alturas alineadas:** el botón de envío usa el tamaño default (`h-8`) para coincidir con el input de al lado; el botón de retirada usa `size="sm"` como el resto de acciones de la tarjeta.
+- **Zod en el servidor + `min`/`max`/`step` nativos** en el input: misma defensa en profundidad que el resto del proyecto (el navegador da feedback inmediato, la Server Action es la que decide).
+- **Tras enviar la oferta se navega a `/repartidor/pedidos`** (mismo comportamiento que el antiguo botón Aceptar), en vez de confiar en que la lista se refresque sola: la tarjeta sale de "Disponibles" por un `revalidatePath`, pero la lista se pide por SWR y lo que garantiza el cambio de vista es la navegación. El repartidor queda donde está lo que ahora le importa: su oferta, con el badge de espera y la opción de retirarla.
+- **En AWAITING_PAYMENT no se renderiza `AdvanceStatusButton`**: no hay nada que avanzar hasta que el cliente pague (el botón devolvía `null` de todos modos, pero ahora la intención es explícita). En su lugar el pie muestra el monto que está cobrando (`Tu envío: S/ 5.00 · esperando que el cliente confirme el pago.`) y el `RetractOfferButton`.
+- **`RetractOfferButton`** usa el `ConfirmDialog` del proyecto (no un `confirm()` del navegador): es una acción que deja al cliente sin repartidor, así que pide confirmación explícita y muestra el monto en el cuerpo del diálogo, que es el dato con el que el repartidor decide.
+- **`OrderStatusBadge` gana la rama ámbar** (`outline` + `border-amber-300/70 bg-amber-50 text-amber-800`, con su par en dark). Ámbar es el lenguaje de "esperando algo de alguien" que el proyecto ya usa en el banner de pedido buscando repartidor y en el de negocio cerrado; se distingue de PENDING (neutro) porque acá hay una acción pendiente del usuario, no una espera pasiva.
+- **`AcceptOrderButton.tsx` eliminado.** El plan lo reemplazaba por el formulario, así que dejarlo era dejar un componente inalcanzable que alguien "arreglaría" más adelante. La Server Action `acceptOrder` y `POST /api/v1/deliveries/[orderId]/accept` SÍ se conservan (contrato público de la API v1), y ya heredan la regla de "una sola activa" desde `ACTIVE_DELIVERY_STATUSES`.
+- **Copia actualizada:** el estado vacío de "Mis entregas" decía "Ve a Disponibles para aceptar un pedido" y ahora dice "para ofertar por un pedido".
+- **Accesibilidad/motion:** sin animaciones nuevas (nada que sumar a `prefers-reduced-motion`), foco y estados de carga con el patrón ya existente (`disabled` + texto "Enviando…"/"Procesando…"). El target táctil queda en la escala del sistema de diseño (los botones más grandes del proyecto son h-9); subir *todos* los controles a 44px es una decisión de sistema, no de este formulario, y queda anotada como posible mejora transversal.
 
 ---
 
@@ -822,6 +893,20 @@ Si hubiera más de un pedido en `AWAITING_PAYMENT` a la vez (raro, pero un clien
 - Al confirmar el pago, el timeline avanza a "Repartidor en camino al negocio" sin recargar (realtime existente sobre `orders` ya cubre esto).
 - El total muestra "Por confirmar" antes de la oferta y el monto real después.
 
+### Notas de implementación (Fase 4)
+
+- **El avatar se reutiliza, no se duplica.** `DeliveryAvatar` (ya existente en `components/features/admin/`) hace exactamente lo que la tarjeta necesita — foto y, si falta o la URL está muerta, la inicial sobre el degradado de marca. Se le agregó un prop opcional `className` (retrocompatible) para poder escalarlo a 56px con anillo cuando es protagonista, y la tarjeta lo usa en vez de reescribir el mismo `Avatar` + `AvatarFallback`. Importar desde `admin/` no es una excepción nueva: `ConfirmDialog` ya se comparte así con categorías y productos.
+- **Lectura de la RPC:** se usa `offers?.[0]` en lugar de `.maybeSingle()`. `get_delivery_offer_profile` es `returns table`, así que PostgREST devuelve un arreglo; tomar el primer elemento evita depender de la semántica de "objeto único" de PostgREST en un caso donde no existe fila.
+- **Si la oferta no tuviera tarifa, no se muestra la tarjeta.** Un botón "ya pagué, confirmar" sobre un monto en cero sería peor que no ofrecerlo.
+- **El total usa la tarifa de la oferta como respaldo.** `orders.delivery_fee` es un snapshot que se escribe recién al confirmar el pago, así que durante AWAITING_PAYMENT sigue en NULL. Mostrar "Por confirmar" en el total mientras la tarjeta de arriba dice "S/ 5.00" sería una contradicción visible en la misma pantalla: se resuelve con `orders.delivery_fee ?? oferta.delivery_fee`. El desglose (Subtotal / Envío / Total) lleva además una línea que aclara que **el envío se paga directo al repartidor por Yape** — sin eso, el cliente ve dos montos y un total que no entiende.
+- **El QR usa `next/image`** (no `<img>`): `next.config.ts` ya declara `ik.imagekit.io` en `remotePatterns`, y con `fill` + `sizes` en los dos tamaños (160px / 288px) el navegador no descarga de más. La vista previa es un `<button>` real con la leyenda visible "Toca para ampliarlo": un QR táctil que nadie sabe que es táctil es un afordance muerto, y por eso la pista no va como `sr-only`.
+- **Degradación con gracia** (ítem del checklist): si el repartidor no cargó QR, se muestra un recuadro punteado que invita a confirmar solo si ya acordaron cómo transferirle. No se expone su teléfono: la RPC no lo devuelve a propósito.
+- **Copy ajustado:** "«Nombre» llevará tu pedido" en vez de "aceptará tu pedido" — cuando la tarjeta aparece, el repartidor ya aceptó; lo que falta es el pago.
+- **`router.refresh()` al confirmar**, además del `revalidatePath` de la Server Action: el objetivo es que la tarjeta desaparezca de la vista en el mismo instante en que el timeline avanza, no solo que se invalide el árbol RSC.
+- **Se cierra la costura que quedó abierta en la Fase 2:** `OrderStatusSection` ahora ofrece "Cancelar pedido" también en AWAITING_PAYMENT (el backend ya lo permitía desde la Fase 1). Se puede cancelar mientras el pago no esté confirmado; después, no.
+- **Copy del banner de PENDING corregido:** decía "Te avisaremos cuando alguien lo acepte" y ahora dice "cuando un repartidor te ofrezca el envío" — en el flujo nuevo nadie "acepta" sin precio, y el aviso anterior describía el paso que ya no existe.
+- **Dos banners, en orden de urgencia:** el de AWAITING_PAYMENT (requiere acción del cliente) va primero; el de PENDING (espera pasiva) después.
+
 ---
 
 ## Fase 5 — Detalles de UX
@@ -832,6 +917,16 @@ Si hubiera más de un pedido en `AWAITING_PAYMENT` a la vez (raro, pero un clien
 4. **Accesibilidad:** el botón "Ya pagué, confirmar" debe tener suficiente contraste y un estado de carga claro (ya cubierto arriba); el QR en el `Dialog` necesita `alt="QR de Yape del repartidor"` (ya incluido) para lectores de pantalla, aunque un QR en sí no es "leíble" — el `alt` documenta qué es, no lo que dice.
 5. **`prefers-reduced-motion`:** ninguna animación nueva de este plan (el `Dialog` ya respeta la regla global existente en `app/globals.css`).
 
+### Notas de implementación (Fase 5)
+
+- **Ítem 1 (privacidad de la dirección): el comportamiento NO cambió, y es deliberado.** El plan lo dejaba supeditado a una decisión de producto, y esa decisión ya estaba tomada en el sentido contrario: mostrar la dirección exacta a quien va a cotizar el envío fue un requisito explícito del pedido original. En vez de elegir entre "dirección" o "distancia", se implementó la distancia como dato ADICIONAL (`lib/geo/distance.ts`, Haversine sin dependencias): sirve al mismo objetivo — cotizar mejor — sin quitarle al repartidor la información que el negocio pidió mostrar. Si algún día se prefiere el modo conservador, la pieza ya está puesta: basta con no renderizar la dirección en "Disponibles" hasta que la oferta esté confirmada.
+- **Ítem 2 (tarifa sugerida por distancia): IMPLEMENTADO** — era el otro punto de la fase con código detrás. `suggestedDeliveryFee()` = S/ 1.50 por kilómetro redondeando hacia arriba, con piso en S/ 5 y techo en el máximo que acepta el servidor. El techo no es decorativo: sin él, un envío de 21 km prellenaría el input con 31.5 y el navegador bloquearía el envío por su propio `max` — la peor forma de comunicar un error. El valor llega como valor inicial de un input editable, y la distancia se muestra junto al label porque es el dato con el que se decide. Los tres números del dominio (mínimo, máximo y default) viven ahora en `lib/validations/delivery-offer.ts` en vez de estar repartidos entre el esquema, el componente y la fórmula.
+- **La distancia puede no existir.** `restaurants.latitude/longitude` son nullable en la base; `haversineDistanceKm` devuelve `null` (y no 0) en ese caso, y el formulario cae al default. Devolver 0 habría sugerido S/ 5 igual, pero por el motivo equivocado y con el mismo resultado por casualidad.
+- **Se verificó la matemática, no la confianza:** la implementación se contrastó contra distancias conocidas — Plaza Mayor → Parque Kennedy = 8.52 km (esperado ≈8.4–8.5 en línea recta) y Lima → Arequipa = 766.3 km (≈767) — más los bordes: mismo punto = 0, coordenada faltante = `null`, y el formato (350 m / 2.3 km / 12.0 km).
+- **Ítem 3 (nombre del repartidor): se mantiene el nombre completo**, como indica el plan. Mostrar solo el primer nombre sigue siendo un cambio de una línea en `DeliveryPaymentCard` si algún día se quiere más privacidad.
+- **Ítem 4 (accesibilidad): verificado con números, y encontró un problema real.** Se midió el contraste de todos los pares que introduce este ciclo (conversión oklch → sRGB + ratio WCAG, sin dependencias): texto atenuado sobre la tarjeta de pago 4.65:1 en claro y 6.76:1 en oscuro (los montos, 19.42:1 y 16.73:1), botón "Ya pagué, confirmar" 17.18:1 en ambos esquemas, badge de AWAITING_PAYMENT 6.84:1 y 14.03:1. **El subtítulo del banner de la lista daba 3.11:1**, por debajo del 4.5:1 que exige el texto chico normal (`text-xs`), y su ícono sobre el chip daba 2.87:1, por debajo del 3:1 que pide un elemento no textual. Los dos se corrigieron a `amber-700` (4.89:1 sobre el banner, 4.52:1 sobre el hover y sobre el chip). El banner preexistente de "buscando repartidor" tenía exactamente el mismo par, así que se corrigió también: son dos banners que se ven juntos y dejarlos con tonos distintos tras arreglar uno habría sido peor que el arreglo.
+- **Ítem 5 (`prefers-reduced-motion`): confirmado.** `app/globals.css` neutraliza animaciones y transiciones globalmente bajo esa preferencia (regla universal con `!important`), y este ciclo no agregó ninguna animación propia: el `Dialog` del QR y los estados de carga usan transiciones ya cubiertas por esa regla.
+
 ---
 
 ## Fase 6 — Casos borde y ciclo de vida
@@ -841,6 +936,19 @@ Si hubiera más de un pedido en `AWAITING_PAYMENT` a la vez (raro, pero un clien
 3. **Timeout de la oferta (recomendado, no incluido en el MVP):** si el cliente nunca confirma el pago, el pedido queda en `AWAITING_PAYMENT` indefinidamente y el repartidor queda "ocupado" para siempre. Se recomienda una Edge Function programada (`pg_cron` + función SQL, o un cron externo llamando a un endpoint) que, cada N minutos, retire ofertas con `offered_at` de más de, por ejemplo, 10 minutos sin `payment_confirmed_at`, reutilizando la misma lógica de `retractDeliveryOffer` (borrar la fila, volver a `PENDING`). Se deja como **Fase futura explícita** por el esfuerzo de infraestructura (cron) que no estaba en el alcance pedido, pero es la pieza que le falta a este diseño para ser 100% robusto en producción.
 4. **Dos repartidores ofertando el mismo pedido a la vez:** la restricción `UNIQUE(order_id)` en `deliveries` (ya existente) es la red de seguridad real; `sendDeliveryOffer` ya traduce el error de restricción a un mensaje legible.
 5. **El repartidor cambia de opinión sobre la tarifa antes de que el cliente pague:** se puede permitir editar `deliveries.delivery_fee` mientras `payment_confirmed_at is null`, con una policy `deliveries_update_delivery_self` que ya existe (`using (delivery_person_id = current_profile_id())`) — no requiere cambios de RLS, solo una acción `updateDeliveryOffer(orderId, fee)` en `lib/actions/deliveries.ts` análoga a 2.3. Se sugiere como mejora menor, no obligatoria para el MVP (el repartidor siempre puede retirar y volver a ofertar).
+
+### Notas de implementación (Fase 6)
+
+**Estado de cada caso borde del plan:**
+
+1. **Cliente eliminado/anonimizado con una oferta activa:** riesgo heredado, no nuevo — el flujo de baja de cuentas no limpia pedidos activos (ya documentado en `plan-manejo-eliminacion-cuentas.md`). Lo que cambia con esta fase: el repartidor **ya no queda trabado** aunque el cliente desaparezca, porque la oferta vence sola (punto 3) y él siempre puede retirarla a mano.
+2. **Repartidor desactivado o eliminado con una oferta sin confirmar:** queda cubierto por construcción, sin código nuevo. Se verificó el camino real: `deactivateUser` consulta `getActiveDelivery` (que lee `ACTIVE_DELIVERY_STATUSES`, ya con AWAITING_PAYMENT) y **bloquea**; `deleteUser` llama a `releaseActiveDeliveries`, que borra la oferta y devuelve el pedido a PENDING. Único cambio: el mensaje del bloqueo ahora dice "una entrega **o una oferta de envío** en curso", porque antes describía mal el caso.
+3. **Timeout de la oferta:** IMPLEMENTADO, no como "fase futura". `supabase/migrations/20260928100400_expire_stale_delivery_offers.sql` agrega `expire_stale_delivery_offers(p_max_age interval default '10 minutes')`, que retira las ofertas sin confirmar más viejas que la ventana indicada (borra la entrega y devuelve el pedido a PENDING, en una transacción) y **devuelve cuántas expiró**, para que el log del job sirva.
+   - **Sin `pg_cron` a propósito** (decisión del equipo): la función queda lista y se invoca desde donde prefieran — un cron externo o una Edge Function con la service role key (`POST /rest/v1/rpc/expire_stale_delivery_offers`, cuerpo opcional), o a mano desde el dashboard para destrabar algo puntual.
+   - **Privilegios:** solo `service_role`. Es una operación de sistema que no depende de `auth.uid()`; un cliente logueado no debe poder expirar ofertas ajenas a voluntad.
+   - **Orden de locks consistente** (`orders` → `deliveries`, igual que `confirm_delivery_payment` y `retract_delivery_offer`): si el cliente confirma el pago en el mismo segundo en que el job expira la oferta, uno de los dos gana de forma consistente y el otro recibe un mensaje claro, en vez de quedar un pedido a medias. La segunda lectura de `deliveries` vuelve a exigir `payment_confirmed_at is null`, así que una entrega recién pagada nunca se borra.
+4. **Dos repartidores ofertando el mismo pedido:** cubierto por el `UNIQUE(order_id)` de `deliveries` y, desde la Fase 2, por el bloqueo del pedido dentro de `offer_delivery`; el mensaje que ve el segundo es "Alguien más ya está ofertando en este pedido" (no un error de constraint crudo).
+5. **Editar la tarifa antes del pago: NO implementado, por decisión.** El argumento a favor era su bajo costo (la RLS ya lo permitía). En contra pesa más: el cliente puede estar mirando —o escaneando— el QR con el monto que ya vio, y que ese monto cambie mientras paga rompe la única garantía razonable que da este flujo, que es que el precio mostrado sea el precio. Retirar y volver a ofertar cubre la necesidad sin esa ambigüedad. Queda documentado como decisión explícita, no como pendiente.
 
 ---
 
@@ -870,24 +978,86 @@ Esto también implica que entregas **anteriores** a este cambio (con `delivery_f
 - El gráfico "Ingresos generados" del repartidor refleja la suma de `delivery_fee` de sus entregas completadas, no el precio de la comida.
 - Entregas históricas sin `delivery_fee` se grafican como S/ 0, sin romper el gráfico.
 
+### Notas de implementación (Fase 7)
+
+- El cambio de fondo son tres líneas (el `select` de `app/repartidor/page.tsx`, el tipo `DashboardDelivery` y el `.map()` del gráfico), pero hay dos decisiones detrás:
+  1. **Se dejó de traer `orders.total` en esa consulta.** No se cambió de fuente dejando el campo ahí: se eliminó del payload. Traer un dato que ya no se usa era parte del problema original —dos "totales" circulando por el mismo componente, uno con el significado equivocado— y la mejor forma de que el bug no vuelva es que el número equivocado no esté disponible.
+  2. **El título pasó de "Ingresos generados" a "Ingresos por envío"** (y la serie del tooltip también). El nombre viejo era ambiguo exactamente en el sentido que causó el bug: no distinguía entre lo que factura el negocio y lo que gana el repartidor.
+- **El artefacto histórico era la parte fácil de leer mal, y se resolvió en la UI.** Las entregas anteriores a este ciclo tienen `delivery_fee` en NULL y se grafican como S/ 0 —correcto y honesto: no se puede inventar retroactivamente una tarifa que nunca se cobró—, pero el estado vacío de ese gráfico decía "No hay entregas en el período seleccionado" aunque sí las hubiera. Ahora distingue los dos casos y explica que esas entregas son anteriores al cobro por envío: decirle a un repartidor con historial que ganó S/ 0 sin explicar por qué es lo que lo haría parecer dinero perdido.
+- **`DeliveryDashboardCards` no necesitó cambios:** su tarjeta "Entregas activas" cuenta `deliveries` con `delivered_at is null`, que ya incluye las ofertas esperando el pago.
+
 ---
 
-## Fase 8 — QA: checklist de pruebas manuales
+## Fase 8 — QA
 
-- [ ] Migraciones aplicadas en orden: enum primero, columnas después, RLS/funciones al final (`supabase db push`).
-- [ ] Un repartidor ve la dirección completa de un pedido `PENDING` en "Disponibles" y puede editar la tarifa antes de enviar la oferta.
-- [ ] Enviar una oferta pasa el pedido a `AWAITING_PAYMENT`; el repartidor ya no puede ofertar en otro pedido ni aceptar uno directo.
-- [ ] El cliente, en `/cliente/pedidos/[id]`, ve la tarjeta con la foto, el nombre y el QR del repartidor, y el monto correcto.
-- [ ] Un repartidor **sin** foto o **sin** QR cargado: la tarjeta del cliente degrada con gracia (inicial en vez de foto rota; sin bloque de QR si `yape_qr_url` es `null`).
-- [ ] Confirmar el pago avanza el pedido a `ASSIGNED`, el repartidor ve "Marcar como recogido" en "Mis entregas", y `orders.delivery_fee` queda poblado.
-- [ ] Confirmar el pago dos veces seguidas (doble clic, o reintentar la Server Action) la segunda vez falla con un mensaje claro y no rompe nada.
-- [ ] Retirar una oferta sin confirmar borra la fila de `deliveries`, el pedido vuelve a `PENDING`, y aparece de nuevo en "Disponibles" para otros repartidores.
-- [ ] Retirar una oferta **después** de que el cliente confirmó el pago falla con un mensaje claro (no se puede deshacer un pago confirmado).
-- [ ] Cancelar el pedido como cliente funciona tanto en `PENDING` como en `AWAITING_PAYMENT`; en este último caso, la oferta del repartidor queda huérfana — verificar que `cancelOrder()` también limpie la fila de `deliveries` (si no se implementó en la Fase 2, agregarlo antes de cerrar el ciclo).
-- [ ] Desactivar/eliminar (desde `/admin`) a un repartidor con una oferta `AWAITING_PAYMENT` activa se bloquea (desactivar) o libera el pedido a `PENDING` (eliminar), igual que ya ocurre con `ASSIGNED`.
-- [ ] Un cliente **no** puede leer `profiles` de ningún repartidor por la API REST directa (`select * from profiles`), solo vía la función RPC y solo para sus propios pedidos — probar con `curl` contra `/rest/v1/rpc/get_delivery_offer_profile` con el `order_id` de otro cliente: debe devolver cero filas.
-- [ ] El gráfico "Ingresos generados" del repartidor (Fase 7) muestra la tarifa de envío, no el precio de la comida, en entregas nuevas.
-- [ ] `pnpm run typecheck` y `pnpm run lint` sin errores nuevos.
+La suite local `scripts/e2e-delivery-offer.mjs` (30 verificaciones, **TODO VERDE** el 2026-09-27) ejerce el flujo completo con sesiones reales: cliente, cliente2, repartidor, repartidor2 y admin por HTTP contra `next dev`, más `service_role` para leer las invariantes de base. Los ítems marcados abajo son los que esa suite o los chequeos sin sesión ya cubren; los que quedan sin marcar necesitan **ojos** (render, contraste, mapa) o una **sesión de admin en navegador** (las Server Actions de `/admin` no se pueden invocar por HTTP).
+
+- [x] Migraciones aplicadas en orden: enum primero, columnas después, RLS/funciones al final (`supabase db push`). — *Evidencia:* las cinco aplicadas una por una; `db push --dry-run` sin nada pendiente.
+- [ ] Un repartidor ve la dirección completa de un pedido `PENDING` en "Disponibles" y puede editar la tarifa antes de enviar la oferta. — *Parcial:* la RLS está cubierta por la suite ("el repartidor ve la dirección de un pedido `PENDING` ajeno"); el formulario de oferta no se abrió en un navegador.
+- [x] Enviar una oferta pasa el pedido a `AWAITING_PAYMENT`; el repartidor ya no puede ofertar en otro pedido ni aceptar uno directo. — *Evidencia:* suite (oferta → `AWAITING_PAYMENT` + fila con `offered_at`; segunda oferta con una activa → `409`; `accept` sobre el pedido comprometido → `400` sin cambiar de dueño).
+- [ ] El cliente, en `/cliente/pedidos/[id]`, ve la tarjeta con la foto, el nombre y el QR del repartidor, y el monto correcto. — *Parcial:* la RPC devuelve el nombre y la tarifa correctos (suite) y la tarjeta sólo se renderiza con una oferta válida; falta la revisión visual del QR ampliado en el `Dialog`.
+- [ ] Un repartidor **sin** foto o **sin** QR cargado: la tarjeta del cliente degrada con gracia (inicial en vez de foto rota; sin bloque de QR si `yape_qr_url` es `null`). — *Parcial:* la suite corrió el caso entero con `avatar_url` y `yape_qr_url` en `NULL` (la RPC los devuelve vacíos); el render de la inicial y del recuadro sin QR no se vio en pantalla.
+- [x] Confirmar el pago avanza el pedido a `ASSIGNED`, el repartidor ve "Marcar como recogido" en "Mis entregas", y `orders.delivery_fee` queda poblado. — *Evidencia:* suite (`ASSIGNED`, `orders.delivery_fee = 7.50`, `payment_confirmed_at`, y la cadena `PICKED_UP → ON_THE_WAY → DELIVERED` por la misma ruta que usa el botón).
+- [x] Confirmar el pago dos veces seguidas (doble clic, o reintentar la Server Action) la segunda vez falla con un mensaje claro y no rompe nada. — *Evidencia:* suite (`409 El pago de este pedido ya fue confirmado`).
+- [x] Retirar una oferta sin confirmar borra la fila de `deliveries`, el pedido vuelve a `PENDING`, y aparece de nuevo en "Disponibles" para otros repartidores. — *Evidencia:* suite (retract → `PENDING` sin fila; otro repartidor la puede tomar y volver a soltar, sin residuo).
+- [x] Retirar una oferta **después** de que el cliente confirmó el pago falla con un mensaje claro (no se puede deshacer un pago confirmado). — *Evidencia:* suite (`409 El cliente ya confirmó el pago: esta oferta no se puede retirar`).
+- [x] Cancelar el pedido como cliente funciona tanto en `PENDING` como en `AWAITING_PAYMENT`, y `cancelOrder()` limpia la fila de `deliveries`. — *Implementado en la Fase 2 y verificado por la suite:* cliente2 cancela en `AWAITING_PAYMENT` y el pedido queda `CANCELLED` sin oferta huérfana; además, la dirección de ese pedido deja de ser visible para el repartidor (la policy sólo alcanza `PENDING`).
+- [ ] Desactivar/eliminar (desde `/admin`) a un repartidor con una oferta `AWAITING_PAYMENT` activa se bloquea (desactivar) o libera el pedido a `PENDING` (eliminar), igual que ya ocurre con `ASSIGNED`. — *Pendiente de sesión de admin en navegador:* son Server Actions, no rutas de la API. El camino de código se trazó en la Fase 6 (`getActiveDelivery` bloquea, `releaseActiveDeliveries` libera el pedido a `PENDING`) y el mensaje se corrigió para no decir "entrega en curso" cuando lo que hay es una oferta.
+- [x] Un cliente **no** puede leer `profiles` de ningún repartidor por la API REST directa (`select * from profiles`), solo vía la función RPC y solo para sus propios pedidos. — *Evidencia:* suite (el `select` directo devuelve 0 filas; la RPC con el `order_id` de otro cliente, 0 filas; `anon`, `42501`).
+- [ ] El gráfico "Ingresos por envío" del repartidor (Fase 7) muestra la tarifa de envío, no el precio de la comida, en entregas nuevas; y en el estado vacío de un repartidor con historial antiguo aparece el mensaje que explica el S/ 0. — *Parcial:* la fuente de datos está corregida y `orders.total` ya no se selecciona; falta ver el render (incluido el estado vacío nuevo) en pantalla.
+- [ ] En "Disponibles", la distancia mostrada coincide con la real y la tarifa sugerida cambia con ella; con un restaurante sin ubicación cargada, la sugerencia cae a S/ 5. — *Parcial:* la fórmula está verificada contra distancias conocidas y el fallback devuelve `null` (no 0), que es lo que hace caer la sugerencia al default; falta la comparación contra un mapa.
+- [x] `pnpm run typecheck` y `pnpm run lint` sin errores nuevos. — *Evidencia:* `tsc --noEmit` limpio, `eslint` sin errores en los archivos tocados y `next build` exitoso (incluidas las rutas nuevas de la API v1).
+
+### Estado del checklist (2026-09-27)
+
+Automático, ya en verde: `tsc --noEmit`, `eslint` de todo lo tocado y `next build` (incluidas las rutas nuevas de la API v1).
+
+**Suite E2E con sesiones reales (2026-09-27).** `scripts/e2e-order-flow.mjs` (el suite que ya existía, 50 verificaciones) pasó completo después de este ciclo — no se rompió nada del flujo anterior, y la cadena de avance del admin se reescribió para entrar a `ASSIGNED` por el flujo real, con lo que el `WARN` histórico del estado huérfano desapareció — y `scripts/e2e-delivery-offer.mjs` (nuevo, 30 verificaciones) cubre el ciclo nuevo: oferta, guardas de tarifa y de una sola oferta activa, `accept` cerrado, `get_delivery_offer_profile` (dueño / otro cliente / anon), RLS de `profiles` y de direcciones, confirmación del pago con doble confirmación y confirmación ajena, retract antes y después del pago, la cadena completa hasta `DELIVERED`, cancelación en `AWAITING_PAYMENT` con limpieza de la oferta, el IDOR de cancelación, el job de expiración (una oferta fresca sobrevive, una de 20 minutos expira y libera el pedido) y los dos cierres del bypass del admin (Hallazgo 1).
+
+La **carrera confirmar-vs-expirar** también quedó cubierta: con la oferta vencida se disparan `confirm_delivery_payment` y `expire_stale_delivery_offers` en paralelo y se verifica la invariante —nunca un pago confirmado sin entrega, ni una entrega borrada con el pago confirmado—. En la corrida real ganó el job (`confirm` respondió `400`, el pedido quedó `PENDING` y la fila se liberó), que es uno de los dos finales válidos.
+
+Cómo se corre (los dos scripts viven en `/scripts`, que está en `.gitignore`: son herramientas locales, no parte del entregable):
+
+```bash
+./node_modules/.bin/next dev --port 3000 &
+node --env-file=.env scripts/e2e-order-flow.mjs      # crea fixtures: cuentas, restaurantes, productos, direcciones
+node --env-file=.env scripts/e2e-delivery-offer.mjs  # el ciclo nuevo
+```
+
+El script crea sus propios pedidos y los deja en estado terminal al final, así que se puede repetir. Deja limpio el `WARN` preexistente del suite viejo (ver Hallazgos).
+
+Verificado contra la base real, sin sesión de usuario:
+
+- Migraciones aplicadas en orden (enum → columnas → RLS/funciones → funciones de oferta → expiración); `db push --dry-run` no reporta nada pendiente.
+- `anon` recibe `42501 permission denied` en `confirm_delivery_payment`, `get_delivery_offer_profile`, `offer_delivery`, `retract_delivery_offer` y `expire_stale_delivery_offers`.
+- `service_role` (sin `auth.uid()`) recibe `42501 No autenticado` en las funciones que dependen de la identidad — la guarda funciona en vez de dejar pasar la operación.
+- `get_delivery_offer_profile` con un `order_id` ajeno devuelve cero filas.
+- El CHECK de dinero rechaza `delivery_fee = -5` con `23514`.
+- `expire_stale_delivery_offers` responde `22000` con una ventana de `0 seconds` y `200` con el default y con `'10 minutes'` (hoy devuelve 0: no hay ofertas vencidas).
+
+Ítems nuevos para el checklist manual (agregados por las fases 5 y 6):
+
+- [ ] Con una oferta de más de 10 minutos sin pagar, invocar `expire_stale_delivery_offers` desde el dashboard/cron: el pedido vuelve a aparecer en "Disponibles" y desaparece de "Mis entregas" del repartidor.
+- [ ] Confirmar el pago y expirar la oferta al mismo tiempo (dos pestañas): no queda un pedido en estado intermedio ni una entrega borrada con el pago confirmado.
+- [ ] La distancia en "Disponibles" coincide con la real (comparar contra un mapa) y la sugerencia la sigue; sin ubicación de restaurante, la sugerencia cae a S/ 5.
+
+Verificado sin sesión, además de lo de arriba (fases 5 y 7): la fórmula de distancia contra distancias conocidas (Plaza Mayor → Parque Kennedy 8.52 km; Lima → Arequipa 766.3 km) y los bordes (mismo punto = 0, coordenada faltante = `null`); y el contraste medido de todos los pares nuevos de color (tarjeta de pago, botón de confirmar, badge y banners), que es lo que destapó el 3.11:1 del subtítulo del banner.
+
+Todo lo que depende de una sesión real por HTTP ya está en la suite. Lo que sigue marcado sin hacer es lo que necesita **pantalla** (QR ampliado, inicial del avatar, gráfico, mapa) o **sesión de admin en navegador** (desactivar/eliminar repartidor). El hallazgo 1 ya está decidido y aplicado (arriba), así que ya no hay decisiones de código abiertas.
+
+### Hallazgos de la Fase 8
+
+**1. El admin podía saltarse el pago entero — RESUELTO: se cerró.** El `NEXT_STATUS` de `PUT /api/v1/orders/[id]` —el mapa del comando `advance` para ADMIN/legacy, distinto de los dos mapas del repartidor— conservaba `PENDING → ASSIGNED`. Un admin podía, entonces, empujar un pedido de `PENDING` a `ASSIGNED` sin oferta, sin pago y **sin fila de `deliveries`** (el `WARN` que el suite viejo venía marcando). Con el flujo nuevo el estado era además más engañoso: el cliente veía "Repartidor en camino al negocio" sin repartidor y con `delivery_fee` en `NULL`.
+
+De las dos salidas posibles —**cerrarlo** (el admin avanza sólo desde `ASSIGNED` en adelante) o **hacerlo coherente** (un override de soporte que además cree la fila de `deliveries`)— se aplicó la primera, por tres razones: no hay ni una sola pantalla de admin que invoque `advance` sobre `PENDING` (el comando sólo tenía consumidores de API, y ninguna herramienta de soporte real lo usa), el override coherente necesitaría elegir un repartidor para la fila de `deliveries` —que es exactamente lo que hace la oferta, o sea reinventar el flujo—, y la regla de negocio que este plan establece es que el único productor de `ASSIGNED` es la confirmación del pago. Así quedó:
+
+- `PUT /api/v1/orders/[id]` con `action: 'advance'`: `PENDING` salió del mapa; sobre `PENDING`/`AWAITING_PAYMENT` responde `400` con el mensaje que explica el flujo ("necesita una oferta de envío y la confirmación de pago del cliente"). El admin conserva `ASSIGNED → … → DELIVERED` para soporte.
+- `advanceOrderStatus` (Server Action): `PENDING` salió del mapa también (era código muerto: la UI nunca ofrece avanzar un `PENDING` y RLS exige tener el pedido asignado).
+- **Segundo agujero del mismo tipo, encontrado y cerrado de paso:** `POST /api/v1/deliveries/[orderId]/accept` permitía que un ADMIN "aceptara" el pedido **como él mismo** — una entrega con el profile de un admin (no repartidor) como `delivery_person_id`, y el salto a `ASSIGNED` sin pago. Ahora la ruta es sólo `DELIVERY`; el admin no tiene ninguna acción de toma de pedidos, que es correcto: tomar pedidos es cosa de repartidores.
+
+Ambos cierres tienen prueba en la suite nueva (`guard: el admin ya no puede saltarse el pago…` → 400; `guard: el admin ya no puede "aceptar"…` → 403) y la cadena de avance del admin en el suite viejo se reescribió para entrar a `ASSIGNED` por el flujo real (oferta + confirmación de pago): **50 PASS, 0 FAIL, 0 WARN** — el `WARN` histórico desapareció porque el estado huérfano ya no es producible.
+
+**2. Lo que la suite no puede probar y por qué.** Los ítems con "pantalla" del checklist no son pereza de automatización: son render, contraste y geolocalización, y las dos herramientas disponibles (HTTP + `service_role`) ven el dato, no el píxel. El ítem de desactivar/eliminar repartidor es el único caso donde el límite es más incómodo —las Server Actions de `/admin` no tienen ruta HTTP equivalente— y por eso quedó con el camino de código documentado en la Fase 6 como respaldo.
 
 ---
 
@@ -903,28 +1073,57 @@ Esto también implica que entregas **anteriores** a este cambio (con `delivery_f
 | 6 | Fase 5 (pulido UX) | Mejoras no bloqueantes. |
 | 7 | Checklist de la Fase 8 | Con las tres sesiones (repartidor, cliente, admin) disponibles. |
 
+**Estado real (2026-09-27, plan cerrado):** los pasos 1 a 3 ya están hechos — las CINCO migraciones (`20260928100000` … `20260928100400`) están aplicadas al proyecto vinculado, en ese orden y confirmadas una por una (el enum quedó en su propia transacción, como exige Postgres) — y los pasos 4 a 6 están **implementados y verificados en local**: backend, UI de repartidor y cliente, pulido y el fix del gráfico, con `tsc`/`eslint`/`next build` en verde y las dos suites E2E pasando (49 + 28 verificaciones).
+
+Lo que falta es de otra naturaleza, no de código pendiente:
+
+1. **Desplegar el código** (pasos 4 en adelante) — todo el ciclo sigue sin commitear en `develop/fjp`.
+2. Los ítems del checklist con **pantalla**: QR ampliado, inicial del avatar sin foto, gráfico de ingresos, distancia contra un mapa.
+3. El ítem que necesita **sesión de admin en navegador** (desactivar/eliminar un repartidor con oferta activa).
+4. ~~Decidir el hallazgo 1 de la Fase 8~~ — **decidido y aplicado**: el bypass se cerró (ver Hallazgos de la Fase 8). No queda ninguna decisión de código abierta.
+
+Nota sobre las suites E2E: viven en `/scripts`, que está en `.gitignore`, así que no viajan con el commit. Para que el conocimiento no se pierda, la Fase 8 documenta cómo se corren y qué cubre cada una; si se quiere que sobrevivan al repo, hay que sacarlas de la ruta ignorada.
+
 **Rollback:** revertir el código es seguro en cualquier punto después del paso 2 (las columnas quedan sin uso, nullable). **No** revertir la migración del enum (`AWAITING_PAYMENT` no se puede quitar de un tipo enum en Postgres sin recrear el tipo entero) — si hace falta deshacer, se deja el valor en el enum sin usar, nunca se borra.
 
 ---
 
 ## Resumen de archivos
 
-**Nuevos:**
-- `supabase/migrations/<ts>_order_status_awaiting_payment.sql`
-- `supabase/migrations/<ts>_delivery_offer_columns.sql`
-- `supabase/migrations/<ts>_delivery_offer_rls_and_functions.sql`
+Esta sección quedó como el plan la redactó (prospectiva). Abajo, lo que realmente se tocó. La Fase 7 (`DeliveryDashboardCharts.tsx` + `app/repartidor/page.tsx`) sí se hizo, y `OrderStatusTimeline.tsx` no necesitó cambios: itera `ORDER_STATUS_STEPS`, así que el paso nuevo apareció solo.
+
+**Nuevos (reales):**
+
+- `supabase/migrations/20260928100000_order_status_awaiting_payment.sql` — enum, en su propia transacción.
+- `supabase/migrations/20260928100100_delivery_offer_columns.sql` — columnas + CHECKs de dinero.
+- `supabase/migrations/20260928100200_delivery_offer_rls_and_functions.sql` — RLS + `confirm_delivery_payment` + `get_delivery_offer_profile`.
+- `supabase/migrations/20260928100300_delivery_offer_functions.sql` — `offer_delivery` + `retract_delivery_offer` (no estaban en el plan; ver notas de la Fase 2).
+- `supabase/migrations/20260928100400_expire_stale_delivery_offers.sql` — expiración de ofertas sin pagar (Fase 6, ítem 3).
 - `lib/validations/delivery-offer.ts`
-- `components/features/deliveries/SendOfferForm.tsx`
-- `components/features/deliveries/RetractOfferButton.tsx`
+- `lib/actions/` no suma archivos: las acciones nuevas viven en los dos que ya existían.
+- `app/api/v1/deliveries/[orderId]/offer/route.ts`, `.../retract/route.ts`
+- `components/features/deliveries/SendOfferForm.tsx`, `RetractOfferButton.tsx`
 - `components/features/orders/DeliveryPaymentCard.tsx`
 
 **Modificados:**
-- `types/database.ts`, `types/order.ts`
-- `lib/constants/order-status.ts`
-- `lib/admin/delivery-lifecycle.ts`
-- `lib/actions/deliveries.ts`, `lib/actions/orders.ts`
-- `app/api/v1/deliveries/**`, `app/api/v1/orders/[id]/route.ts`
+
+- `types/database.ts` (columnas, enum, `Functions`), `types/order.ts` (union + `delivery_fee`)
+- `lib/constants/order-status.ts`, `lib/admin/delivery-lifecycle.ts`
+- `lib/actions/deliveries.ts`, `lib/actions/orders.ts`, `lib/actions/admin.ts` (solo el mensaje del bloqueo)
+- `lib/api/auth.ts` (`userClient`), `lib/api/response.ts` (`rpcErrorResponse`)
+- `app/api/v1/deliveries/[orderId]/accept/route.ts`, `advance/route.ts`, `app/api/v1/orders/route.ts`, `app/api/v1/orders/[id]/route.ts`
 - `components/features/deliveries/AvailableOrdersClient.tsx`, `DeliveryOrdersClient.tsx`, `DeliveryOrderCard.tsx`
-- `components/features/orders/OrderStatusTimeline.tsx`, `OrdersListClient.tsx`, `OrderStatusBadge.tsx`
-- `components/features/deliveries/DeliveryDashboardCharts.tsx`, `app/repartidor/page.tsx`
+- `components/features/orders/OrdersListClient.tsx`, `OrderStatusBadge.tsx`, `OrderStatusSection.tsx`
+- `components/features/admin/DeliveryAvatar.tsx` (prop `className` opcional)
 - `app/cliente/pedidos/[id]/page.tsx`
+
+**Agregados después (Fases 5 y 7):**
+
+- `lib/geo/distance.ts` — Haversine + formato de distancia, sin dependencias.
+- `lib/validations/delivery-offer.ts` — suma las constantes del dominio (mínimo, máximo, default) y `suggestedDeliveryFee()`.
+- `components/features/deliveries/DeliveryDashboardCharts.tsx` y `app/repartidor/page.tsx` — corregido el origen de "Ingresos" (Fase 7, como decía el plan).
+- `components/features/orders/OrdersListClient.tsx` — subtítulos de los dos banners corregidos por contraste (medido, no estimado).
+
+**Eliminados:**
+
+- `components/features/deliveries/AcceptOrderButton.tsx` — el formulario de oferta lo reemplaza (la acción `acceptOrder` y la ruta `/accept` sí se conservan, por contrato de la API v1).

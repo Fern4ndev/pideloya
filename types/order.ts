@@ -1,5 +1,6 @@
 export type OrderStatus =
   | "PENDING"
+  | "AWAITING_PAYMENT"
   | "ASSIGNED"
   | "PICKED_UP"
   | "ON_THE_WAY"
@@ -16,17 +17,35 @@ export interface ApiOrderItem {
   image_url: string | null
   restaurant_id: string
   restaurant_name: string | null
-  restaurants?: { name: string; address_text: string | null } | null
+  /** El negocio viene embebido para el punto de recojo. Las coordenadas son
+   * necesarias para calcular la distancia al cliente (tarifa sugerida). */
+  restaurants?: {
+    name: string
+    address_text: string | null
+    latitude: number | null
+    longitude: number | null
+  } | null
 }
 
 export interface ApiOrder {
   id: string
   status: OrderStatus
   total: number
+  /** Snapshot del envío cobrado por el repartidor. NULL hasta que el cliente
+   * confirma el pago (nunca se suma a `total`: son ingresos de otro dueño). */
+  delivery_fee: number | null
   created_at: string
   order_items?: ApiOrderItem[] | null
-  addresses?: { address_text: string | null; reference: string | null } | null
-  deliveries?: { delivery_person_id: string | null } | null
+  addresses?: {
+    address_text: string | null
+    reference: string | null
+    latitude: number
+    longitude: number
+  } | null
+  deliveries?: {
+    delivery_person_id: string | null
+    delivery_fee: number | null
+  } | null
 }
 
 export interface Order {

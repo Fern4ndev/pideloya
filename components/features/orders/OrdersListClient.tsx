@@ -12,7 +12,7 @@ import {
   type OrderStatusFilter,
 } from '@/lib/constants/order-status'
 import { cn } from '@/lib/utils'
-import { ChevronRightIcon, ClockIcon, ReceiptIcon } from 'lucide-react'
+import { ChevronRightIcon, ClockIcon, QrCodeIcon, ReceiptIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { ApiOrder } from '@/types/order'
 
@@ -80,6 +80,12 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
 
   const orders = useMemo(() => data?.data ?? [], [data])
   const pendingCount = orders.filter((o) => o.status === 'PENDING').length
+  // El pedido que espera la confirmación del pago es el único que necesita una
+  // acción del cliente AHORA: por eso tiene su propio banner, más urgente que
+  // el de "buscando repartidor" (que es espera pasiva). Si hubiera más de uno
+  // —raro, pero posible con varios pedidos activos— se enlaza al primero: el
+  // resto se ve en la lista de abajo.
+  const awaitingPaymentOrder = orders.find((o) => o.status === 'AWAITING_PAYMENT')
   const showChips = isLoading || orders.length > 0
 
   const counts = useMemo(() => {
@@ -152,19 +158,47 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
         </section>
       )}
 
+      {awaitingPaymentOrder && (!activeFilter || activeFilter === 'active') && (
+        <Link
+          href={`/cliente/pedidos/${awaitingPaymentOrder.id}`}
+          className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm transition-colors hover:bg-amber-100/80"
+        >
+          {/* amber-700 y no amber-600: sobre el fondo del banner el 600 da
+              3.11:1 y este subtítulo es `text-xs` (texto chico normal →
+              necesita 4.5:1). El 700 da 4.89:1 sobre el banner y 4.52:1 sobre
+              el hover, y el mismo cambio aplica al ícono, que sobre el chip
+              amber-100 pasaba de 2.87:1 a 4.52:1. */}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <QrCodeIcon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-amber-800">
+              Tu repartidor ya está listo — confirma el pago del envío
+            </p>
+            <p className="text-xs text-amber-700">
+              Toca aquí para ver el QR y confirmar
+            </p>
+          </div>
+        </Link>
+      )}
+
       {pendingCount > 0 && (!activeFilter || activeFilter === 'active') && (
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm">
           {/* Mismo reloj con "tic" que la carta cerrada y el carrito con el
               negocio cerrado: un solo lenguaje visual para "esperando". */}
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+          {/* Mismo ajuste que el banner de arriba: el subtítulo estaba en
+              amber-600 (3.11:1 sobre este fondo) teniendo el mismo problema de
+              contraste. Se corrige acá también para que los dos banners,
+              que se ven juntos, no queden con tonos distintos. */}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
             <ClockIcon className="h-4 w-4 animate-clock-tick" />
           </span>
           <div>
             <p className="text-sm font-medium text-amber-800">
               {pendingCount} {pendingCount === 1 ? 'pedido buscando' : 'pedidos buscando'} repartidor
             </p>
-            <p className="text-xs text-amber-600">
-              Te avisaremos cuando alguien lo acepte
+            <p className="text-xs text-amber-700">
+              Te avisaremos cuando un repartidor te ofrezca el envío
             </p>
           </div>
         </div>

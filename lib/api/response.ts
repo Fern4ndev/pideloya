@@ -40,6 +40,25 @@ export function withApi<TArgs extends unknown[]>(
   }
 }
 
+/**
+ * Traduce a respuesta HTTP el error de una función RPC.
+ *
+ * Las funciones SQL del proyecto levantan excepciones con `errcode`
+ * explícito justamente para poder distinguir la causa sin parsear el texto
+ * del mensaje (ver `confirm_delivery_payment`/`offer_delivery`). El mensaje
+ * viaja tal cual al cliente porque está escrito para mostrarse.
+ */
+export function rpcErrorResponse(error: { message: string; code?: string | null }) {
+  const statusByCode: Record<string, number> = {
+    '42501': 403, // insufficient_privilege: la función rechazó por identidad/rol
+    P0002: 404, // no_data_found: no existe lo que se pidió retirar/leer
+    '23505': 409, // unique_violation: conflicto con otra acción en curso
+    '40001': 409, // serialization_failure: el estado cambió en paralelo
+  }
+  const status = (error.code && statusByCode[error.code]) || 400
+  return errorResponse(error.message, status, error.code ?? undefined)
+}
+
 export async function parseJsonBody(request: Request): Promise<Record<string, unknown>> {
   try {
     const body = await request.json()

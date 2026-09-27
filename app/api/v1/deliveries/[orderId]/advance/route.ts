@@ -8,14 +8,19 @@ interface RouteCtx {
   params: Promise<{ orderId: string }>
 }
 
-const NEXT_STATUS: Record<
-  OrderStatus,
-  { next: OrderStatus; stamp?: 'picked_up_at' | 'delivered_at' }
+const NEXT_STATUS: Partial<
+  Record<OrderStatus, { next: OrderStatus; stamp?: 'picked_up_at' | 'delivered_at' }>
 > = {
   ASSIGNED: { next: 'PICKED_UP', stamp: 'picked_up_at' },
   PICKED_UP: { next: 'ON_THE_WAY' },
   ON_THE_WAY: { next: 'DELIVERED', stamp: 'delivered_at' },
-  PENDING: { next: 'ASSIGNED' },
+  // Ni PENDING ni AWAITING_PAYMENT se avanzan desde acá: el salto a ASSIGNED
+  // solo lo produce la confirmación del pago del envío (RPC
+  // confirm_delivery_payment). AWAITING_PAYMENT queda en self-map para que la
+  // guarda responda 400 "no puede avanzar"; PENDING salió del mapa porque un
+  // PENDING no tiene repartidor — era el bypass por el que el admin podía
+  // crear un ASSIGNED sin entrega ni tarifa (Hallazgo 1 de la Fase 8).
+  AWAITING_PAYMENT: { next: 'AWAITING_PAYMENT' },
   DELIVERED: { next: 'DELIVERED' },
   CANCELLED: { next: 'CANCELLED' },
 }

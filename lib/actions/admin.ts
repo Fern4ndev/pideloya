@@ -265,7 +265,7 @@ export async function deactivateUser(profileId: string) {
     const activeDelivery = await getActiveDelivery(adminClient, profileId)
     if (activeDelivery) {
       throw new Error(
-        `Este repartidor tiene una entrega en curso (pedido #${activeDelivery.order_id.slice(0, 8)}). Complétala o reasígnala antes de desactivarlo.`
+        `Este repartidor tiene una entrega o una oferta de envío en curso (pedido #${activeDelivery.order_id.slice(0, 8)}). Complétala, retírala o reasígnala antes de desactivarlo.`
       )
     }
   }

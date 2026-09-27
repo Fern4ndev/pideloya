@@ -44,7 +44,12 @@ export function OrderStatusSection({
   return (
     <>
       <OrderStatusTimeline status={status} />
-      {status === 'PENDING' && (
+      {/* Cancelable mientras el pago del envío NO esté confirmado (PENDING o
+          AWAITING_PAYMENT): dentro de la plataforma todavía no se movió nada de
+          manos — el envío se paga por Yape, fuera de la app, y aún no se
+          confirmó. Mismo criterio que la policy
+          orders_update_own_customer_cancel, que es la que decide de verdad. */}
+      {(status === 'PENDING' || status === 'AWAITING_PAYMENT') && (
         <div className="mt-6">
           <CancelOrderButton orderId={orderId} />
         </div>

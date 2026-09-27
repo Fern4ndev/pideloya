@@ -16,13 +16,17 @@ export function DeliveryAvatar({
   url,
   name,
   size = 'sm',
+  className,
 }: {
   url: string | null
   name: string
   size?: 'sm' | 'default' | 'lg'
+  /** Para escalarlo o darle un anillo cuando el avatar es protagonista (ej.
+   * la tarjeta de pago del cliente), sin romper los usos compactos de tabla. */
+  className?: string
 }) {
   return (
-    <Avatar size={size}>
+    <Avatar size={size} className={className}>
       {url && <AvatarImage src={url} alt="" />}
       <AvatarFallback className="bg-gradient-to-br from-brand-400 to-brand-600 font-semibold text-white">
         {name.charAt(0).toUpperCase() || '?'}

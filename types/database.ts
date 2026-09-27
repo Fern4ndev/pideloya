@@ -130,27 +130,36 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           delivered_at: string | null
+          delivery_fee: number | null
           delivery_person_id: string | null
           id: string
+          offered_at: string | null
           order_id: string
+          payment_confirmed_at: string | null
           picked_up_at: string | null
         }
         Insert: {
           accepted_at?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_fee?: number | null
           delivery_person_id?: string | null
           id?: string
+          offered_at?: string | null
           order_id: string
+          payment_confirmed_at?: string | null
           picked_up_at?: string | null
         }
         Update: {
           accepted_at?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_fee?: number | null
           delivery_person_id?: string | null
           id?: string
+          offered_at?: string | null
           order_id?: string
+          payment_confirmed_at?: string | null
           picked_up_at?: string | null
         }
         Relationships: [
@@ -238,6 +247,7 @@ export type Database = {
           customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
+          delivery_fee: number | null
           id: string
           notes: string | null
           status: Database["public"]["Enums"]["order_status"]
@@ -250,6 +260,7 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          delivery_fee?: number | null
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -262,6 +273,7 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          delivery_fee?: number | null
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -535,16 +547,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_delivery_payment: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       current_customer_order_ids: { Args: never; Returns: string[] }
       current_delivery_address_ids: { Args: never; Returns: string[] }
       current_delivery_order_ids: { Args: never; Returns: string[] }
       current_profile_id: { Args: never; Returns: string }
       current_restaurant_ids: { Args: never; Returns: string[] }
       current_role: { Args: never; Returns: string }
+      expire_stale_delivery_offers: {
+        Args: { p_max_age?: string }
+        Returns: number
+      }
+      get_delivery_offer_profile: {
+        Args: { p_order_id: string }
+        Returns: {
+          full_name: string
+          avatar_url: string | null
+          yape_qr_url: string | null
+          delivery_fee: number | null
+        }[]
+      }
+      offer_delivery: {
+        Args: { p_order_id: string; p_delivery_fee: number }
+        Returns: undefined
+      }
+      pending_order_address_ids: { Args: never; Returns: string[] }
+      retract_delivery_offer: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       order_status:
         | "PENDING"
+        | "AWAITING_PAYMENT"
         | "ASSIGNED"
         | "PICKED_UP"
         | "ON_THE_WAY"
@@ -680,6 +719,7 @@ export const Constants = {
     Enums: {
       order_status: [
         "PENDING",
+        "AWAITING_PAYMENT",
         "ASSIGNED",
         "PICKED_UP",
         "ON_THE_WAY",

@@ -64,13 +64,23 @@ export const GET = withApi(async (request: Request) => {
   // restaurants se expande para pickupAddress (dirección de recojo) —
   // adminClient salta RLS, así funciona aunque el restaurante esté
   // desactivado. El nombre de la tarjeta usa el snapshot restaurant_name.
+  // AWAITING_PAYMENT va en la lista para que el repartidor vea su oferta
+  // esperando el pago en "Mis entregas" (y pueda retirarla).
   if (context.role === 'DELIVERY') {
     const { data, error } = await client
       .from('orders')
       .select(
-        '*, order_items(*, restaurants(name, address_text)), addresses(*), deliveries(*)'
+        // latitude/longitude del negocio: el panel del repartidor calcula con
+        // ellas la distancia al cliente para sugerir la tarifa de envío.
+        '*, order_items(*, restaurants(name, address_text, latitude, longitude)), addresses(*), deliveries(*)'
       )
-      .in('status', ['PENDING', 'ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
+      .in('status', [
+        'PENDING',
+        'AWAITING_PAYMENT',
+        'ASSIGNED',
+        'PICKED_UP',
+        'ON_THE_WAY',
+      ])
       .order('created_at', { ascending: false })
     if (error) throw error
     const filtered = (data ?? []).filter(
