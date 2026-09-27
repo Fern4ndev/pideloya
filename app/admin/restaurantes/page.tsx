@@ -15,7 +15,6 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { EmptyState } from '@/components/ui/empty-state'
-import { RealtimeRefresh } from '@/components/ui/realtime-refresh'
 import { StoreIcon, SearchXIcon } from 'lucide-react'
 
 const RESTAURANT_COLUMNS =
@@ -134,17 +133,10 @@ export default async function AdminRestaurantsPage({
 
   return (
     <PageContainer size="full">
-      {/* Fase 10: un restaurante nuevo registrado desde /registro aparece
-       * sin refrescar. INSERT + filtro server-side is_approved=false: las
-       * ediciones/aprobaciones de filas ya existentes NO disparan refresh
-       * (el admin está viendo la lista; su acción ya la re-renderiza). */}
-      <RealtimeRefresh
-        channelName="admin-restaurantes"
-        table="restaurants"
-        event="INSERT"
-        filter="is_approved=eq.false"
-      />
-
+      {/* El refresco en vivo de esta lista (un negocio nuevo aparece sin
+       * recargar) lo aporta el canal realtime montado en
+       * app/admin/layout.tsx — el mismo que actualiza el badge del sidebar.
+       * Vivía aquí, pero al subirlo al layout dejó de duplicarse. */}
       <PageHeader
         title="Restaurantes"
         description="Revisa y administra los negocios que se registraron desde la página principal."

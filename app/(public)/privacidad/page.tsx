@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Cómo PideloYa recopila, usa y protege tus datos personales.',
 }
 
-const UPDATED_AT = '26 de septiembre de 2026'
+const UPDATED_AT = '27 de septiembre de 2026'
 
 export default function PrivacidadPage() {
   return (
@@ -27,6 +27,7 @@ export default function PrivacidadPage() {
           <li>Datos de ubicación: dirección de entrega o del negocio, y ubicación en tiempo real durante una entrega activa (repartidores).</li>
           <li>Datos del negocio: nombre comercial, tipo de comida y menú (restaurantes).</li>
           <li>Datos del vehículo: tipo de vehículo usado para repartir (repartidores).</li>
+          <li>Imágenes: foto de perfil y código QR de Yape para pagos directos — opcional, solo repartidores.</li>
           <li>Historial de pedidos y preferencias dentro de la plataforma.</li>
           <li>Credenciales de acceso, almacenadas de forma cifrada.</li>
         </ul>
@@ -69,8 +70,10 @@ export default function PrivacidadPage() {
         </p>
         <p>
           Si solicitas la eliminación de tu cuenta y tienes historial de pedidos,
-          tus datos de identificación (nombre, contacto, documento y direcciones)
-          se anonimizan y tu cuenta pierde el acceso de forma permanente; el
+          tus datos de identificación (nombre, contacto, documento, direcciones,
+          foto de perfil y código QR de Yape) se anonimizan y tu cuenta pierde el
+          acceso de forma permanente. Las imágenes se eliminan además de nuestro
+          proveedor de almacenamiento, de modo que dejan de estar accesibles. El
           registro de la transacción (pedidos, montos y fechas, sin datos que te
           identifiquen directamente) se conserva por 5 años, plazo exigido por
           obligaciones contables y tributarias (SUNAT, Código Tributario).
