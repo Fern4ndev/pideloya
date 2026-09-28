@@ -1,6 +1,8 @@
 'use client'
 
 import useSWR from 'swr'
+import Link from 'next/link'
+import { PaperclipIcon } from 'lucide-react'
 import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
@@ -104,6 +106,19 @@ export function DeliveryOrdersClient() {
                       </p>
                       <RetractOfferButton orderId={order.id} deliveryFee={fee} />
                     </div>
+                  ) : order.deliveries?.payment_voucher_path ? (
+                    // Indicador, no la imagen: cargar la miniatura en la lista
+                    // exigiría firmar una URL por fila (y una petición de
+                    // Storage por pedido) para mostrar un dato del que no se
+                    // puede leer nada a ese tamaño. El comprobante se ve en el
+                    // detalle, con su monto al lado.
+                    <Link
+                      href={`/repartidor/pedidos/${order.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                    >
+                      <PaperclipIcon className="h-3.5 w-3.5" aria-hidden />
+                      Comprobante adjunto
+                    </Link>
                   ) : undefined
                 }
               />
