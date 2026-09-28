@@ -1,4 +1,5 @@
 import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
+import { removePaymentVouchers } from '@/lib/storage/payment-vouchers'
 import type { createServiceRoleClient } from '@/lib/db/server'
 
 type AdminClient = ReturnType<typeof createServiceRoleClient>
@@ -25,6 +26,12 @@ export const ANONYMOUS_ADDRESS_TEXT = 'Dirección eliminada'
  *   - orders.customer_name / customer_phone: NO se tocan. Son snapshot
  *     histórico intencional "al momento del pedido" (igual que
  *     product_name en order_items), no dato vivo del perfil.
+ *   - Los COMPROBANTES de pago (vouchers de Yape) que el cliente subió sí
+ *     se borran del bucket privado: una captura de Yape lleva nombre, monto
+ *     y número de operación, así que identifica al cliente igual que las
+ *     otras imágenes de PII. El registro de la TRANSACCIÓN (monto, fechas,
+ *     snapshots) se conserva; la imagen no. Es el mismo principio que ya
+ *     rige para la foto de perfil y el QR del repartidor.
  *
  * Llega cualquier rol con historial transaccional: deleteUser() deriva a
  * CUSTOMER y a DELIVERY (los repartidores con al menos una entrega
@@ -44,13 +51,22 @@ export async function anonymizeProfile(
   client: AdminClient,
   profileId: string
 ): Promise<void> {
-  // Los fileId se leen ANTES de nullarlos: son la única forma de borrar
-  // los archivos de ImageKit, y el update de abajo los saca de la fila.
-  const { data: current } = await client
-    .from('profiles')
-    .select('avatar_file_id, yape_qr_file_id')
-    .eq('id', profileId)
-    .maybeSingle()
+  // Las dos lecturas van en paralelo (son independientes: una tabla cada una),
+  // y ambas ANTES de anonimizar por el mismo motivo: son los punteros a los
+  // archivos, y los updates de abajo los sacan de las filas. Si se leyeran
+  // después, no habría con qué borrarlos.
+  //
+  // Los pedidos se buscan por `customer_id` sin preguntar el rol: para un
+  // repartidor o un restaurante la lista vuelve vacía y el borrado de
+  // comprobantes es un no-op. Es lo que mantiene este helper agnóstico del rol.
+  const [{ data: current }, { data: customerOrders }] = await Promise.all([
+    client
+      .from('profiles')
+      .select('avatar_file_id, yape_qr_file_id')
+      .eq('id', profileId)
+      .maybeSingle(),
+    client.from('orders').select('id').eq('customer_id', profileId),
+  ])
 
   // Idempotencia de la fecha (criterio de la Fase 4): si la cuenta ya
   // estaba anonimizada, se PRESERVA la fecha original — re-anonimizar
@@ -83,6 +99,10 @@ export async function anonymizeProfile(
   await Promise.all([
     deleteImageKitFileSafe(current?.avatar_file_id),
     deleteImageKitFileSafe(current?.yape_qr_file_id),
+    removePaymentVouchers(
+      client,
+      (customerOrders ?? []).map((o) => o.id)
+    ),
   ])
 
   const { error: addressError } = await client

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Cómo PideloYa recopila, usa y protege tus datos personales.',
 }
 
-const UPDATED_AT = '27 de septiembre de 2026'
+const UPDATED_AT = '28 de septiembre de 2026'
 
 export default function PrivacidadPage() {
   return (
@@ -28,6 +28,7 @@ export default function PrivacidadPage() {
           <li>Datos del negocio: nombre comercial, tipo de comida y menú (restaurantes).</li>
           <li>Datos del vehículo: tipo de vehículo usado para repartir (repartidores).</li>
           <li>Imágenes: foto de perfil y código QR de Yape para pagos directos — opcional, solo repartidores.</li>
+          <li>Comprobantes de pago: la imagen del comprobante de Yape que adjuntas al confirmar el pago del envío (clientes).</li>
           <li>Historial de pedidos y preferencias dentro de la plataforma.</li>
           <li>Credenciales de acceso, almacenadas de forma cifrada.</li>
         </ul>
@@ -38,6 +39,7 @@ export default function PrivacidadPage() {
         <ul className="list-disc pl-5 space-y-1.5">
           <li>Crear y administrar tu cuenta, y validar tu identidad al registrarte.</li>
           <li>Procesar pedidos y coordinar la entrega entre cliente, restaurante y repartidor.</li>
+          <li>Confirmar el pago del envío: el comprobante que adjuntas se comparte únicamente con el repartidor asignado a tu pedido, como constancia de que le pagaste.</li>
           <li>Comunicarnos contigo por WhatsApp, correo o notificaciones sobre tus pedidos o tu registro.</li>
           <li>Prevenir fraude y mantener la seguridad de la plataforma.</li>
           <li>Cumplir obligaciones legales y responder a autoridades competentes.</li>
@@ -71,8 +73,9 @@ export default function PrivacidadPage() {
         <p>
           Si solicitas la eliminación de tu cuenta y tienes historial de pedidos,
           tus datos de identificación (nombre, contacto, documento, direcciones,
-          foto de perfil y código QR de Yape) se anonimizan y tu cuenta pierde el
-          acceso de forma permanente. Las imágenes se eliminan además de nuestro
+          foto de perfil, código QR de Yape y los comprobantes de pago que hayas
+          adjuntado) se anonimizan y tu cuenta pierde el acceso de forma
+          permanente. Las imágenes se eliminan además de nuestro
           proveedor de almacenamiento, de modo que dejan de estar accesibles. El
           registro de la transacción (pedidos, montos y fechas, sin datos que te
           identifiquen directamente) se conserva por 5 años, plazo exigido por

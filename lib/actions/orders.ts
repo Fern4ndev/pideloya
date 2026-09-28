@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { createClient, createServiceRoleClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import { createOrderSchema, type CreateOrderInput } from '@/lib/validations/order'
+import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
+import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 
 function toFriendlyMessage(err: unknown): string {
   if (err instanceof z.ZodError) {
@@ -47,7 +49,18 @@ export async function cancelOrder(orderId: string) {
   // que la limpieza es best-effort: si falla, queda una fila inerte en
   // `deliveries` (el pedido ya es CANCELLED y nadie la lee), no un error para
   // el usuario.
-  await releaseUnconfirmedOffer(orderId)
+  const admin = createServiceRoleClient()
+
+  // El comprobante se borra ANTES de la oferta, no por casualidad: la guarda de
+  // `removeUnconfirmedVoucher` lee `payment_confirmed_at` de la fila de
+  // `deliveries`, y `releaseUnconfirmedOffer` la borra. Al revés, la guarda
+  // leería siempre un `null` y dejaría de proteger nada.
+  //
+  // Cubre el único huérfano que puede quedar en el flujo: el cliente alcanzó a
+  // subir su comprobante y la confirmación falló (red, o el repartidor retiró
+  // su oferta en ese instante).
+  await removeUnconfirmedVoucher(admin, orderId)
+  await releaseUnconfirmedOffer(admin, orderId)
 
   revalidatePath('/cliente/pedidos')
   revalidatePath(`/cliente/pedidos/${orderId}`)
@@ -57,8 +70,9 @@ export async function cancelOrder(orderId: string) {
 }
 
 /**
- * Borra la oferta de envío sin confirmar de un pedido. Usa el cliente con
- * service role porque el cliente NO tiene (ni debe tener) policy de DELETE
+ * Borra la oferta de envío sin confirmar de un pedido. Recibe el cliente con
+ * service role ya creado (lo comparte con la limpieza del comprobante, que
+ * necesita el mismo privilegio) porque el cliente NO tiene (ni debe tener) policy de DELETE
  * sobre `deliveries`: era una tabla en la que solo el repartidor dueño podía
  * escribir su propia fila, y la cancelación es del cliente. En vez de abrir
  * una policy de DELETE para el cliente (que le daría permiso de borrar
@@ -68,8 +82,10 @@ export async function cancelOrder(orderId: string) {
  * El filtro `payment_confirmed_at is null` es la guarda dura: una entrega con
  * el pago ya confirmado es historial de dinero cobrado y no se toca nunca.
  */
-async function releaseUnconfirmedOffer(orderId: string) {
-  const admin = createServiceRoleClient()
+async function releaseUnconfirmedOffer(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  orderId: string
+) {
   const { error } = await admin
     .from('deliveries')
     .delete()
@@ -82,20 +98,34 @@ async function releaseUnconfirmedOffer(orderId: string) {
 }
 
 /**
- * El cliente confirma que pagó la tarifa de envío por Yape. Llama a la función
- * SECURITY DEFINER confirm_delivery_payment() (migración 20260928100200), que
- * hace la transición AWAITING_PAYMENT -> ASSIGNED de forma atómica en dos
- * tablas y escribe el snapshot `orders.delivery_fee`.
+ * El cliente confirma que pagó la tarifa de envío por Yape. Llama a la
+ * sobrecarga SECURITY DEFINER confirm_delivery_payment(uuid, text)
+ * (migración 20260930100300), que hace la transición AWAITING_PAYMENT ->
+ * ASSIGNED de forma atómica en dos tablas, escribe el snapshot
+ * `orders.delivery_fee` Y guarda la ruta del comprobante.
  *
- * No hay pasarela de pago integrada: es una confirmación de buena fe del
- * cliente, no una verificación bancaria. La función valida por sí sola que el
- * pedido sea suyo y que esté en el estado correcto, así que acá no hay que
- * repetir esas comprobaciones.
+ * El comprobante es OBLIGATORIO: la función rechaza la llamada si la ruta no es
+ * la de este pedido o si el archivo no existe en Storage. Por eso el orden
+ * importa y no es negociable — el navegador sube el archivo ANTES de llamar a
+ * esta acción (Fase 4). Si se llama primero, el mensaje de error que ve el
+ * usuario es el correcto ("Adjunta el comprobante…"), no una confirmación a
+ * medias.
+ *
+ * El navegador NO elige la ruta: se deriva acá del orderId, y la función SQL la
+ * vuelve a validar contra el CHECK de `deliveries` (defensa en profundidad: un
+ * cliente que llamara a la RPC directamente tampoco puede apuntar a otro
+ * archivo).
+ *
+ * No hay pasarela de pago integrada: el comprobante es EVIDENCIA para el
+ * repartidor, no VERIFICACIÓN bancaria. La función valida por sí sola que el
+ * pedido sea suyo, que esté en el estado correcto y que el comprobante exista,
+ * así que acá no hay que repetir esas comprobaciones.
  */
 export async function confirmDeliveryPayment(orderId: string) {
   const supabase = await createClient()
   const { error } = await supabase.rpc('confirm_delivery_payment', {
     p_order_id: orderId,
+    p_voucher_path: paymentVoucherPath(orderId),
   })
   if (error) throw new Error(error.message)
 

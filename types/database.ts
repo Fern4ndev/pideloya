@@ -136,6 +136,7 @@ export type Database = {
           offered_at: string | null
           order_id: string
           payment_confirmed_at: string | null
+          payment_voucher_path: string | null
           picked_up_at: string | null
         }
         Insert: {
@@ -148,6 +149,7 @@ export type Database = {
           offered_at?: string | null
           order_id: string
           payment_confirmed_at?: string | null
+          payment_voucher_path?: string | null
           picked_up_at?: string | null
         }
         Update: {
@@ -160,6 +162,7 @@ export type Database = {
           offered_at?: string | null
           order_id?: string
           payment_confirmed_at?: string | null
+          payment_voucher_path?: string | null
           picked_up_at?: string | null
         }
         Relationships: [
@@ -548,7 +551,7 @@ export type Database = {
     }
     Functions: {
       confirm_delivery_payment: {
-        Args: { p_order_id: string }
+        Args: { p_order_id: string; p_voucher_path: string }
         Returns: undefined
       }
       current_customer_order_ids: { Args: never; Returns: string[] }
@@ -561,13 +564,15 @@ export type Database = {
         Args: { p_max_age?: string }
         Returns: number
       }
-      get_delivery_offer_profile: {
+      get_delivery_offer_details: {
         Args: { p_order_id: string }
         Returns: {
           full_name: string
           avatar_url: string | null
           yape_qr_url: string | null
+          phone: string | null
           delivery_fee: number | null
+          payment_voucher_path: string | null
         }[]
       }
       offer_delivery: {

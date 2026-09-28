@@ -24,6 +24,7 @@ export function OrderSummaryCard({
   subtotal,
   deliveryFee,
   action,
+  voucher,
 }: {
   items: SummaryItem[]
   subtotal: number
@@ -31,6 +32,19 @@ export function OrderSummaryCard({
   deliveryFee: number | null
   /** Slot para una acción contextual futura (ej. "Repetir pedido") — hoy sin uso. */
   action?: ReactNode
+  /**
+   * Slot para el comprobante de pago del envío (Fase 5 del plan de realtime).
+   *
+   * Va en ESTA tarjeta y no en una nueva porque el comprobante es la prueba del
+   * `Envío S/ X` que se muestra dos centímetros más arriba: separarlos en dos
+   * tarjetas volvería a fragmentar una misma idea ("cuánto pagué y con qué"),
+   * que es justo lo que este componente existe para evitar.
+   *
+   * Es un slot y no un booleano: el contenido es un componente de cliente (el
+   * diálogo) y esta tarjeta es de servidor — así el servidor decide SI hay
+   * comprobante y el cliente solo se encarga de abrirlo.
+   */
+  voucher?: ReactNode
 }) {
   const total = subtotal + (deliveryFee ?? 0)
 
@@ -99,6 +113,10 @@ export function OrderSummaryCard({
           </p>
         )}
       </div>
+
+      {voucher && (
+        <div className="mt-4 border-t border-black/5 pt-4 dark:border-white/10">{voucher}</div>
+      )}
     </div>
   )
 }

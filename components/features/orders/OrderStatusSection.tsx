@@ -1,51 +1,39 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/db/client'
 import { OrderStatusTimeline } from './OrderStatusTimeline'
 import { CancelOrderButton } from './CancelOrderButton'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
+/**
+ * Estado del pedido: puro render de la prop `status`, sin estado propio.
+ *
+ * ANTES esta sección tenía su propio `useState(initialStatus)` + su propio
+ * canal de Postgres Changes. Dos consecuencias, ambas malas:
+ *
+ * 1. Era un "estado derivado copiado a estado local": al llegar
+ *    `router.refresh()` la prop cambiaba, pero el `useState` no se
+ *    reinicializa nunca — el timeline podía quedar desincronizado del resto
+ *    de la página.
+ * 2. El estado vivía DENTRO de este componente, así que el servidor (que
+ *    decide qué tarjetas dibuja) nunca se enteraba de la oferta del
+ *    repartidor: el timeline avanzaba solo y la tarjeta de pago no aparecía
+ *    hasta recargar a mano.
+ *
+ * Ahora una sola fuente de verdad: el servidor renderiza el estado real y
+ * `RealtimeRefresh` (en la página) le avisa cuándo volver a preguntar.
+ */
 export function OrderStatusSection({
   orderId,
-  initialStatus,
+  status,
 }: {
   orderId: string
-  initialStatus: OrderStatus
+  status: OrderStatus
 }) {
-  const [status, setStatus] = useState<OrderStatus>(initialStatus)
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`,
-        },
-        (payload) => {
-          if (payload.new.status) {
-            setStatus(payload.new.status as OrderStatus)
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [orderId])
-
   // Entregado: la card de estados ya no aporta nada — el pedido terminó su
   // ciclo. Se oculta completa (wrapper incluido) para que el resto del detalle
-  // suba sin un bloque vacío. Como `status` nace de `initialStatus` y se
-  // actualiza por realtime, aplica tanto al abrir un pedido ya entregado como
-  // a la transición en vivo mientras el cliente está en la página.
+  // suba sin un bloque vacío. Como `status` llega del servidor, aplica tanto
+  // al abrir un pedido ya entregado como a la transición en vivo mientras el
+  // cliente está en la página.
   if (status === 'DELIVERED') return null
 
   return (

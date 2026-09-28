@@ -5,6 +5,8 @@ import {
   withApi,
 } from '@/lib/api/response'
 import { authenticateRequest, adminClient, userClient, NotFoundError } from '@/lib/api/auth'
+import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
+import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 import type { OrderStatus } from '@/types/order'
 
 export const dynamic = 'force-dynamic'
@@ -140,10 +142,13 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       )
     }
 
-    // Misma limpieza que la Server Action cancelOrder(): si el pedido estaba
-    // en AWAITING_PAYMENT, la oferta del repartidor queda huérfana. La guarda
-    // de `payment_confirmed_at` asegura que nunca se borre una entrega con
-    // dinero ya confirmado.
+    // Misma limpieza que la Server Action cancelOrder() —y en el MISMO orden—:
+    // si el pedido estaba en AWAITING_PAYMENT, la oferta del repartidor queda
+    // huérfana y con ella su comprobante. El comprobante va primero porque la
+    // guarda de `removeUnconfirmedVoucher` lee `payment_confirmed_at` de la
+    // fila que el delete borra justo después. La guarda asegura que nunca se
+    // borre una entrega (ni su comprobante) con dinero ya confirmado.
+    await removeUnconfirmedVoucher(client, id)
     await client
       .from('deliveries')
       .delete()
@@ -158,12 +163,24 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       return errorResponse('Solo el cliente puede confirmar el pago del envío', 403)
     }
 
+    // ORDEN OBLIGATORIO para quien consuma esta API: primero subir el
+    // comprobante a `payment-vouchers/{order_id}/voucher.jpg` con el MISMO token
+    // Bearer (la RLS que lo autoriza es la del usuario; no hay camino
+    // privilegiado que saltarse), y recién después llamar esta acción.
+    // Si no lo hizo, la función responde 400 "Adjunta el comprobante de tu pago
+    // para confirmar": el fallo es explícito, nunca una confirmación sin
+    // evidencia.
+    //
+    // La ruta se deriva del id ACÁ y la función la vuelve a validar contra su
+    // formato único: el consumidor no elige dónde vive su comprobante.
+    //
     // userClient() y no adminClient(): confirm_delivery_payment() valida que el
     // pedido sea del usuario que llama usando auth.uid(), que no existe en un
     // cliente con service role. Con adminClient esto fallaría con 'No
     // autenticado' — comportamiento buscado, no un bug de la ruta.
     const { error } = await userClient(request).rpc('confirm_delivery_payment', {
       p_order_id: id,
+      p_voucher_path: paymentVoucherPath(id),
     })
     if (error) return rpcErrorResponse(error)
 

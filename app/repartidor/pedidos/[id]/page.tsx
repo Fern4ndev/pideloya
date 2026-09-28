@@ -5,6 +5,8 @@ import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
+import { PaymentVoucherViewer } from '@/components/features/orders/PaymentVoucherViewer'
+import { PAYMENT_VOUCHER_BUCKET, VOUCHER_SIGNED_URL_TTL_S } from '@/lib/constants/payment-voucher'
 import type { OrderStatus } from '@/types/order'
 
 export default async function DeliveryOrderDetailPage({
@@ -21,7 +23,8 @@ export default async function DeliveryOrderDetailPage({
       `id, status, total, notes, created_at,
        addresses ( address_text, reference ),
        order_items ( product_name, quantity, restaurant_name ),
-       deliveries ( delivery_person_id, accepted_at, picked_up_at, delivered_at )`
+       deliveries ( delivery_person_id, accepted_at, picked_up_at, delivered_at,
+                    delivery_fee, payment_confirmed_at, payment_voucher_path )`
     )
     .eq('id', id)
     .maybeSingle()
@@ -41,6 +44,22 @@ export default async function DeliveryOrderDetailPage({
       `${i.quantity}x ${i.product_name ?? 'Producto'}`
     ).join(', ') || ''
   const status = order.status as OrderStatus
+
+  // Comprobante de pago que el cliente adjuntó al confirmar. Es la EVIDENCIA de
+  // cobro del repartidor, así que se muestra en su propio detalle (no en la
+  // lista: firmar una URL por fila sería un costo innecesario).
+  //
+  // Se firma con SU cliente y no con service role: la policy
+  // payment_vouchers_select_parties decide de verdad si este repartidor es
+  // parte del pedido. Si no lo fuera, simplemente no hay URL y el bloque no se
+  // renderiza — no hay nada que "saltarse".
+  let voucherUrl: string | null = null
+  if (delivery?.payment_voucher_path) {
+    const { data: signed } = await supabase.storage
+      .from(PAYMENT_VOUCHER_BUCKET)
+      .createSignedUrl(delivery.payment_voucher_path, VOUCHER_SIGNED_URL_TTL_S)
+    voucherUrl = signed?.signedUrl ?? null
+  }
 
   return (
     <PageContainer size="md">
@@ -96,6 +115,47 @@ export default async function DeliveryOrderDetailPage({
           </p>
         </div>
       </div>
+
+      {voucherUrl && (
+        <div className="mt-4 rounded-xl border p-4">
+          <p className="mb-3 text-xs font-medium text-muted-foreground">
+            Comprobante de pago del cliente
+          </p>
+          {/* El monto va AL LADO de la imagen a propósito: es lo que le permite
+              contrastar de un vistazo que el comprobante coincide con lo que
+              cobró, sin tener que leer la captura. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <PaymentVoucherViewer
+              url={voucherUrl}
+              alt="Comprobante de pago por Yape"
+              thumbnailClassName="h-20 w-20"
+              actionLabel="Ver en grande"
+            />
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm">
+                Cobro del envío:{' '}
+                <span className="font-semibold tabular-nums">
+                  {delivery?.delivery_fee != null
+                    ? `S/ ${Number(delivery.delivery_fee).toFixed(2)}`
+                    : '—'}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {delivery?.payment_confirmed_at
+                  ? `Confirmado por el cliente el ${new Date(
+                      delivery.payment_confirmed_at
+                    ).toLocaleString('es-PE', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}.`
+                  : 'Confirmado por el cliente.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   )
 }

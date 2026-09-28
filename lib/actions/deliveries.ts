@@ -1,8 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/db/server'
+import { createClient, createServiceRoleClient } from '@/lib/db/server'
 import { ACTIVE_DELIVERY_STATUSES } from '@/lib/admin/delivery-lifecycle'
+import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 import { deliveryOfferSchema, type DeliveryOfferInput } from '@/lib/validations/delivery-offer'
 import type { OrderStatus } from '@/types/order'
 
@@ -131,6 +132,19 @@ export async function retractDeliveryOffer(orderId: string) {
     p_order_id: orderId,
   })
   if (error) throw new Error(error.message)
+
+  // La oferta ya no existe, así que su comprobante tampoco tiene dueño (si el
+  // cliente alcanzó a subirlo y su confirmación falló, quedó huérfano).
+  //
+  // Va DESPUÉS del RPC y es seguro por una garantía del propio RPC: se niega a
+  // retirar una oferta con `payment_confirmed_at` puesto, así que llegar hasta
+  // acá ya implica que no hay ningún pago confirmado que proteger. La guarda de
+  // `removeUnconfirmedVoucher` lee la fila —que el RPC acaba de borrar— y por
+  // eso borra: sin fila no hay pago confirmado posible.
+  //
+  // Best-effort: si Storage falla, el repartidor ya retiró su oferta (que es lo
+  // que pidió) y lo único que queda es un archivo sin referencias.
+  await removeUnconfirmedVoucher(createServiceRoleClient(), orderId)
 
   revalidatePath('/repartidor/disponibles')
   revalidatePath('/repartidor/pedidos')

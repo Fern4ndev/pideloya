@@ -44,6 +44,11 @@ export interface ApiOrder {
   deliveries?: {
     delivery_person_id: string | null
     delivery_fee: number | null
+    /** Ruta del comprobante de Yape que el cliente adjuntó al confirmar el
+     * pago. NULL mientras no haya confirmado (y en los pagos anteriores a esta
+     * función). Basta con saber si EXISTE: la lista no carga la imagen, solo
+     * avisa que hay algo que ver en el detalle. */
+    payment_voucher_path?: string | null
   } | null
 }
 

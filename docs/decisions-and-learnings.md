@@ -181,3 +181,178 @@ Alcance: `/cliente` (home, carta, carrito, pedidos, direcciones, perfil, favorit
 
 - **`app/cliente/loading.tsx` renderiza su propio header skeleton** mientras el layout ya monta el `CustomerHeader` real: durante la carga se ven **dos** headers. Es pre-existente; el plan sólo pedía alinear el radio del skeleton (hecho). Candidato claro a limpieza en un próximo pase.
 
+## 2026-09-28 — Tiempo real del detalle de pedido (Fases 0 y 1)
+
+Fuente: `docs/plans/plan-realtime-oferta-telefono-y-voucher-yape.md`. Alcance de esta entrada: **sólo las Fases 0 y 1** (el hotfix de tiempo real). La feature de teléfono + voucher (Fases 2 a 9) queda deliberadamente sin empezar.
+
+### Fase 0 — Diagnóstico: confirmado en el código, no era un problema de Realtime
+
+Los tres puntos del plan se verificaron uno por uno antes de tocar nada:
+
+- `app/cliente/pedidos/[id]/page.tsx` es un Server Component: llama a `get_delivery_offer_profile` **en el render** y sólo si `order.status === 'AWAITING_PAYMENT'`. Si la página se abrió en `PENDING`, la oferta no existe en el árbol y ninguna cantidad de eventos la hace aparecer.
+- `OrderStatusSection` **sí** recibía los eventos (`postgres_changes` sobre `orders` con `filter: id=eq.<id>`) y por eso el timeline avanzaba solo — pero guardaba el estado en un `useState` privado, así que el servidor nunca se enteraba. Realtime funcionaba; lo que fallaba era la arquitectura de datos.
+- `components/ui/realtime-refresh.tsx` (usado por admin y restaurante) ya era el patrón correcto: el evento no trae datos, sólo dispara `router.refresh()`.
+
+Se confirmó además que `OrderStatusSection` era el **único** componente del proyecto con canal propio (`grep postgres_changes`: sólo `realtime-refresh.tsx` y `lib/hooks/use-realtime-invalidate.ts`). Con eso la Fase 1 se podía cerrar sin dejar estados duplicados en otra parte.
+
+### Fase 1 — Una sola fuente de verdad
+
+- **`RealtimeRefresh` ganó dos props opt-in** (`syncOnSubscribe`, `refreshOnFocus`) con defaults `false`: admin y restaurante no cambian de comportamiento (requisito explícito del plan). Se prefirió eso a encenderlas para todos porque son señales con costo — `syncOnSubscribe` implica un `router.refresh()` extra en cada carga.
+- **Las tres señales pasan por un único `schedule()`** dentro del efecto (evento, suscripción y visibilidad), así que una ráfaga se agrupa en un solo `router.refresh()` en vez de que varias señales compitan por el mismo timer.
+- **`syncOnSubscribe` se colgó del callback de `subscribe`, no de un `useEffect` aparte**: así se dispara también en cada **re**suscripción tras una caída del WebSocket, que es el mismo agujero visto por el revés (mientras el canal estuvo caído, nadie escuchó).
+- **`OrderStatusSection` pasó de `initialStatus` a `status` derivado.** Era el bug clásico de "estado derivado copiado a estado local": la prop cambiaba con `router.refresh()` y el `useState` no se reinicializa nunca. Se eliminaron el `useState` **y** el canal propio (ya no importa `createClient`): un solo canal por página, y timeline / tarjeta de pago / desglose de envío no pueden contradecirse.
+- **`debounceMs={150}` en el detalle, no el 1000 de admin.** Es la pantalla que el cliente mira *esperando* el evento; aun así el debounce sigue cumpliendo su función real, que es agrupar la ráfaga de updates de un mismo cambio.
+- **`OrderStatusAnnouncer` compara contra el estado ANTERIOR, no contra el inicial:** abrir un pedido que ya estaba en `AWAITING_PAYMENT` no dispara ningún aviso, porque no hubo transición estando el cliente en la pantalla. Los toasts de `useToast` no están memoizados, así que el efecto se re-ejecuta en cada render, pero la guarda `before === status` lo vuelve idempotente y no hay bucle (el componente no tiene estado propio, así que tampoco se re-renderiza por su cuenta).
+- **El aviso cubre las dos transiciones que el cliente no provocó:** llegó la oferta (info) y se retiró/expió volviendo a `PENDING` (warning). Sin el segundo, que la tarjeta desapareciera parecería un fallo de la app en vez de una noticia.
+- **`animate-fade-up` en la tarjeta de pago** (una clase, cambio aditivo): ahora que puede aparecer sola, el movimiento es lo que avisa que llegó algo nuevo. La regla global de `prefers-reduced-motion` la neutraliza sin trabajo extra.
+
+### Verificación
+
+`npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores, ninguno en los archivos tocados ✅ · `npm run build` ✅
+
+### Hallazgo abierto (fuera del alcance de las Fases 0 y 1)
+
+- **`/repartidor/pedidos/[id]` no tiene NINGÚN mecanismo de tiempo real** (verificado: es un Server Component sin `RealtimeRefresh`, y el canal `my-deliveries` que usa `DeliveryOrdersClient` vive sólo en la lista). El repartidor que acaba de enviar su oferta y se queda mirando el detalle no ve pasar el pedido a `ASSIGNED` hasta que refresca a mano — el mismo síntoma que este hotfix corrige en el panel del cliente, pero al otro lado de la transacción. No es un estado duplicado (esa página renderiza directo lo que le da el servidor, así que le basta con montar `RealtimeRefresh` con `syncOnSubscribe`/`refreshOnFocus`), pero el plan reserva ese archivo para la Fase 5, así que se deja para entonces en vez de ampliar el alcance de la Fase 1.
+
+## 2026-09-28 — Comprobante de Yape y teléfono del repartidor (Fases 2 y 3)
+
+Fuente: `docs/plans/plan-realtime-oferta-telefono-y-voucher-yape.md`. Fases 2 (migraciones) y 3 (backend). Fases 4 a 9 siguen sin empezar.
+
+### Fase 2 — Base de datos
+
+- **Bucket privado, y `on conflict do update` en vez del `do nothing` del precedente** (`20260912135915_restaurant_logos_storage.sql`): si el bucket ya existiera con la configuración por defecto, `do nothing` dejaría un bucket PÚBLICO — un fallo silencioso de privacidad. `do update` fija `public = false` y los límites aunque el bucket ya exista.
+- **`voucher_order_id()` (regex) en vez de `(storage.foldername(name))[1]::uuid`** — el patrón que ya usa el proyecto para los logos. Dos motivos: un cast fallido dentro de una policy LANZA error (22P02) en vez de denegar, y el planner de Postgres es libre de reordenar los términos de un `AND`, así que "envolverlo en un AND para que el cast no llegue a evaluarse" no es una garantía. La regex restringe el patrón completo (`{uuid}/voucher.jpg`), con lo cual el cast ya es seguro cuando matchea.
+- **Las dos funciones que se usan dentro de policies NO se revocan** (`voucher_order_id`, `customer_awaiting_payment_order_ids`): las expresiones de una policy se evalúan con los privilegios del rol que consulta, así que revocar EXECUTE no "endurece" nada — rompe la consulta con `permission denied for function`. Es el mismo hallazgo ya documentado en `20260928100200`.
+- **`customer_awaiting_payment_order_ids()` filtra por estado A PROPÓSITO** (solo los pedidos del cliente en `AWAITING_PAYMENT`): esa es la ventana en la que existe algo que comprobar. Al pasar a `ASSIGNED` el comprobante queda inmutable — nadie puede reemplazar la evidencia después de que el pedido arrancó.
+- **La policy de `SELECT` sí usa `current_customer_order_ids()` sin filtrar por estado**, al revés que la de escritura: el cliente y el repartidor tienen que poder ver el comprobante DESPUÉS de confirmar (Fase 5). Filtrar por estado acá le escondería al cliente su propia evidencia justo cuando el pedido avanza.
+- **Policy de `UPDATE` además de `INSERT`**: el reintento usa `upsert: true`, así que sin policy de UPDATE el camino del reintento (el que recorre un usuario que ya perdió una vez por red) fallaría con un 403 desconcertante.
+- **Sin policy de `DELETE`**: el comprobante es la única evidencia del cobro del repartidor; un cliente que pudiera borrarlo podría dejarlo sin nada después de que el pedido arrancó. El borrado real solo pasa por la API de Storage con service_role (Fase 6) — y queda anotado en la migración que borrar filas de `storage.objects` NO elimina el archivo físico.
+- **`deliveries_voucher_path_check`**: la ruta guardada solo puede ser `{order_id}/voucher.jpg` de ESE pedido. Es una invariante de datos, no una validación duplicada: impide que cualquier camino futuro (Server Action, API v1, un UPDATE a mano) apunte la fila al comprobante de otro cliente, lo que le daría al repartidor de este pedido los datos personales de otro.
+- **Sobrecarga `confirm_delivery_payment(uuid, text)` en vez de reemplazo**: cambiar las columnas de retorno o la firma exige DROP + CREATE, y esa ventana rompe el código ya desplegado. La convivencia tiene un costo consciente que el plan ya documenta: mientras la firma de un argumento exista, se puede confirmar sin comprobante (D1 no se cumple). Se cierra en la Fase 9.3.
+- **El cuerpo de la función se conservó literal** (mismo orden de validaciones, mismos `errcode`, mismo `for update of o`, misma idempotencia antes del chequeo de estado, mismos `if not found`) y los tres cambios van marcados `(1)`, `(2)`, `(3)` en el archivo. Cualquier otro ajuste del cuerpo tendría que ser una decisión explícita, no un efecto colateral de este cambio.
+- **`is distinct from` para el comprobante**, igual que las comparaciones de identidad de esa función: con `<>`, un `p_voucher_path` NULL devuelve NULL y el `IF` no se dispara. Un solo predicado cubre los dos casos (NULL y ruta ajena) porque la ruta válida es única y está determinada.
+- **El comprobante tiene que existir en `storage.objects`**: es lo que convierte "el comprobante es obligatorio" en una garantía de la BASE y no solo de la UI (un upload que falló en silencio dejaría un pedido "pagado" sin evidencia). Sobre la RLS de esa tabla: la función es SECURITY DEFINER y `auth.uid()` se conserva dentro de ella, así que `payment_vouchers_select_parties` da verdadero justo para el cliente dueño del pedido — en cualquiera de los dos escenarios (que el rol definer salte la RLS de `storage.objects` o que la evalúe) el resultado es el que se busca. Y no puede llegar "temprano": la API de Storage responde 200 recién después de insertar la fila.
+
+### Fase 3 — Backend
+
+- **`lib/constants/payment-voucher.ts` es la única fuente de la ruta.** Ese string lo cruzan cuatro capas (navegador que sube, Server Action, API v1 y la función SQL que lo valida contra el CHECK); si una se desvía, el error que ve el usuario es "Adjunta el comprobante" en una ruta que sí lo tiene. También se dejaron ahí los números que deben coincidir con el bucket: **si se cambia `VOUCHER_MAX_BYTES` hay que cambiar `file_size_limit` en la migración** (la barrera que de verdad importa es la del servidor de Storage, la del navegador se puede saltar).
+- **`types/database.ts` declara la sobrecarga como unión de `Args`** (`{ p_order_id }` | `{ p_order_id; p_voucher_path }`), que es como la genera el CLI de Supabase para funciones con overloads. Es lo que permite que la firma vieja siga typecheckeando.
+- **La Server Action deriva la ruta del `orderId`; el navegador no la elige.** La función SQL la vuelve a validar (defensa en profundidad): un cliente que llamara a la RPC directamente tampoco puede apuntar a otro archivo. El docblock de la acción deja escrito el ORDEN (subir → confirmar), que no es negociable porque la función rechaza la llamada si el archivo no existe.
+- **API v1 (`confirm_payment`)**: mismo cambio + un comentario que documenta la obligación para consumidores externos (subir el comprobante con el mismo token Bearer y recién después llamar la acción). No hizo falta tocar el mapeo de errores: `rpcErrorResponse` ya traduce `22000` a 400 con el mensaje de la función.
+- **Desviación deliberada en la lectura de la oferta (3.5):** la página ya usa `get_delivery_offer_details`, pero **no** se firmó la URL del comprobante ni se llama la RPC en los estados vivos posteriores al pago — las dos cosas que el plan incluye en 3.5 quedan para la Fase 5, que es donde existe la UI que las consume. Hacerlas ahora sería consultar y firmar una URL por carga de página que nadie lee (y dejar un `voucherUrl` sin consumidor). Los dos párrafos del plan apuntan a lo mismo; se separó por dónde se usa, no por fase.
+
+### Verificación
+
+`npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores ✅ · `npm run build` ✅
+
+Las 4 migraciones se aplicaron al proyecto vinculado con `supabase db push` (paso 2 de la Fase 9), junto con una migración previa que estaba pendiente (`20260929000000_orders_customer_created_idx.sql`). Verificado contra la base REAL:
+
+- `storage/v1/bucket/payment-vouchers` → `public: false`, `file_size_limit: 5242880`, `allowed_mime_types: [jpeg, png, webp]`.
+- `deliveries.payment_voucher_path` responde por REST (existe la columna).
+- `get_delivery_offer_details` y la sobrecarga `confirm_delivery_payment(uuid, text)` existen (PostgREST las resuelve por firma) y **rechazan a `anon` con `42501 permission denied for function`** — o sea, el `revoke ... from public, anon` hizo lo que debía.
+- `supabase migration list --linked` muestra las cinco migraciones aplicadas en local Y en remoto, y el CHECK `deliveries_voucher_path_check` salió adelante: no se pudo inspeccionar la restricción directamente (el bucket y las policies viven en el esquema `storage`, y `supabase db dump` exige Docker, apagado), pero `alter table add constraint` con una expresión no inmutable (el `order_id::text || '/voucher.jpg'`) habría abortado la migración `...100100`, y las dos migraciones POSTERIORES de esa misma cadena se aplicaron — el CLI de Supabase es secuencial y se detiene en el primer error.
+
+Lo que sigue sin poder probarse sin dos sesiones reales (queda para la Fase 8): las tres policies de `storage.objects` (subir en el pedido propio, 403 en el ajeno, 403 fuera de `AWAITING_PAYMENT`), el `403` del repartidor no asignado y que el `SELECT` sobre `storage.objects` no dé falso negativo dentro de `confirm_delivery_payment`.
+
+### Ventana entre la Fase 3 y la Fase 4 (CERRADA)
+
+Mientras solo existía la Fase 3, el botón "Ya pagué, confirmar" no podía completar el flujo (la acción ya exigía comprobante y no había UI para subirlo). La Fase 4 cierra esa ventana. Los scripts `scripts/e2e-*.mjs` (locales, no versionados) siguen fallando hasta que se actualicen en la Fase 8, porque llaman a `confirm_payment` sin subir comprobante.
+
+## 2026-09-28 — Tarjeta de pago, comprobante visible y ciclo de vida (Fases 4, 5 y 6)
+
+Fuente: `docs/plans/plan-realtime-oferta-telefono-y-voucher-yape.md`.
+
+### Fase 4 — La tarjeta (`DeliveryPaymentCard`)
+
+- **El párrafo eliminado se reemplaza por ORDEN, no por otro párrafo.** El cliente tiene una tarea de tres pasos (pagar, adjuntar, confirmar) y la tarjeta ahora los numera con títulos cortos. Se descartó un stepper interactivo a propósito: no hay navegación entre pasos —los tres están a la vista— así que agregar uno habría sumado taps para no aportar nada. El CTA sigue siendo el único botón lleno.
+- **La tarifa sube de `text-xs` a `text-lg font-semibold`**: es el dato que el cliente necesita para pagar, no una nota al pie.
+- **Contraste MEDIDO, no estimado** (Fase 7 del plan): los textos pequeños de la tarjeta usan `amber-900` (~8.9:1 sobre el fondo ámbar) en lugar de `muted-foreground`, que sobre ese fondo queda en ~4.6:1. Pasa el mínimo AA, pero sin margen: cualquier ajuste de token lo rompería en silencio, así que se prefirió el color con margen de sobra. En modo oscuro, `amber-100` sobre el ámbar translúcido.
+- **Fases explícitas en vez de `useTransition`** (`preparing` → `uploading` → `confirming`): son tres esperas distintas y el usuario tiene que poder distinguirlas (comprimir una foto de 6 MB no es lo mismo que subirla con mala señal). Con un booleano las tres se veían como "Confirmando…".
+- **El archivo se sube ANTES de llamar a la acción de confirmación**, con el cliente de navegador y la RLS del usuario. Las Server Actions tienen un límite de cuerpo de 1 MB por defecto; subir el límite global sería peor que este camino, que además es el mismo patrón ya validado con ImageKit.
+- **El reintento conserva el archivo** y usa la misma ruta con `upsert`: un corte de red no obliga a volver a buscar la foto en la galería ni deja dos comprobantes del mismo pedido.
+- **El estado deshabilitado del botón se explica con texto visible**, no con un `title`: un botón gris sin motivo es un callejón sin salida.
+- **`CopyButton` con feedback en el ícono** (`Copy` → `Check` por 2 s), no un toast: en el celular un toast arriba puede quedar fuera de la vista justo cuando el usuario mira el botón que acaba de pulsar. El toast queda para el error. Se copian los 9 dígitos SIN espacios (lo que Yape acepta al pegar) y se muestran agrupados (987 654 321) para leerlos y dictarlos.
+- **40×40 px logrados con la variante por defecto + `h-10 w-10 p-0`, no con `size="icon"`**: `size-8` y `h-10` no son excluyentes para `twMerge` (grupos distintos), así que la combinación dejaría las dos clases y el tamaño final dependería del orden del CSS. Verificado con el propio `twMerge` antes de escribir el componente.
+- **`PaymentVoucherPicker` es controlado y no sabe de Supabase**: recibe `file`/`onChange` y el padre decide cuándo subir. Es lo que hace posible el diseño de un solo paso (subir al confirmar) y deja el componente testeable sin red. Los `objectURL` de la vista previa se revocan en cada cambio y al desmontar (el `ImageUploader` existente no lo hace; acá el archivo puede ser de varios MB y el usuario puede cambiar de foto varias veces).
+- **No se reutilizó `ImageUploader`**: está atado a ImageKit y al modo público. Forzarlo a subir a un bucket privado lo habría vuelto un componente con dos personalidades. Duplicación consciente y chica, documentada en el plan.
+- **El `<input type="file">` va `sr-only`, no `hidden`**: con `display:none` desaparece del árbol de accesibilidad y la tecnología asistiva pierde la única forma de elegir el archivo. Verificado en el árbol de accesibilidad real (aparece como `button "Toca para subir tu comprobante…" value="No file chosen"`).
+
+### Fase 5 — El comprobante después de confirmar
+
+- **La URL firmada se genera con el cliente DEL USUARIO** (nunca service role): la RLS del bucket decide de verdad, así que un repartidor que no es parte del pedido simplemente no obtiene URL.
+- **`createSignedUrl` + `<img>`, nunca `next/image`**: el optimizador cachearía la imagen fuera del control de expiración de la firma, que es justamente lo que la firma busca evitar. El `eslint-disable` de `no-img-element` es deliberado y está explicado en el archivo.
+- **La fila del cliente va dentro de `OrderSummaryCard`** (slot nuevo `voucher`), no en una tarjeta nueva: el comprobante es la prueba del `Envío S/ X` que se muestra dos centímetros más arriba. Separarlos habría vuelto a fragmentar una misma idea ("cuánto pagué y con qué"), que es exactamente lo que ese componente existe para evitar.
+- **Slot y no booleano**: el contenido es un componente de cliente (el diálogo) y la tarjeta es de servidor; así el servidor decide SI hay comprobante y el cliente solo lo abre.
+- **El repartidor ve el monto AL LADO de la imagen**, que es lo que le permite contrastar de un vistazo que el comprobante coincide con lo que cobró, sin leer la captura.
+- **En la lista del repartidor hay un indicador, no la imagen**: un chip "Comprobante adjunto" que enlaza al detalle. Cargar la miniatura exigiría firmar una URL (y una petición de Storage) por fila para mostrar un dato del que no se puede leer nada a ese tamaño.
+- **Se usó `DialogTitle` en los dos diálogos de la tarjeta** (el QR y el visor): un `role="dialog"` sin nombre se anuncia solo como "diálogo". El texto del pie del QR se conserva palabra por palabra —el pedido apuntaba al párrafo de la tarjeta, no a ese— pero ahora es el nombre accesible del diálogo.
+
+### Fase 6 — Ciclo de vida y privacidad
+
+- **El borrado es "mejor esfuerzo" y va DESPUÉS de la operación de negocio** (igual que `deleteImageKitFileSafe`): los llamadores ya cancelaron el pedido / retiraron la oferta / anonimizaron la cuenta. Un fallo de Storage no puede deshacer eso ni devolverle un error al usuario; deja un huérfano —el modo de fallo aceptable— y lo registra.
+- **Borrar una ruta inexistente no es error** en la API de Storage, así que los llamadores no necesitan comprobar antes si el pedido tenía comprobante.
+- **La guarda es `payment_confirmed_at`, y su lectura va ANTES de borrar la oferta** (`removeUnconfirmedVoucher`): la fila de `deliveries` es la que dice si el pago se confirmó, y `releaseUnconfirmedOffer` la borra. Al revés, la guarda leería siempre `null` y no protegería nada. El mismo orden se replicó en la ruta de la API v1, que tenía su propia copia de la limpieza.
+- **"Sin fila de `deliveries`" NO es una excepción a la guarda**: los tres caminos que borran la fila (cancelar, retirar, expirar) exigen `payment_confirmed_at is null`, así que sin fila no puede haber pago confirmado. Y es justo el caso del huérfano a limpiar.
+- **En retirar la oferta la limpieza va DESPUÉS del RPC**, y es seguro por una garantía del propio RPC: se niega a retirar una oferta ya pagada. Es lo que hace que llegar hasta ahí implique que no hay nada que proteger.
+- **En `anonymizeProfile` las dos lecturas van en `Promise.all`** (perfiles y pedidos del cliente, tablas distintas): son independientes y encadenarlas sería un waterfall. Los pedidos se buscan por `customer_id` sin preguntar el rol — para un repartidor la lista vuelve vacía y el borrado es un no-op, que es lo que mantiene el helper agnóstico del rol.
+- **Privacidad**: nueva viñeta en "Datos que recopilamos", finalidad en la sección 3 (se comparte únicamente con el repartidor asignado), mención en conservación (se borran al anonimizar) y `UPDATED_AT` al 28/09. Una categoría nueva de dato es un cambio material y la propia política se compromete a publicar cada cambio con su fecha.
+
+### Verificación
+
+`npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores, ninguno en los archivos nuevos ✅ · `npm run build` ✅
+
+**Verificación visual y funcional en el navegador** (ruta temporal de preview, ya borrada — se usó el dev server que ya estaba corriendo en :3000 de este mismo directorio), porque la Fase 7 del plan marca accesibilidad y responsive como no negociables:
+
+- **Responsive 360 px: sin scroll horizontal.** El primer intento marcó overflow, pero era de la PÁGINA de preview (una columna de grid con `min-width: auto`), no de la tarjeta: con el contenedor en bloque, la tarjeta mide 311 px y todos sus hijos quedan en 270. La misma trampa existe en el grid de la página real, y el plan anterior ya la había validado; queda anotada por si alguien mete ahí un hijo no encogible.
+- **Modo oscuro** revisado en captura: ámbar translúcido sobre fondo oscuro, círculos numerados y textos de aviso legibles.
+- **`CopyButton`**: 40×40 reales (medidos), y al copiar cambia el ícono, el `aria-label` pasa a "número del repartidor copiado" y la región `aria-live` anuncia lo mismo. **Acá apareció un bug real:** `navigator.clipboard.writeText` puede EXISTIR y aun así rechazar ("Document is not focused" en una pestaña sin foco, política de permisos heredada de un WebView...). La primera versión se rendía ahí, sin probar el respaldo que sí funciona. Ahora se espera la promesa y, si rechaza, se sigue al `execCommand`; verificado que con eso el copiado funciona en el mismo entorno donde antes fallaba.
+- **Compresión medida** (ruido pseudoaleatorio = peor caso de compresión; captura realista = caso real): foto de 12 MP → **422 KB en 166 ms**; captura de iPhone con ruido → 553 KB; cuadrada de 1600 px con ruido → 1.15 MB (sigue muy lejos del tope de 5 MB del bucket); **captura de Yape realista → 58 KB en 96 ms** (el plan pedía < 500 KB). Salida siempre `image/jpeg`.
+- **PNG transparente → esquina `rgb(255,255,255)`**: el relleno blanco evita el bloque negro que JPEG produce al descartar el alfa.
+- **Segundo bug real encontrado acá:** con un archivo que el navegador no puede decodificar, el toast mostraba el error nativo en inglés ("The source image could not be decoded"). Ahora `toVoucherJpeg` traduce ese caso a "No pudimos procesar esa imagen. Prueba con otra foto o captura." (foto truncada, archivo dañado o HEIC sin soporte son casos reales). Verificado.
+- **Camino de error del envío verificado de punta a punta**: con un archivo válido, la tarjeta pasó por "Subiendo comprobante…", la subida fue denegada por la policy (respuesta `{"statusCode":"403","message":"new row violates row-level security policy"}` — el 400 de HTTP es el envoltorio de Storage), apareció el toast con el mensaje en español y **el archivo elegido siguió seleccionado** para reintentar. Que la denegación sea de RLS (y no del bucket) confirma que la ruta, el `contentType` y el tamaño pasan la validación del servidor: lo único que faltaba era una sesión real.
+- **Sin verificar (necesita dos sesiones reales, Fase 8):** el camino feliz completo (subida con éxito + confirmación + `payment_voucher_path` guardado), las tres policies de `storage.objects` por rol, que el repartidor asignado lea el comprobante y otro no, y la limpieza de la Fase 6 contra el bucket real.
+
+### Hallazgo abierto — el huérfano del job de expiración
+
+La Fase 6 del plan pide limpiar el comprobante también "en el job de expiración, una pasada de limpieza por los pedidos devueltos a `PENDING`", y **eso no se puede implementar desde este repo**:
+
+- `expire_stale_delivery_offers` no tiene ningún invocador en el código (se llama desde un cron/Edge Function externo con la service role key, por decisión de equipo documentada en su migración), y **devuelve un `integer` con el número de pedidos expirados, no sus ids** — quien la llama no puede saber qué pedidos liberar, así que ni siquiera podría hacer la limpieza aunque quisiera.
+- El huérfano concreto es acotado (el cliente alcanzó a subir el archivo y su confirmación falló, y además la oferta expiró después): un archivo de ~60-400 KB sin referencias. La purga por antigüedad (Fase 6.3 del plan, 90 días tras `DELIVERED`) tampoco lo cubriría, porque se apoya en las filas de `deliveries` que ese camino borra.
+- **Corrección recomendada (fuera del alcance de estas fases):** que la función devuelva los ids liberados (una migración de una función, con el `drop`+`create` de siempre) y que el job llame a la limpieza. Requiere tocar el job externo en cualquier caso, así que es una decisión de despliegue, no un cambio que se pueda resolver dentro de la app.
+
+### Fase 7 — Accesibilidad y responsive (medidas, no estimadas)
+
+- **Contraste medido en el navegador con un arnés temporal** (ruta de preview, ya borrada): `amber-900` ≈ 8.89:1 sobre el fondo ámbar, `muted-foreground` 4.74:1 (pasa AA sin margen), `emerald-700` 5.36:1, `destructive` 4.77/4.63:1 claro/oscuro; en modo oscuro todo entre 14.65 y 16.74:1.
+- **Botones táctiles ≥ 40×40 px y 360 px sin scroll horizontal**: confirmados por medición.
+- **`prefers-reduced-motion` ya estaba cubierto**: el bloque global `*, ::before, ::after` con `animation-duration: 0.01ms !important` alcanza a `animate-fade-up`; no hizo falta tocar la animación.
+- **Lección: `transition-all` puede hacer que el foco "parezca roto" en un arnés.** Los botones tienen transición también en el outline; leer `getComputedStyle` justo después de `focus()` devuelve el outline a mitad de animación y cualquier script lo registraría como "sin indicador de foco". Esperando ~250–400 ms, todos los botones enfocan en lima 2 px con offset 1 px. Falso positivo del arnés, no bug del producto.
+- **Lección: `navigator.clipboard.readText` da `NotAllowedError` sin foco del documento aunque el copiado SÍ funcione** (el `CopyButton` escribe con `writeText` + respaldo `execCommand`, ya validado). Al probar portapapeles por script, ese error no implica que la función esté rota.
+- **Dos fixes reales en `PaymentVoucherPicker`:** (1) el layout pasa a apilarse en móvil (`flex flex-col gap-3 sm:flex-row sm:items-center` con contenedor interno `min-w-0 flex-1`) porque en 360 px el nombre del archivo y el botón se pisan; (2) el overlay de ocupado sube a `bg-white/90 dark:bg-black/75` (antes 75%/60%) porque los textos quedaban legibles pero superpuestos con la imagen.
+
+### Fase 8 — Suite E2E con sesiones reales (extension)
+
+- **`scripts/e2e-delivery-offer.mjs` pasó de 399 a 572 líneas (44 verificaciones), TODO VERDE contra la base remota + dev server reales** — dos corridas completas en verde (la segunda tras el drop de la Fase 9).
+- **Los fixtures de MIME y tamaño usan bytes reales, no headers mentirosos:** `allowed_mime_types` del bucket evalúa el archivo subido, así que el fixture lleva JPEG/GIF/PNG reales inline (base64). Eso permite probar los rechazos 415 (GIF) y 413 (>5 MB) que con un `Blob` mal etiquetado no se ejercitan.
+- **El fixture setea `phone='987654321'` a ambos repartidores**: `get_delivery_offer_details` expone el teléfono, y sin dato de prueba la columna vuelve siempre `null` y el test no distingue "no hay" de "no llega".
+- **Storage oculta la existencia: la lectura no autorizada devuelve 404, no 403** — verificado en la base real para otro repartidor y para `anon` (el objeto no existe, desde el punto de vista de quien no puede verlo).
+- **Casos cubiertos que antes quedaban como "pendiente dos sesiones reales":** confirmar sin comprobante → 400 con mensaje; ruta `null` o de otro pedido → 22000 "Adjunta el comprobante"; las tres policies de `storage.objects` (403 en ruta ajena, en PENDING, y re-subida tras ASSIGNED); la CHECK de la ruta (23514); doble confirmación → 409; confirmación ajena → 403; cancelar en AWAITING_PAYMENT borra el voucher; carrera confirmar-vs-expirar consistente; y la limpieza deja el bucket con 0 archivos de prueba.
+- **Lección de operación:** la suite depende del dev server; una corrida con el servidor caído falla en cascada (los fixtures quedan `undefined` y la RPC se invoca con una sola clave, lo que produce un `PGRST202` que PARECE un problema de firma de función pero no lo es — es el fixture). Si el resumen trae fallos de `fetch failed` mezclados con `PGRST202`, revisar primero si el servidor estaba vivo.
+
+### Fase 9 — Drop de las funciones legacy y orden de despliegue
+
+- **Migración `20260930100400_drop_legacy_offer_functions.sql`:** `drop function public.confirm_delivery_payment(uuid)` y `drop function public.get_delivery_offer_profile(uuid)`. Cierra la ventana D1: ya no existe ningún camino para confirmar el pago sin comprobante.
+- **El drop lleva la firma explícita `(uuid)`**: sin ella, `drop function confirm_delivery_payment` sería ambiguo con la sobrecarga `(uuid, text)` y Postgres fallaría con "function is not unique". El drop de una sobrecarga no toca a la otra.
+- **El rollback va verbatim en comentarios dentro de la misma migración** (cuerpos copiados de 20260928100200, incluidos los `revoke`/`grant`): revertir el despliegue a una app anterior no exige buscar en el historial de migraciones.
+- **`types/database.ts` quedó con una sola firma:** `confirm_delivery_payment: { Args: { p_order_id: string; p_voucher_path: string } }` y fuera `get_delivery_offer_profile`. La unión de dos firmas que dejó la Fase 3 existía para que el código viejo siguiera compilando durante la ventana; cerrada la ventana, el tipo dice la verdad.
+- **Verificado contra la base real después del `db push`:** las dos funciones legacy responden `PGRST202` (no existen), mientras `confirm_delivery_payment(uuid, text)` y `get_delivery_offer_details` siguen vivas y siguen rechazando a `anon` con 42501.
+- **La suite E2E se re-corrió DESPUÉS del drop: TODO VERDE (44/44).** El orden exigido por el plan se cumplió: primero el código que usa las firmas nuevas (Fases 3–5), después la suite verde (Fase 8), y recién entonces el drop. El rollback inline es el plan B si hiciera falta volver atrás.
+
+### Verificación final (Fases 7 a 9)
+
+`npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores ✅ · `npm run build` ✅ · suite E2E post-drop: 44/44 TODO VERDE ✅ · drop verificado por RPC contra la base real ✅
+
+### Pendiente
+
+- **Purga por antigüedad de comprobantes (6.3):** falta definir el plazo con el asesor legal.
+- **Corrección recomendada del job de expiración** (que `expire_stale_delivery_offers` devuelva los ids liberados para que el job limpie los comprobantes huérfanos): documentada arriba como decisión de despliegue, fuera del alcance de la app.
+
