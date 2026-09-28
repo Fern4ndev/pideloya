@@ -6,7 +6,6 @@ import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrde
 import { SendOfferForm } from '@/components/features/deliveries/SendOfferForm'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
-import { haversineDistanceKm } from '@/lib/geo/distance'
 import type { ApiOrder } from '@/types/order'
 
 async function fetchAvailableOrders(url: string): Promise<{ success: true; data: ApiOrder[] }> {
@@ -68,22 +67,6 @@ export function AvailableOrdersClient() {
               ?.map((i) => `${i.quantity}x ${i.product_name}`)
               .join(', ') ?? ''
 
-            // Distancia en línea recta negocio → cliente: es la base de la
-            // tarifa sugerida. Sin ella el repartidor decidiría a ciegas con un
-            // "5" fijo, sin saber si el viaje son dos cuadras o ocho
-            // kilómetros. Si al restaurante le falta ubicación, devuelve `null`
-            // y el formulario cae en la tarifa por defecto.
-            const distanceKm = haversineDistanceKm(
-              {
-                latitude: restaurant?.latitude ?? null,
-                longitude: restaurant?.longitude ?? null,
-              },
-              {
-                latitude: order.addresses?.latitude ?? null,
-                longitude: order.addresses?.longitude ?? null,
-              }
-            )
-
             return (
               <DeliveryOrderCard
                 key={order.id}
@@ -92,7 +75,7 @@ export function AvailableOrdersClient() {
                 itemsSummary={itemsSummary}
                 deliveryAddress={order.addresses?.address_text}
                 total={Number(order.total)}
-                footer={<SendOfferForm orderId={order.id} distanceKm={distanceKm} />}
+                footer={<SendOfferForm orderId={order.id} />}
               />
             )
           })}

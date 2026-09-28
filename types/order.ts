@@ -17,13 +17,12 @@ export interface ApiOrderItem {
   image_url: string | null
   restaurant_id: string
   restaurant_name: string | null
-  /** El negocio viene embebido para el punto de recojo. Las coordenadas son
-   * necesarias para calcular la distancia al cliente (tarifa sugerida). */
+  /** El negocio viene embebido solo con los datos del punto de recojo —
+   * sin coordenadas: la tarifa la fija el repartidor al ver la dirección,
+   * no un cálculo de distancia. */
   restaurants?: {
     name: string
     address_text: string | null
-    latitude: number | null
-    longitude: number | null
   } | null
 }
 

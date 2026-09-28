@@ -3,39 +3,23 @@
 import { useId, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { sendDeliveryOffer } from '@/lib/actions/deliveries'
-import {
-  DEFAULT_DELIVERY_FEE,
-  suggestedDeliveryFee,
-} from '@/lib/validations/delivery-offer'
-import { formatDistanceKm } from '@/lib/geo/distance'
+import { DEFAULT_DELIVERY_FEE } from '@/lib/validations/delivery-offer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 
 /**
- * Oferta de envío: el repartidor propone cuánto cobra por llevar el pedido.
- * Reemplaza al antiguo botón "Aceptar" plano — el pedido ya no se acepta sin
- * precio, se oferta.
- *
- * El input arranca con la tarifa sugerida por distancia (`suggestedDeliveryFee`)
- * y, si no se conoce la distancia, con el default de siempre. Es un PUNTO DE
- * PARTIDA, no un valor impuesto: el repartidor lo cambia con dos toques, y el
- * valor se calcula una sola vez (`useState` con inicializador) para no pisarle
- * lo que escribió si la lista se revalida mientras decide.
+ * Oferta de envío: el repartidor ve la dirección de entrega (en la tarjeta
+ * del pedido, arriba de este formulario) y propone libremente cuánto cobra
+ * por llevarlo — sin ninguna sugerencia automática. El input arranca en
+ * DEFAULT_DELIVERY_FEE (S/ 5) como punto de partida neutral, no como
+ * recomendación: el repartidor lo cambia con dos toques según su propio
+ * criterio (tráfico, hora, cuán conocida es la zona, etc.).
  */
-export function SendOfferForm({
-  orderId,
-  distanceKm = null,
-}: {
-  orderId: string
-  /** Distancia en línea recta negocio → cliente, o `null` si falta ubicación. */
-  distanceKm?: number | null
-}) {
+export function SendOfferForm({ orderId }: { orderId: string }) {
   const inputId = useId()
   const router = useRouter()
-  const [fee, setFee] = useState(() =>
-    String(distanceKm === null ? DEFAULT_DELIVERY_FEE : suggestedDeliveryFee(distanceKm))
-  )
+  const [fee, setFee] = useState(String(DEFAULT_DELIVERY_FEE))
   const [isPending, startTransition] = useTransition()
   const { error, success } = useToast()
 
@@ -61,11 +45,6 @@ export function SendOfferForm({
     <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
       <label htmlFor={inputId} className="text-sm text-muted-foreground">
         Tarifa de envío
-        {distanceKm !== null && (
-          <span className="ml-1 text-muted-foreground/80 tabular-nums">
-            · ≈ {formatDistanceKm(distanceKm)}
-          </span>
-        )}
       </label>
       <div className="relative w-24">
         <span

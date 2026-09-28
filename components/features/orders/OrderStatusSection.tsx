@@ -49,7 +49,10 @@ export function OrderStatusSection({
   if (status === 'DELIVERED') return null
 
   return (
-    <div className="mt-6 rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+    // Sin margen propio: el espaciado lo controla el grid del layout de la
+    // página (Fase 2.1). Asumir que es el primer bloque de la página rompía
+    // el espaciado cuando la página lo reordenaba.
+    <div className="rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
       <OrderStatusTimeline status={status} />
       {/* Cancelable mientras el pago del envío NO esté confirmado (PENDING o
           AWAITING_PAYMENT): dentro de la plataforma todavía no se movió nada de

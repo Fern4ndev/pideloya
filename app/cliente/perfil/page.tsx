@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/server'
 import { ProfileForm } from '@/components/features/profile/ProfileForm'
+import { ClientPageContainer } from '@/components/layout/ClientPageContainer'
 
 export default async function ClienteProfilePage() {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export default async function ClienteProfilePage() {
     .single()
 
   return (
-    <div>
+    <ClientPageContainer size="narrow">
       <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
       <div className="mt-6">
         <ProfileForm
@@ -26,6 +27,6 @@ export default async function ClienteProfilePage() {
           }}
         />
       </div>
-    </div>
+    </ClientPageContainer>
   )
 }

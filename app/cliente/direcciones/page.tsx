@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/db/server'
 import { AddressFormDialog } from '@/components/features/addresses/AddressFormDialog'
 import { AddressCard } from '@/components/features/addresses/AddressCard'
+import { ClientPageContainer } from '@/components/layout/ClientPageContainer'
 import { EmptyState } from '@/components/ui/empty-state'
 import { MapPinIcon } from 'lucide-react'
 
@@ -18,7 +19,7 @@ export default async function AddressesPage() {
   const address = addresses?.[0] ?? null
 
   return (
-    <div>
+    <ClientPageContainer size="narrow">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tu dirección</h1>
@@ -50,6 +51,6 @@ export default async function AddressesPage() {
           action={<AddressFormDialog mode="create" />}
         />
       )}
-    </div>
+    </ClientPageContainer>
   )
 }

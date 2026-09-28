@@ -122,9 +122,10 @@ export const GET = withApi(async (request: Request) => {
     const { data, error } = await client
       .from('orders')
       .select(
-        // latitude/longitude del negocio: el panel del repartidor calcula con
-        // ellas la distancia al cliente para sugerir la tarifa de envío.
-        '*, order_items(*, restaurants(name, address_text, latitude, longitude)), addresses(*), deliveries(*)'
+        // latitude/longitude del restaurante ya NO viajan: el repartidor fija
+        // su propio precio sin ayuda de ningún cálculo de distancia (Fase 1 de
+        // plan-tarifa-libre-repartidor-y-pulido-panel-cliente.md).
+        '*, order_items(*, restaurants(name, address_text)), addresses(*), deliveries(*)'
       )
       .in('status', [
         'PENDING',
