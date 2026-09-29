@@ -1,6 +1,6 @@
 'use client'
 
-import { ZoomInIcon } from 'lucide-react'
+import { EyeIcon, ZoomInIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
@@ -33,7 +33,7 @@ export function PaymentVoucherViewer({
   /** Texto alternativo descriptivo: el comprobante es información, no adorno. */
   alt: string
   thumbnailClassName?: string
-  /** Si se pasa, agrega un botón de texto que abre el mismo diálogo. */
+  /** Si se pasa, agrega un botón con icono de ojo que abre el mismo diálogo. */
   actionLabel?: string
 }) {
   return (
@@ -68,6 +68,7 @@ export function PaymentVoucherViewer({
         <DialogTrigger
           render={<Button type="button" variant="outline" className="h-10 shrink-0 rounded-xl" />}
         >
+          <EyeIcon data-icon="inline-start" />
           {actionLabel}
         </DialogTrigger>
       )}

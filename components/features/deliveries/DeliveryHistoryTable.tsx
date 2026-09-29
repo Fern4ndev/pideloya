@@ -39,6 +39,7 @@ type DeliveryRow = {
     status: OrderStatus
     total: number
     created_at: string
+    notes: string | null
     addresses: { address_text: string } | null
     order_items:
       | {
@@ -81,6 +82,7 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
         status,
         total,
         created_at,
+        notes,
         addresses ( address_text ),
         order_items ( product_name, quantity, restaurant_name )
       )
@@ -112,6 +114,7 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
       deliveredAt: d.delivered_at,
       status: order?.status ?? 'CANCELLED',
       total: order?.total ?? 0,
+      notes: order?.notes ?? null,
       addressText: order?.addresses?.address_text ?? '—',
       restaurantName,
       itemsSummary,
@@ -176,6 +179,7 @@ export async function DeliveryHistoryTable({ page }: { page?: string }) {
                       addressText: row.addressText,
                       status: row.status,
                       total: row.total,
+                      notes: row.notes,
                       acceptedAt: row.acceptedAt,
                       deliveredAt: row.deliveredAt,
                     }}

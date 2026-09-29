@@ -8,18 +8,11 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from 'react'
-import { ImagePlusIcon, Loader2Icon, Trash2Icon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ImagePlusIcon, Loader2Icon, XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { VOUCHER_INPUT_MAX_BYTES } from '@/lib/constants/payment-voucher'
 
 const INPUT_MAX_MB = Math.round(VOUCHER_INPUT_MAX_BYTES / (1024 * 1024))
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 /**
  * Selector del comprobante de pago (voucher de Yape). **Componente
@@ -33,7 +26,7 @@ function formatBytes(bytes: number) {
  * | Estado      | Qué ve el cliente                                              |
  * |-------------|----------------------------------------------------------------|
  * | Vacío       | Recuadro punteado con ícono + "Toca para subir tu comprobante"  |
- * | Con archivo | Miniatura, nombre, peso + botones Cambiar / Quitar              |
+ * | Con archivo | Imagen grande; tocarla cambia la foto, la "X" la quita           |
  * | Ocupado     | Overlay con spinner y la fase real ("Subiendo comprobante…")     |
  * | Error       | Mensaje `role="alert"` PEGADO al control, no un toast           |
  *
@@ -131,53 +124,43 @@ export function PaymentVoucherPicker({
     <div className="space-y-2">
       <div className="relative">
         {file ? (
-          // El archivo y sus acciones se APILAN en móvil, no van en la misma
-          // fila: a 360 px, con la miniatura (64 px) y los dos botones (~175 px)
-          // al lado, al nombre y al peso les quedaban ~100 px y el texto se
-          // partía en cuatro líneas. Apilado, el nombre usa el ancho completo y
-          // las acciones quedan debajo, a un pulgar de distancia.
-          <div className="flex flex-col gap-3 rounded-2xl border border-black/5 bg-white p-3 sm:flex-row sm:items-center dark:border-white/10 dark:bg-white/5">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-                {preview && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={preview}
-                    alt="Vista previa de tu comprobante"
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatBytes(file.size)} · se comprime antes de subirla
-                </p>
-              </div>
-            </div>
-            {/* En móvil no existe `:hover`, así que las acciones están siempre
-                visibles (no aparecen al pasar el mouse). */}
-            <div className="flex shrink-0 gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => inputRef.current?.click()}
-                className="h-10 rounded-xl"
-              >
-                Cambiar
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={busy}
-                onClick={handleRemove}
-                className="h-10 gap-1.5 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <Trash2Icon aria-hidden />
-                Quitar
-              </Button>
-            </div>
+          // Sin nombre de archivo, peso ni botones: la imagen es la única
+          // superficie. Tocarla repite el `click()` del input (cambiar foto) y
+          // la "X" de la esquina superior izquierda la quita. La "X" es HERMANA
+          // del botón, no está dentro: dos botones anidados es HTML inválido y
+          // el foco de teclado se perdería.
+          <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-white dark:border-white/10 dark:bg-white/5">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+              className="block w-full cursor-pointer disabled:cursor-default"
+            >
+              {preview && (
+                // `w-full` + `max-h-72` + `object-contain`: la caja ocupa el
+                // ancho disponible y, si la imagen es más alta (captura
+                // vertical de Yape), se limita a 288 px dibujándola CENTRADA y
+                // sin deformarse. Con `object-cover` una captura vertical se
+                // vería partido por la mitad justo en el importe que el cliente
+                // quiere comprobar.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview}
+                  alt="Vista previa de tu comprobante"
+                  className="max-h-72 w-full bg-muted/40 object-contain"
+                />
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleRemove}
+              aria-label="Quitar comprobante"
+              className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+            >
+              <XIcon className="h-4 w-4" aria-hidden />
+            </button>
           </div>
         ) : (
           <label
@@ -202,10 +185,11 @@ export function PaymentVoucherPicker({
         )}
 
         {busy && (
-          // 90 % de opacidad y no 75 %: el estado de debajo (el recuadro punteado
-          // o la miniatura) se transparentaba lo suficiente como para que los dos
-          // textos se leyeran superpuestos. Sigue viéndose que hay algo detrás
-          // —el contexto se conserva— pero ya no compite con la fase en curso.
+          // 90 % de opacidad y no 75 %: el estado de debajo (el recuadro
+          // punteado con sus dos textos, o la imagen del comprobante) se
+          // transparentaba lo suficiente como para leerse superpuesto con la
+          // fase en curso. Sigue viéndose que hay algo detrás —el contexto se
+          // conserva— pero ya no compite con la fase en curso.
           <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-2xl bg-white/90 text-sm font-medium dark:bg-black/75">
             <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />
             {busyLabel}
@@ -214,10 +198,11 @@ export function PaymentVoucherPicker({
       </div>
 
       {/* El input vive fuera del label a propósito: el mismo control sirve para
-          el recuadro vacío (vía `htmlFor`) y para el botón "Cambiar" (vía
-          `click()`), así que no se puede duplicar. `sr-only` y no `hidden`: un
-          input con `display:none` desaparece del árbol de accesibilidad y la
-          tecnología asistiva pierde la única forma de elegir el archivo. */}
+          el recuadro vacío (vía `htmlFor`) y para la imagen subida (vía
+          `click()` al tocarla), así que no se puede duplicar. `sr-only` y no
+          `hidden`: un input con `display:none` desaparece del árbol de
+          accesibilidad y la tecnología asistiva pierde la única forma de elegir
+          el archivo. */}
       <input
         ref={inputRef}
         id={inputId}

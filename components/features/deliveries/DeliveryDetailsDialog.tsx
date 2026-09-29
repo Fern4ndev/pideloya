@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
-import { CheckIcon, ClockIcon, EyeIcon, MapPinIcon, StoreIcon } from 'lucide-react'
+import { CheckIcon, ClockIcon, EyeIcon, MapPinIcon, StickyNoteIcon, StoreIcon } from 'lucide-react'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
 export type DeliveryDetail = {
@@ -18,6 +18,7 @@ export type DeliveryDetail = {
   restaurantName: string
   items: { productName: string | null; quantity: number }[]
   addressText: string
+  notes: string | null
   status: OrderStatus
   total: number
   acceptedAt: string | null
@@ -83,6 +84,18 @@ export function DeliveryDetailsDialog({ delivery }: { delivery: DeliveryDetail }
             <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <span>{delivery.addressText}</span>
           </div>
+
+          {delivery.notes && (
+            <div className="flex items-start gap-2 rounded-xl bg-muted/50 px-3 py-2.5 text-sm">
+              <StickyNoteIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="mb-0.5 text-xs font-medium text-muted-foreground">
+                  Nota del cliente
+                </p>
+                <p className="break-words">{delivery.notes}</p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2.5">
