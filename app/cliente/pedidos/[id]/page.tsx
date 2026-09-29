@@ -11,6 +11,7 @@ import {
   type DeliveryOffer,
 } from '@/components/features/orders/DeliveryPaymentCard'
 import { PAYMENT_VOUCHER_BUCKET, VOUCHER_SIGNED_URL_TTL_S } from '@/lib/constants/payment-voucher'
+import { cashAmountDue, toPaymentMethod } from '@/lib/constants/payment-method'
 import type { OrderStatus } from '@/lib/constants/order-status'
 import { MapPinIcon, StickyNoteIcon } from 'lucide-react'
 
@@ -41,7 +42,7 @@ export default async function OrderDetailPage({
   const { data: order } = await supabase
     .from('orders')
     .select(
-      `id, status, total, delivery_fee, notes, created_at,
+      `id, status, total, delivery_fee, payment_method, notes, created_at,
        addresses(address_text, reference),
        order_items(quantity, unit_price, product_name, image_url)`
     )
@@ -115,15 +116,47 @@ export default async function OrderDetailPage({
       ? Number(order.delivery_fee)
       : deliveryOffer?.deliveryFee ?? null
 
-  // Layout de dos columnas a partir de `md:` con un solo grid y el resumen
-  // como hijo plano (Fase 3.5): en móvil el orden visual ES el orden del DOM —
-  // Estado → Pago → Resumen → Entrega, con el resumen antes que "Entrega"
-  // porque ahí no hay columna fija donde anclarlo — y en desktop las columnas
-  // los separan por sí solas, sin hacks de order-*. Los wrappers son `h-fit`
-  // para que cada tarjeta mida solo lo suyo dentro de una fila de grid que
-  // estira por defecto.
+  // Método de pago elegido (snapshot de `orders.payment_method`), estrechado a
+  // PaymentMethod: la columna es `text` con un CHECK que la acota, pero
+  // TypeScript no lo sabe. Sin método quedan dos casos legítimos: el pedido
+  // todavía espera la elección (AWAITING_PAYMENT) o es una entrega legacy
+  // aceptada sin oferta, anterior a esta función.
+  const paymentMethod = toPaymentMethod(order.payment_method)
+
+  // Monto que el cliente le ENTREGA en efectivo al recibir (D1: comida +
+  // envío). Solo con CASH: en cualquier otro caso no hay monto que mostrar y la
+  // tarjeta de estados no dibuja ningún recordatorio.
+  const cashAmount =
+    paymentMethod === 'CASH' ? cashAmountDue(Number(order.total), deliveryFee) : null
+
+  // Layout: UNA pila vertical explícita, con el orden del DOM como orden
+  // visual — Resumen → Pago (si falta elegir) → Estados → Entrega — y una sola
+  // columna en todos los anchos.
+  //
+  // Antes había un grid de dos columnas (una principal y una lateral de 22 rem)
+  // con los cuatro hijos planos. Tres defectos estructurales, todos del mismo
+  // origen — la colocación automática del grid depende de CUÁNTOS hijos existan:
+  //
+  //   1. con oferta, la tarjeta de pago caía en la columna angosta y el QR y el
+  //      comprobante se comprimían; sin oferta, caía el resumen;
+  //   2. las filas del grid estiraban la altura de las tarjetas que las
+  //      compartían, dejando huecos dentro de la más corta (la "deformación"
+  //      visible);
+  //   3. el anclaje al hacer scroll sobre wrappers ya estirados, más un `h-fit`
+  //      que pedía lo contrario, se contradecían entre sí;
+  //
+  // En una pila `flex-col` ninguna tarjeta comparte fila con otra, así que no
+  // puede haber estiramiento ni columnas que dependan del estado; y un hijo que
+  // devuelve `null` (OrderStatusSection en DELIVERED) no deja hueco. El orden
+  // del DOM es además el orden que leen los lectores de pantalla y el que sigue
+  // el foco del teclado, cosa que un `order-*` de CSS rompería.
+  //
+  // El contenedor pasa de `wide` (max-w-4xl, pensado para dos columnas) a
+  // `medium` (max-w-2xl ≈ 672 px): en escritorio una sola columna de ~70
+  // caracteres es la medida cómoda de lectura, y sin segunda columna las
+  // tarjetas no tienen por qué estirarse a 900 px.
   return (
-    <ClientPageContainer size="wide">
+    <ClientPageContainer size="medium">
       {/* Dos componentes que no dibujan nada, montados una sola vez para todo
           el pedido (Fase 1 del plan de realtime): uno le pide al servidor que
           vuelva a renderizar cuando hay algo nuevo, y el otro avisa al cliente
@@ -167,52 +200,65 @@ export default async function OrderDetailPage({
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-[1fr_22rem] md:items-stretch md:gap-6">
-        <OrderStatusSection orderId={order.id} status={order.status} />
+      {/* Pila vertical. Cada tarjeta es `w-full min-w-0`: el `min-w-0` es lo
+          que impide que un nombre de producto o una nota larga ensanchen la
+          columna (los hijos de flex/grid tienen `min-width: auto`, que es
+          justo lo que permite ese desborde). */}
+      <div className="mt-6 flex flex-col gap-4">
+        <OrderSummaryCard
+          items={(order.order_items ?? []).map((item) => ({
+            productName: item.product_name,
+            quantity: item.quantity,
+            unitPrice: Number(item.unit_price),
+            imageUrl: item.image_url,
+          }))}
+          subtotal={Number(order.total)}
+          deliveryFee={deliveryFee}
+          paymentMethod={paymentMethod}
+          voucher={
+            voucherUrl ? (
+              <div className="flex items-center gap-3">
+                <PaymentVoucherViewer
+                  url={voucherUrl}
+                  alt="Comprobante de pago por Yape"
+                  actionLabel="Ver"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Comprobante enviado</p>
+                  <p className="text-xs text-muted-foreground">
+                    Es tu constancia del pago del envío por Yape.
+                  </p>
+                </div>
+              </div>
+            ) : undefined
+          }
+        />
 
+        {/* La acción pendiente va pegada al resumen, donde está el monto que
+            el cliente tiene que decidir (`total` viaja para poder mostrar lo
+            que le pagará al repartidor si elige efectivo). */}
         {deliveryOffer && (
-          <DeliveryPaymentCard orderId={order.id} deliveryPerson={deliveryOffer} />
+          <DeliveryPaymentCard
+            orderId={order.id}
+            total={Number(order.total)}
+            deliveryPerson={deliveryOffer}
+          />
         )}
 
-        {/* `md:sticky` + `md:top-20` en el wrapper: al ser hijo directo del
-            grid (estirado por items-stretch) tiene el alto de toda la columna
-            y el sticky tiene recorrido de sobra. `md:top-20` deja aire respecto
-            al header sticky (no queda pegado al borde). En móvil es un bloque
-            más del flujo, sin anclar. */}
-        <div className="h-fit md:sticky md:top-20">
-          <OrderSummaryCard
-            items={(order.order_items ?? []).map((item) => ({
-              productName: item.product_name,
-              quantity: item.quantity,
-              unitPrice: Number(item.unit_price),
-              imageUrl: item.image_url,
-            }))}
-            subtotal={Number(order.total)}
-            deliveryFee={deliveryFee}
-            voucher={
-              voucherUrl ? (
-                <div className="flex items-center gap-3">
-                  <PaymentVoucherViewer
-                    url={voucherUrl}
-                    alt="Comprobante de pago por Yape"
-                    actionLabel="Ver"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Comprobante enviado</p>
-                    <p className="text-xs text-muted-foreground">
-                      Es tu constancia del pago del envío por Yape.
-                    </p>
-                  </div>
-                </div>
-              ) : undefined
-            }
-          />
-        </div>
+        {/* Los estados van DEBAJO del resumen y de la acción: responden "¿cómo
+            va?", que es la segunda pregunta, no la primera. El recordatorio del
+            efectivo vive dentro de esta tarjeta (Fase 5.3) en vez de una nueva. */}
+        <OrderStatusSection
+          orderId={order.id}
+          status={order.status}
+          paymentMethod={paymentMethod}
+          cashAmount={cashAmount}
+        />
 
         {/* Tarjeta "Entrega" (Fase 3.4): una sola tarjeta secundaria con
             dirección y notas — antes eran dos tarjetas casi idénticas. */}
         {(order.addresses || order.notes) && (
-          <div className="h-fit rounded-3xl border border-black/5 bg-white/50 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="w-full min-w-0 rounded-3xl border border-black/5 bg-white/50 p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <h2 className="text-sm font-medium text-muted-foreground">Entrega</h2>
             <div className="mt-3 space-y-3">
               {order.addresses && (
@@ -221,7 +267,9 @@ export default async function OrderDetailPage({
                     <MapPinIcon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm">{order.addresses.address_text}</p>
+                    <p className="break-words text-sm [overflow-wrap:anywhere]">
+                      {order.addresses.address_text}
+                    </p>
                     {order.addresses.reference && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {order.addresses.reference}
@@ -235,7 +283,9 @@ export default async function OrderDetailPage({
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600">
                     <StickyNoteIcon className="h-4 w-4" />
                   </span>
-                  <p className="min-w-0 text-sm text-muted-foreground">{order.notes}</p>
+                  <p className="min-w-0 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                    {order.notes}
+                  </p>
                 </div>
               )}
             </div>

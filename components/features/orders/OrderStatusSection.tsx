@@ -3,6 +3,7 @@
 import { OrderStatusTimeline } from './OrderStatusTimeline'
 import { CancelOrderButton } from './CancelOrderButton'
 import type { OrderStatus } from '@/lib/constants/order-status'
+import type { PaymentMethod } from '@/lib/constants/payment-method'
 
 /**
  * Estado del pedido: puro render de la prop `status`, sin estado propio.
@@ -25,9 +26,15 @@ import type { OrderStatus } from '@/lib/constants/order-status'
 export function OrderStatusSection({
   orderId,
   status,
+  paymentMethod = null,
+  cashAmount = null,
 }: {
   orderId: string
   status: OrderStatus
+  /** Método elegido por el cliente; solo CASH agrega el recordatorio de abajo. */
+  paymentMethod?: PaymentMethod | null
+  /** Monto a entregar en efectivo al recibir (comida + envío, D1). */
+  cashAmount?: number | null
 }) {
   // Entregado: la card de estados ya no aporta nada — el pedido terminó su
   // ciclo. Se oculta completa (wrapper incluido) para que el resto del detalle
@@ -42,11 +49,32 @@ export function OrderStatusSection({
     // el espaciado cuando la página lo reordenaba.
     <div className="rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
       <OrderStatusTimeline status={status} />
-      {/* Cancelable mientras el pago del envío NO esté confirmado (PENDING o
-          AWAITING_PAYMENT): dentro de la plataforma todavía no se movió nada de
-          manos — el envío se paga por Yape, fuera de la app, y aún no se
-          confirmó. Mismo criterio que la policy
-          orders_update_own_customer_cancel, que es la que decide de verdad. */}
+      {/* Recordatorio del efectivo (Fase 5.3 del plan del método de pago):
+          mientras el pedido avanza el cliente ya no puede cambiar nada, pero
+          TODAVÍA tiene que preparar la plata, y esta es la única pantalla que
+          va a volver a mirar. Va dentro de esta tarjeta y no en una nueva:
+          es una nota sobre el estado del pedido, no una acción que competir
+          con el timeline.
+
+          No hace falta condicionar por estado: `payment_method = 'CASH'` solo
+          existe a partir de ASSIGNED (antes, el pedido está esperando que el
+          cliente elija), y en DELIVERED la sección entera devuelve null. */}
+      {paymentMethod === 'CASH' && cashAmount !== null && (
+        <p className="mt-4 rounded-2xl bg-amber-100/60 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/15 dark:text-amber-100">
+          Recuerda: pagas{' '}
+          <span className="font-semibold tabular-nums">S/ {cashAmount.toFixed(2)} en efectivo</span>{' '}
+          cuando te entregue el pedido.
+        </p>
+      )}
+      {/* Cancelable mientras el cliente NO haya cerrado su elección de pago
+          (PENDING o AWAITING_PAYMENT): en ese punto todavía no se movió nada de
+          manos — sin método elegido no hay repartidor en camino ni voucher
+          subido que borrar, y ninguna de las dos partes arriesgó nada. Desde la
+          Fase 1 del plan del método de pago, "pago confirmado" incluye al
+          efectivo (donde el dinero recién se cobra al entregar): el corte lo
+          sigue marcando `payment_confirmed_at`, que solo se escribe al elegir.
+          Mismo criterio que la policy orders_update_own_customer_cancel, que es
+          la que decide de verdad. */}
       {(status === 'PENDING' || status === 'AWAITING_PAYMENT') && (
         <div className="mt-6">
           <CancelOrderButton orderId={orderId} />

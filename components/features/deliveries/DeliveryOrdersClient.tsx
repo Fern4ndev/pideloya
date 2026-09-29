@@ -2,7 +2,7 @@
 
 import useSWR from 'swr'
 import Link from 'next/link'
-import { PaperclipIcon } from 'lucide-react'
+import { BanknoteIcon, PaperclipIcon } from 'lucide-react'
 import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
@@ -10,6 +10,7 @@ import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrde
 import { RetractOfferButton } from '@/components/features/deliveries/RetractOfferButton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
+import { cashAmountDue, toPaymentMethod } from '@/lib/constants/payment-method'
 import type { ApiOrder } from '@/types/order'
 
 async function fetchDeliveryOrders(url: string): Promise<{ success: true; data: ApiOrder[] }> {
@@ -76,6 +77,11 @@ export function DeliveryOrdersClient() {
             // de la tarjeta, con el monto que está cobrando a la vista.
             const waitingPayment = order.status === 'AWAITING_PAYMENT'
             const fee = order.deliveries?.delivery_fee ?? null
+            // El método llega con el `deliveries(*)` que ya traía esta consulta;
+            // `toPaymentMethod` lo estrecha a YAPE | CASH | null para que un
+            // valor inesperado caiga en el estado neutro en vez de romper el pie.
+            const paymentMethod = toPaymentMethod(order.deliveries?.payment_method)
+            const cashDue = cashAmountDue(Number(order.total), fee)
 
             return (
               <DeliveryOrderCard
@@ -93,6 +99,8 @@ export function DeliveryOrdersClient() {
                     <AdvanceStatusButton
                       orderId={order.id}
                       currentStatus={order.status}
+                      paymentMethod={paymentMethod}
+                      cashAmount={cashDue}
                     />
                   )
                 }
@@ -101,11 +109,20 @@ export function DeliveryOrdersClient() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
                         {fee !== null
-                          ? `Tu envío: S/ ${fee.toFixed(2)} · esperando que el cliente confirme el pago.`
-                          : 'Esperando que el cliente confirme el pago del envío.'}
+                          ? `Tu envío: S/ ${fee.toFixed(2)} · esperando que el cliente elija cómo pagar.`
+                          : 'Esperando que el cliente elija cómo pagar el envío.'}
                       </p>
                       <RetractOfferButton orderId={order.id} deliveryFee={fee} />
                     </div>
+                  ) : paymentMethod === 'CASH' ? (
+                    // El dato ACCIONABLE del pedido en efectivo: cuánto tiene que
+                    // cobrar en la puerta (comida + envío, D1). Va como chip de
+                    // texto y no solo color, y con ícono para que se distinga de
+                    // un estado de un vistazo en la lista.
+                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-100">
+                      <BanknoteIcon className="h-3.5 w-3.5" aria-hidden />
+                      Cobrar S/ {cashDue.toFixed(2)} en efectivo al entregar
+                    </span>
                   ) : order.deliveries?.payment_voucher_path ? (
                     // Indicador, no la imagen: cargar la miniatura en la lista
                     // exigiría firmar una URL por fila (y una petición de

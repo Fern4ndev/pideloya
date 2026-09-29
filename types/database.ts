@@ -128,6 +128,7 @@ export type Database = {
       deliveries: {
         Row: {
           accepted_at: string | null
+          cash_collected_at: string | null
           created_at: string
           delivered_at: string | null
           delivery_fee: number | null
@@ -136,11 +137,13 @@ export type Database = {
           offered_at: string | null
           order_id: string
           payment_confirmed_at: string | null
+          payment_method: string | null
           payment_voucher_path: string | null
           picked_up_at: string | null
         }
         Insert: {
           accepted_at?: string | null
+          cash_collected_at?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_fee?: number | null
@@ -149,11 +152,13 @@ export type Database = {
           offered_at?: string | null
           order_id: string
           payment_confirmed_at?: string | null
+          payment_method?: string | null
           payment_voucher_path?: string | null
           picked_up_at?: string | null
         }
         Update: {
           accepted_at?: string | null
+          cash_collected_at?: string | null
           created_at?: string
           delivered_at?: string | null
           delivery_fee?: number | null
@@ -162,6 +167,7 @@ export type Database = {
           offered_at?: string | null
           order_id?: string
           payment_confirmed_at?: string | null
+          payment_method?: string | null
           payment_voucher_path?: string | null
           picked_up_at?: string | null
         }
@@ -253,6 +259,7 @@ export type Database = {
           delivery_fee: number | null
           id: string
           notes: string | null
+          payment_method: string | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at: string
@@ -266,6 +273,7 @@ export type Database = {
           delivery_fee?: number | null
           id?: string
           notes?: string | null
+          payment_method?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at?: string
@@ -279,6 +287,7 @@ export type Database = {
           delivery_fee?: number | null
           id?: string
           notes?: string | null
+          payment_method?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           updated_at?: string
@@ -550,6 +559,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_delivery: {
+        Args: { p_order_id: string; p_cash_collected?: boolean }
+        Returns: undefined
+      }
       confirm_delivery_payment: {
         Args: { p_order_id: string; p_voucher_path: string }
         Returns: undefined
@@ -582,6 +595,10 @@ export type Database = {
       pending_order_address_ids: { Args: never; Returns: string[] }
       retract_delivery_offer: {
         Args: { p_order_id: string }
+        Returns: undefined
+      }
+      select_delivery_payment: {
+        Args: { p_order_id: string; p_method: string; p_voucher_path?: string }
         Returns: undefined
       }
     }

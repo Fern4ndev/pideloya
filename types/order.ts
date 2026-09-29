@@ -1,3 +1,5 @@
+import type { PaymentMethod } from '@/lib/constants/payment-method'
+
 export type OrderStatus =
   | "PENDING"
   | "AWAITING_PAYMENT"
@@ -33,6 +35,10 @@ export interface ApiOrder {
   /** Snapshot del envío cobrado por el repartidor. NULL hasta que el cliente
    * confirma el pago (nunca se suma a `total`: son ingresos de otro dueño). */
   delivery_fee: number | null
+  /** Cómo paga el cliente el pedido. YAPE = pagó por adelantado con comprobante;
+   * CASH = le paga al repartidor TODO el pedido (comida + envío) al recibirlo.
+   * NULL mientras no eligió y en los pedidos legacy aceptados sin oferta. */
+  payment_method: PaymentMethod | null
   created_at: string
   order_items?: ApiOrderItem[] | null
   addresses?: {
@@ -48,6 +54,12 @@ export interface ApiOrder {
      * pago. NULL mientras no haya confirmado (y en los pagos anteriores a esta
      * función). Basta con saber si EXISTE: la lista no carga la imagen, solo
      * avisa que hay algo que ver en el detalle. */
+    /** Cómo paga el cliente el envío de ESTE pedido (mismo valor que el
+     * snapshot de `orders`). NULL en las entregas legacy sin oferta. */
+    payment_method?: PaymentMethod | null
+    /** Cuándo el repartidor confirmó el cobro en efectivo al entregar. Solo
+     * con CASH: es su constancia de que el cliente le pagó. */
+    cash_collected_at?: string | null
     payment_voucher_path?: string | null
   } | null
 }

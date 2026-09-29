@@ -120,6 +120,20 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /*
+   * Foco no oscurecido por el header fijo (ui-ux-pro-max: "Focus Not
+   * Obscured", severidad alta). `CustomerHeader` (sticky, 61 px) y
+   * `PublicHeader` (fixed, 73 px) viven pegados al borde superior: sin esto, al
+   * tabular hacia un control cercano al borde, el navegador lo desplaza a la
+   * posición 0 del documento y el elemento enfocado queda DETRÁS del header —
+   * el foco parece desaparecer justo cuando el usuario lo está siguiendo. 5 rem
+   * (80 px) cubre el header más alto con aire. Va en `html` porque es ese el
+   * contenedor que scrollea el documento.
+   */
+  html {
+    scroll-padding-top: 5rem;
+  }
+
   /* Checklist UX: los controles activos muestran mano (los disabled no) */
   button:not(:disabled),
   [role='button']:not(:disabled) {

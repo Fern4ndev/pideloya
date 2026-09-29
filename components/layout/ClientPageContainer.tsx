@@ -3,7 +3,16 @@ import { cn } from '@/lib/utils'
 const MAX_WIDTHS = {
   /** Formularios y detalle enfocado en una sola columna (perfil, dirección). */
   narrow: 'max-w-lg',
-  /** Contenido con posible layout de 2 columnas en desktop (detalle de pedido). */
+  /**
+   * Una sola columna de tarjetas en cualquier ancho (detalle de pedido desde
+   * la Fase 3 del plan del método de pago).
+   *
+   * ≈672 px: dentro de la medida cómoda de lectura (~65-75 caracteres, la regla
+   * de "line length" de ui-ux-pro-max) y sin las tarjetas estiradas a 900 px
+   * que dejaba el tamaño `wide` cuando solo había una columna de contenido.
+   */
+  medium: 'max-w-2xl',
+  /** Contenido con posible layout de 2 columnas en desktop. */
   wide: 'max-w-4xl',
 } as const
 

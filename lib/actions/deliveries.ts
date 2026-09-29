@@ -164,15 +164,19 @@ export async function retractDeliveryOffer(orderId: string) {
 const NEXT_STATUS: Partial<
   Record<
     OrderStatus,
-    { next: OrderStatus; timestampField: 'accepted_at' | 'picked_up_at' | 'delivered_at' | null }
+    { next: OrderStatus; timestampField: 'accepted_at' | 'picked_up_at' | null }
   >
 > = {
   ASSIGNED: { next: 'PICKED_UP', timestampField: 'picked_up_at' },
   PICKED_UP: { next: 'ON_THE_WAY', timestampField: null },
-  ON_THE_WAY: { next: 'DELIVERED', timestampField: 'delivered_at' },
+  // ON_THE_WAY no escribe `delivered_at` desde este mapa: ese paso lo ejecuta
+  // complete_delivery() (migración 20261001100200), que marca la entrega Y
+  // registra el cobro en efectivo en la MISMA transacción. Ver la delegación
+  // en advanceOrderStatus.
+  ON_THE_WAY: { next: 'DELIVERED', timestampField: null },
   // Desde AWAITING_PAYMENT el pedido NO lo avanza el repartidor: lo desbloquea
-  // el cliente al confirmar su pago por Yape (confirm_delivery_payment, RPC en
-  // la migración 20260928100200). El repartidor solo puede retirar su oferta.
+  // el cliente al ELEGIR cómo paga el envío (select_delivery_payment, migración
+  // 20261001100100). El repartidor solo puede retirar su oferta.
   // Se mapea a sí mismo (como DELIVERED/CANCELLED) para que la guarda de abajo
   // lo corte en runtime, en vez de permitir un salto a ASSIGNED sin pago
   // confirmado.
@@ -185,8 +189,17 @@ const NEXT_STATUS: Partial<
  * Avanza el pedido un paso en el flujo de entrega. Solo permite avanzar
  * en el orden correcto (no se puede "saltar" de ASSIGNED a DELIVERED) —
  * esto es la parte que RLS por sí sola no valida, así que se hace aquí.
+ *
+ * `opts.cashCollected` solo aplica al último paso y solo tiene efecto en un
+ * pedido pagado en EFECTIVO: complete_delivery() rechaza la entrega si el
+ * método es CASH y el repartidor no confirma que cobró (D6). Para Yape y para
+ * las entregas legacy se ignora.
  */
-export async function advanceOrderStatus(orderId: string, currentStatus: OrderStatus) {
+export async function advanceOrderStatus(
+  orderId: string,
+  currentStatus: OrderStatus,
+  opts?: { cashCollected?: boolean }
+) {
   const supabase = await createClient()
   const profileId = await getMyProfileId(supabase)
 
@@ -197,6 +210,32 @@ export async function advanceOrderStatus(orderId: string, currentStatus: OrderSt
   // criterio que la ruta PUT /api/v1/deliveries/[orderId]/advance.
   if (!transition || transition.next === currentStatus) {
     throw new Error('Este pedido no puede avanzar de estado')
+  }
+
+  // Último paso (ON_THE_WAY -> DELIVERED): lo hace la función SQL, no un UPDATE
+  // suelto desde acá.
+  //
+  // Antes eran DOS updates independientes (orders.status y
+  // deliveries.delivered_at) y el segundo podía fallar en silencio. Con pago en
+  // efectivo eso deja de ser cosmético: hay que registrar el COBRO junto con la
+  // entrega, y "entregado sin constancia de cobro" es justo el estado que
+  // produce el "no me pagaron" de ambos lados.
+  //
+  // complete_delivery() comprueba por sí sola que el pedido sea de este
+  // repartidor (42501 si no lo es) y exige el flag cuando el método es CASH. La
+  // guarda real vive ahí, no en el diálogo de la UI (Fase 6): la UI solo
+  // pregunta; la base es la que no deja pasar.
+  if (currentStatus === 'ON_THE_WAY') {
+    const { error } = await supabase.rpc('complete_delivery', {
+      p_order_id: orderId,
+      p_cash_collected: opts?.cashCollected === true,
+    })
+    if (error) throw new Error(error.message)
+
+    revalidatePath('/repartidor/pedidos')
+    revalidatePath('/cliente/pedidos')
+    revalidatePath(`/cliente/pedidos/${orderId}`)
+    return { success: true }
   }
 
   // RLS "orders_update_delivery_assigned" ya garantiza que solo puede
@@ -212,12 +251,6 @@ export async function advanceOrderStatus(orderId: string, currentStatus: OrderSt
     await supabase
       .from('deliveries')
       .update({ picked_up_at: new Date().toISOString() })
-      .eq('order_id', orderId)
-      .eq('delivery_person_id', profileId)
-  } else if (transition.timestampField === 'delivered_at') {
-    await supabase
-      .from('deliveries')
-      .update({ delivered_at: new Date().toISOString() })
       .eq('order_id', orderId)
       .eq('delivery_person_id', profileId)
   } else if (transition.timestampField === 'accepted_at') {

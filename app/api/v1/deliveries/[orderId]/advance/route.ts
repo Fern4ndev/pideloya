@@ -1,5 +1,5 @@
-import { successResponse, errorResponse, withApi } from '@/lib/api/response'
-import { authenticateRequest, adminClient, NotFoundError } from '@/lib/api/auth'
+import { successResponse, errorResponse, rpcErrorResponse, withApi } from '@/lib/api/response'
+import { authenticateRequest, adminClient, userClient, NotFoundError } from '@/lib/api/auth'
 import type { OrderStatus } from '@/types/order'
 
 export const dynamic = 'force-dynamic'
@@ -13,10 +13,14 @@ const NEXT_STATUS: Partial<
 > = {
   ASSIGNED: { next: 'PICKED_UP', stamp: 'picked_up_at' },
   PICKED_UP: { next: 'ON_THE_WAY' },
+  // El `stamp` de ON_THE_WAY solo lo usa el override del ADMIN: el camino del
+  // repartidor delega en complete_delivery() (que marca la entrega Y registra
+  // el cobro en efectivo en una sola transacción) y retorna antes de llegar al
+  // UPDATE de abajo.
   ON_THE_WAY: { next: 'DELIVERED', stamp: 'delivered_at' },
   // Ni PENDING ni AWAITING_PAYMENT se avanzan desde acá: el salto a ASSIGNED
-  // solo lo produce la confirmación del pago del envío (RPC
-  // confirm_delivery_payment). AWAITING_PAYMENT queda en self-map para que la
+  // solo lo produce la elección del método de pago (RPC
+  // select_delivery_payment). AWAITING_PAYMENT queda en self-map para que la
   // guarda responda 400 "no puede avanzar"; PENDING salió del mapa porque un
   // PENDING no tiene repartidor — era el bypass por el que el admin podía
   // crear un ASSIGNED sin entrega ni tarifa (Hallazgo 1 de la Fase 8).
@@ -56,6 +60,20 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       .maybeSingle()
     if (!delivery) {
       return errorResponse('No tienes este pedido asignado', 403)
+    }
+
+    // Último paso por el camino del repartidor: complete_delivery(), atómica y
+    // con la guarda del cobro en efectivo (D6: no se puede marcar entregado un
+    // pedido CASH sin declarar que se cobró). El camino del ADMIN sigue más
+    // abajo sin exigirla: es un override de soporte explícito.
+    if (order.status === 'ON_THE_WAY') {
+      const body = await request.json().catch(() => ({}))
+      const { error } = await userClient(request).rpc('complete_delivery', {
+        p_order_id: orderId,
+        p_cash_collected: body?.cash_collected === true,
+      })
+      if (error) return rpcErrorResponse(error)
+      return successResponse({ status: 'DELIVERED' })
     }
   }
 

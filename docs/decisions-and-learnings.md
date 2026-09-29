@@ -356,3 +356,160 @@ La Fase 6 del plan pide limpiar el comprobante también "en el job de expiració
 - **Purga por antigüedad de comprobantes (6.3):** falta definir el plazo con el asesor legal.
 - **Corrección recomendada del job de expiración** (que `expire_stale_delivery_offers` devuelva los ids liberados para que el job limpie los comprobantes huérfanos): documentada arriba como decisión de despliegue, fuera del alcance de la app.
 
+---
+
+## 2026-09-29 — Método de pago del envío (efectivo o Yape) y reorden del detalle del pedido
+
+Plan: `docs/plans/plan-metodo-pago-efectivo-o-yape-y-reorden-detalle-pedido.md`. Es un cambio de flujo, no solo de UI: el cliente puede pagar el envío **por Yape por adelantado o en EFECTIVO al recibir**, y el repartidor tiene que verlo antes de salir.
+
+### Decisiones D1–D8 (el plan las dejaba abiertas)
+
+- **D1 — el efectivo cubre el ENVÍO + LA COMIDA** (decisión del producto). El cliente le entrega al repartidor `orders.total` + `deliveries.delivery_fee` al recibir el pedido. **No se agregó ninguna columna de monto a cobrar**: los dos montos ya existían como snapshots del pedido y el efectivo se deriva con `cashAmountDue()` (`lib/constants/payment-method.ts`). Un dato derivado no se puede desincronizar; una columna nueva sí (bastaba con que una edición futura del pedido la olvidara). El copy dice siempre "comida + envío" en vez de un "total" ambiguo: para quien paga en la puerta, la diferencia entre S/ 12.50 y S/ 20.00 es la diferencia entre lo que tiene en el bolsillo y lo que no.
+- **D2 — sin preselección.** Los dos radios arrancan vacíos; el CTA del panel no se puede confirmar sin elegir (`paymentMethodSchema` rechaza `undefined`). Preseleccionar Yape le habría hecho confirmar "por Yape" a quien quería efectivo con un solo toque, que es exactamente el error que este flujo no puede permitirse (mueve dinero).
+- **D3 — la elección es definitiva y el aviso va ANTES del clic.** El aviso de irrevocabilidad (`PAYMENT_METHOD_LOCK_NOTICE`) se muestra dentro del panel, no en un diálogo de confirmación posterior: quien ya decidió no necesita un paso extra, y quien no, tiene que enterarse antes de apretar. La razón de que sea definitiva es que al confirmar el pedido sale de `AWAITING_PAYMENT` y arranca el repartidor — no hay camino de vuelta en la aplicación.
+- **D4 — `text` + `CHECK`, no un `enum`.** Es el mismo problema que ya se sufrió con `AWAITING_PAYMENT` (`20260928100000`): un valor nuevo de un enum no se puede usar en la misma transacción que lo agrega. El dominio va a crecer (Plin, tarjeta), así que la columna es `text` con `deliveries_payment_method_check`/`orders_payment_method_check` en `('YAPE','CASH')`, y su espejo en TypeScript es `PAYMENT_METHODS`.
+- **D5 — `payment_confirmed_at` cambia de SIGNIFICADO, no de columna:** de "el cliente pagó por Yape" a **"el cliente cerró su elección"**. Se hizo con un `comment on column` en la migración (el invariante queda en la base, junto al dato) y con un backfill `payment_method='YAPE'` donde ya estaba puesto, ANTES de crear los CHECK: la única elección que podía existir hasta hoy era Yape. Sin ese orden, el CHECK habría rechazado las filas históricas.
+- **D6 — el cobro en efectivo lo confirma el repartidor al entregar** (`deliveries.cash_collected_at`). La UX es un `ConfirmDialog` con el monto a la vista; la garantía es `complete_delivery()`, que rechaza (22000) la entrega de un pedido CASH sin el flag `p_cash_collected`. El diálogo solo pregunta; la base es la que no deja pasar.
+- **D7 — orden del detalle del cliente: Resumen → Pago (solo en `AWAITING_PAYMENT`) → Estados → Entrega.** Antes el pago era una columna lateral "sticky" y el cliente tenía que buscarlo; ahora la acción pendiente es el segundo bloque del documento, en la posición donde termina el resumen que la justifica.
+- **D8 — etiquetas "Pagar al recibir" y "Pagar ahora"**. Describen el CUÁNDO (que es lo que el cliente decide) en vez del medio (`PAYMENT_METHOD_COPY`); el subtítulo agrega el cómo. El chip del resumen usa la forma corta ("Efectivo al recibir"/"Yape").
+
+### Lección: un grid plano con hijos condicionales coloca las tarjetas según el estado del contenido
+
+El detalle del cliente era `md:grid-cols-[1fr_22rem] md:items-stretch` con las tarjetas como celdas. En un grid **plano**, la posición de cada hijo la decide su ÍNDICE, no su significado: como la tarjeta de pago se renderiza solo en `AWAITING_PAYMENT`, al elegir método desaparecía una celda y las siguientes se corrían (Estados pasaba a la columna lateral), además de que `items-stretch` estiraba la tarjeta de la izquierda para igualar el alto de la derecha. **La solución no fue reordenar celdas sino dejar de usar grid: una pila vertical (`flex flex-col gap-4`)**, donde el orden del DOM ES el orden visual en todos los anchos y en todos los estados, y cada bloque mide lo que mide su contenido. Regla general: si el conjunto de hijos depende del estado, un grid de posición fija miente; una pila no.
+
+### Fase 1 — Base de datos (tres migraciones, aplicadas y verificadas)
+
+- `20261001100000_delivery_payment_method.sql`: columnas `deliveries.payment_method`, `deliveries.cash_collected_at`, `orders.payment_method`; backfill de Yape; cuatro invariantes: método válido en las dos tablas, `payment_voucher_path` solo con YAPE, y `cash_collected_at` solo con CASH. Las dos últimas **cruzan columnas del mismo registro** y son las que hacen imposible el estado mixto ("cobrado en efectivo con comprobante adjunto").
+- `20261001100100_select_delivery_payment.sql`: `select_delivery_payment(uuid, text, text)` — la ruta del comprobante pasó a ser un PARÁMETRO, para que el servidor la derive (canónica, `order_id/voucher.jpg`) en vez de aceptarla del cliente. En la MISMA migración, `confirm_delivery_payment(uuid, text)` se convierte en un envoltorio `language sql` de una línea que delega con `'YAPE'`: la app ya desplegada llamaba a esa firma y con el CHECK nuevo habría fallado en producción entre el `db push` y el despliegue del código.
+- `20261001100200_complete_delivery.sql`: `complete_delivery(uuid, boolean default false)` — `delivered_at` + `cash_collected_at` + `status='DELIVERED'` en UNA transacción. Antes eran dos updates independientes y el segundo podía fallar en silencio; con efectivo de por medio, "entregado sin constancia de cobro" deja de ser cosmético y pasa a ser el "no me pagaron" de ambos lados.
+- **Verificación contra la base real: 24/24** (`scripts/verify-delivery-payment-phase1.mjs`), por RPC: backfill, las cuatro CHECK (23514), los `errcode` de siempre (42501 ajeno/anon, P0002 inexistente, 23505 doble confirmación, 22000 sin comprobante), el envoltorio que deja YAPE, y las tres ramas de `complete_delivery`.
+
+### Fase 2 — Backend
+
+- `confirmDeliveryPayment(orderId, method)` (Server Action) y `PUT /api/v1/orders/[id]` con `action:'confirm_payment'` aceptando `{ method }`, **con default YAPE si el cuerpo no lo trae**: la suite y los clientes ya desplegados llamaban sin cuerpo, y el default los mantiene funcionando mientras el flujo nuevo llega.
+- **Se redirigió también `action:'advance'` de la API al `complete_delivery`**: era el otro camino por el que se podía entregar un pedido CASH sin cobrar. El endurecimiento no sirve si queda una puerta abierta al lado.
+- El **override de ADMIN** no exige el flag de cobro: el admin es quien resuelve el caso raro ("el repartidor cobró pero su teléfono se quedó sin batería"), no un repartidor en general.
+- **Verificación: 44/44** de la suite E2E existente (la regresión más importante: el flujo por Yape tenía que seguir intacto) y **12/12** de una capa nueva de API (`scripts/verify-payment-api-phase2.mjs`).
+
+### Fase 3 — Layout del detalle del cliente
+
+Pila vertical (ver la lección del grid), `ClientPageContainer` con un tamaño nuevo `medium` (`max-w-2xl`) en vez de `wide`, y el resumen de productos colapsado en un `<details>` nativo **cerrado** cuando hay más de 3: con el pago arriba, una lista larga empujaría la acción pendiente fuera de la primera pantalla en un móvil. El desglose de costos queda siempre visible.
+
+### Fases 4 y 5 — UI del cliente y copy
+
+- `PaymentMethodChoice` (radios nativos `sr-only` + `peer-checked`), `CashPaymentPanel`, `YapePaymentPanel` (extraído del card anterior) y `DeliveryPaymentCard` como orquestador. **El archivo del comprobante vive en el padre**, no en el panel de Yape: alternar métodos y volver tiene que encontrarlo tal como se dejó.
+- `YapePaymentPanel` entra con `next/dynamic` (`ssr:false`) y esqueleto: el compresor de imágenes y el panel de Yape no viajan en la carga inicial del detalle (verificado en `page_client-reference-manifest` de `.next`, no en el HTML servido).
+- El chip del método y la nota del resumen dependen del método: el texto "El envío se paga directo a tu repartidor por Yape." dejó de ser universal y mostrárselo a quien eligió efectivo es una afirmación falsa sobre su dinero. Con `payment_method` nulo (pedidos legacy) no se muestra ni chip ni nota.
+
+### Fase 6 — Repartidor
+
+- Lista "Mis entregas": chip ámbar **"Cobrar S/ X en efectivo al entregar"** con el monto derivado, y el copy de `AWAITING_PAYMENT` pasa a "esperando que el cliente **elija cómo pagar**" (ya no "confirme el pago": ahora hay dos formas de pagar y una no tiene comprobante que confirmar).
+- Detalle: bloque **"Cobro en efectivo"** con el monto grande, la instrucción "Cobra al entregar: comida + envío" y, después de entregar, "Cobrado el {fecha}" — el mismo lugar y el mismo dato en dos momentos. El bloque del comprobante sigue apareciendo solo si hay `payment_voucher_path`.
+- `AdvanceStatusButton` recibe el método: con `ON_THE_WAY` + CASH el botón abre el `ConfirmDialog` en vez de ejecutar (ver D6). Para Yape y legacy nada cambia, sin paso extra.
+- **El desglose "cobrado por Yape / en efectivo" del dashboard (6.4, opcional en el plan) NO se hizo:** los buckets de los gráficos salen de `aggregateOrders()`, compartido con `/admin` y `/restaurante`, y agregarle una serie por método habría cambiado una primitiva común para una mejora que el propio plan marca como no bloqueante. Queda como candidato, con el select de `deliveries` ya listo para agregarle `payment_method`.
+
+### Fase 7 — Ciclo de vida, limpieza y privacidad
+
+- **CASH no genera ningún archivo**, así que `removeUnconfirmedVoucher` es un no-op en esa rama (y no por casualidad: el efectivo no tiene comprobante que subir). Los tres caminos que devuelven el pedido al pool (cancelar, retirar, expirar) siguen exigiendo `payment_confirmed_at is null`, y elegir método lo escribe: retirarse DESPUÉS de que el cliente eligió no es posible para el repartidor.
+- **La anonimización no cambia:** `payment_method` y `cash_collected_at` son datos de la TRANSACCIÓN, no PII, y se conservan igual que el monto y las fechas; los comprobantes se siguen borrando como antes. La limpieza por `removePaymentVouchers` de un pedido CASH intenta borrar una ruta que no existe, y eso no es un error (Storage responde OK).
+- **Política de Privacidad:** se agregó el método de pago elegido al punto 2 ("Historial de pedidos… y el método de pago elegido para el envío (Yape o efectivo)") y se actualizó `UPDATED_AT` a la fecha del release, que es a lo que la propia sección 10 se compromete.
+
+### Fase 8 — Accesibilidad, measurement contra los tokens, no estimación
+
+- **Contraste medido**, no estimado: los valores salieron de `node_modules/tailwindcss/theme.css` y `app/globals.css` (oklch), se convirtieron a sRGB con las matrices de CSS Color 4 y se compusieron en sRGB — que es como compone el navegador un `background-color` con alfa. Nada de "a ojo".
+
+  | Qué | Medición | Mínimo |
+  |---|---|---|
+  | chip "Efectivo al recibir" (amber-900 / amber-100) | 8.17:1 | 4.5 |
+  | recordatorio CASH (amber-900 / amber-100 al 60%) | 8.52:1 | 4.5 |
+  | bloque "Cobro en efectivo" (amber-900 / amber-50) | 8.77:1 | 4.5 |
+  | monto `text-2xl` (amber-900 / amber-50) | 8.77:1 | 3 |
+  | chip en oscuro (amber-100 / amber-500 al 15%) | 12.35 a 14.24:1 | 4.5 |
+  | texto `foreground` sobre la opción elegida (amber-100 al 60%) | 18.55:1 | 4.5 |
+
+- **Dos fallos REALES encontrados y corregidos (los aporta la medición, no la inspección):**
+  1. **El borde del bloque "Cobro en efectivo" no se veía.** Con `amber-300` medía **1.45:1** sobre el blanco de la página, y el fondo del bloque (`amber-50`) mide **1.04:1**: el borde era *lo único* que delimitaba el bloque, así que el dato que el repartidor tiene que leer en la puerta quedaba sin contorno. Ahora `amber-600` (**3.08:1** sobre su propio fondo) y `amber-500/60` en oscuro (**3.74:1**).
+  2. **El círculo vacío de los radios era casi invisible.** `black/25` medía **1.83:1** y `white/30` en oscuro **2.70:1**, ambos bajo el 3:1 que 1.4.11 pide para el límite de un control: el usuario tenía que *adivinar* que ahí había algo que se podía elegir. Ahora `black/45` (**3.35:1**) y `white/45` (**4.32:1**). En la misma pasada, el borde de la tarjeta ELEGIDA subió de `amber-500` (2.15:1) a `amber-600` (3.19:1).
+- **Lo que NO se tocó, y por qué:** los bordes de las tarjetas CONTENEDORAS (la tarjeta de pago, las tarjetas de opción). 1.4.11 alcanza a los componentes de interfaz y a la información necesaria para entender el contenido; una tarjeta se identifica por su texto (título y subtítulo miden entre 8.2:1 y 18.6:1), y endurecer esos bordes habría sido rehacer el lenguaje visual del panel por un requisito que no aplica. La línea se trazó por criterio, no por comodidad, y queda escrita para poder revisarla.
+- **Hallazgo real de teclado: el foco quedaba DETRÁS del header.** `CustomerHeader` (sticky, 61 px) y `PublicHeader` (fixed, 73 px) viven pegados al borde superior y no había `scroll-padding-top`: al tabular hacia un control cercano al borde, el navegador lo desplazaba a la posición 0 del documento y el elemento enfocado quedaba tapado — el foco "desaparecía" justo cuando el usuario lo seguía. Se agregó `scroll-padding-top: 5rem` en `html`.
+- **Sin depender del color:** la opción elegida cambia borde + fondo + círculo interior, y el método del resumen es TEXTO ("Efectivo al recibir"), no un punto de color. El chip del repartidor también dice el monto en palabras.
+- **Objetivos táctiles:** opciones `min-h-14` (56 px), CTA `h-11` (44 px), `summary` del detalle `<details>` `min-h-10`. `prefers-reduced-motion` ya estaba cubierto por la regla global y no se agregó ninguna animación nueva.
+
+### Fase 9 — QA
+
+- **Suite E2E completa: 64/64 TODO VERDE** (`scripts/e2e-delivery-offer.mjs`, 819 líneas) contra la base remota y un dev server real. Creció de 44 a 64 verificaciones.
+- **Casos nuevos (Fase 9.1), todos ejercitados contra la base real:** elección CASH → `ASSIGNED` con el método en `orders` y `deliveries`, snapshot de la tarifa, sin comprobante y con el cobro aún sin registrar; el método llega en la lista del repartidor (`deliveries(*)`) con los montos para calcular cuánto cobrar; la cadena hasta `ON_THE_WAY` no registra cobro; entregar un CASH sin el flag → 400 y el pedido SIGUE en camino; con `{cash_collected:true}` → `DELIVERED` + `cash_collected_at`; `complete_delivery` sobre un pedido ya entregado → 22000; un repartidor ajeno → 403 en la ruta y 42501 en la función; las dos CHECK cruzadas (`cash_collected_at` en un YAPE y `payment_voucher_path` en un CASH) → 23514; el override de ADMIN cierra un CASH sin exigir el flag y **no inventa un cobro**; el envoltorio `confirm_delivery_payment(uuid,text)` sigue dejando YAPE con su comprobante; un pedido YAPE IGNORA el flag; método inválido → 400 "Elige cómo quieres pagar"; sin `method` el default sigue siendo YAPE (por eso pide comprobante); CASH con ruta → 400 "no lleva comprobante"; cliente ajeno → 403 y anon → 42501; doble elección MEZCLADA → 409 sin cambiar el método; carrera CASH vs. retirar la oferta → estado consistente; y ni un pedido cancelado ni uno con la oferta expirada quedan con método.
+- **Nota de diseño de la suite:** cada pedido del bloque de efectivo se cierra ANTES de la siguiente oferta, porque la regla "una entrega activa por repartidor" hace fallar cualquier oferta mientras quede una abierta. Cuando una prueba necesita DEJAR un pedido abierto a propósito, la oferta siguiente la hace el otro repartidor. Ese acoplamiento entre verificaciones es lo que produce fallos en cascada difíciles de leer, así que se evita a propósito.
+- **La aserción del mensaje de método inválido fue un falso negativo del propio test:** se esperaba "Método de pago inválido" y el borde responde el texto del esquema, "Elige cómo quieres pagar" — deliberadamente, porque el cliente ve una elección entre dos opciones y no un identificador. La primera corrida marcó 1 fallo por eso; corregida la aserción, 64/64.
+- **Checklist manual (9.2): NO ejecutado.** Necesita pantalla y dos sesiones (y el pedido explícito del usuario de no abrir pestañas de previsualización), así que queda listado para su validación: layout con 1/3/8 productos en los cuatro estados y en 360/428/768/1280 px; texto extremo (nombre de 80 caracteres y nota de 300 sin espacios) sin scroll horizontal; tiempo real (la oferta llega a la página abierta sin refrescar); efectivo punta a punta; Yape punta a punta (regresión del ciclo anterior); alternar métodos conservando el archivo; modo oscuro y lector de pantalla; pedido legacy sin chip ni errores; admin y restaurante sin cambios.
+
+### Fase 10 — Despliegue, rollback y lo que queda abierto
+
+**Orden de despliegue** (el del plan, con el estado real de cada paso para este repo):
+
+| # | Paso | Estado |
+|---|---|---|
+| 1 | Fase 3 sola (layout) | Hecha en código; se despliega junto con el resto (es parte del mismo panel). |
+| 2 | Migraciones 1.1 → 1.3 (`supabase db push`) | **Aplicadas** y verificadas contra la base remota (24/24 por RPC). |
+| 3 | `types/database.ts` en el mismo commit que el código | Actualizado en el mismo árbol de trabajo. |
+| 4 | Fases 2, 4, 5, 6 y 7 juntas | Hechas en código; **sin desplegar** (todo está sin commitear en `develop/fjp`). |
+| 5 | QA de la Fase 9 con dos sesiones y un celular real | Suite automática en verde; la parte manual (9.2) está pendiente. |
+| 6 | Migración de cierre: drop del envoltorio | **NO creada todavía** (ver abajo). |
+| 7 | *(Opcional)* endurecer `orders_update_delivery_assigned` | **NO creada todavía** (ver abajo). |
+
+**Por qué las dos migraciones de cierre no están en `supabase/migrations/` todavía.** El plan las condiciona (paso 6: "recién cuando ningún código llama `confirm_delivery_payment(uuid,text)`"; paso 7: "tras validar E2E"), y hoy se cumplen al revés de lo que parece: en ESTE repo ya no queda ningún llamador (solo la suite y un script de verificación), pero **la app desplegada sigue llamándola** hasta que este árbol se despliegue. Un archivo de migración sin aplicar en la carpeta es un peligro real: el próximo `supabase db push` lo aplica, y ese push ocurriría *antes* del despliegue del código — dejando la app en producción sin poder confirmar ningún pago. Por eso quedan acá, listas para pegar en el momento del despliegue:
+
+```sql
+-- 20261001100300_drop_confirm_delivery_payment_wrapper.sql
+-- Cierra la ventana abierta por 20261001100100. Ningún código de este repo
+-- llama ya a la firma de un argumento.
+drop function if exists public.confirm_delivery_payment(uuid, text);
+
+-- ROLLBACK (verbatim, por si hiciera falta volver atrás después del paso 6):
+-- create or replace function public.confirm_delivery_payment(
+--   p_order_id uuid,
+--   p_voucher_path text
+-- )
+-- returns void
+-- language sql
+-- security definer
+-- set search_path = public
+-- as $$
+--   select public.select_delivery_payment(p_order_id, 'YAPE', p_voucher_path)
+-- $$;
+-- revoke all on function public.confirm_delivery_payment(uuid, text) from public, anon;
+-- grant execute on function public.confirm_delivery_payment(uuid, text) to authenticated;
+```
+
+El rollback es corto a propósito y no copia el cuerpo histórico (como sí hizo el drop del ciclo anterior): la lógica ya no vive en esa función sino en `select_delivery_payment`, que NO se borra, así que recrear el envoltorio es una línea que delega en algo que sigue existiendo.
+
+```sql
+-- 20261001100310_harden_orders_update_delivery_assigned.sql
+-- Pass 7: `complete_delivery()` queda como ÚNICA puerta al estado entregado.
+-- Definición vigente copiada de 20260928100200; el único cambio es que
+-- 'DELIVERED' sale del `with check`. Un repartidor ya no puede marcar entregado
+-- por PATCH directo saltándose la confirmación del cobro.
+drop policy if exists "orders_update_delivery_assigned" on public.orders;
+create policy "orders_update_delivery_assigned"
+on public.orders for update
+using (
+  public.current_role() = 'DELIVERY'
+  and id in (select public.current_delivery_order_ids())
+)
+with check (
+  status in ('AWAITING_PAYMENT', 'ASSIGNED', 'PICKED_UP', 'ON_THE_WAY')
+);
+```
+
+Ningún camino legítimo del código lo necesita: el repartidor llega a DELIVERED por `complete_delivery()` (SECURITY DEFINER, no pasa por la policy) y los dos overrides de ADMIN usan `adminClient()` (service role, tampoco). **El motivo de esperar al despliegue es el mismo de siempre: la app hoy desplegada SÍ hace el UPDATE directo.**
+
+**Rollback (10.2):** revertir el código de las Fases 2 a 7 es seguro — las columnas y funciones nuevas quedan sin uso y **el envoltorio mantiene viva la firma vieja**. Lo que NO se revierte es el `drop column payment_method` si ya hay pedidos en efectivo: se perdería quién debía cobrar y quién ya cobró (el mismo criterio que la Fase 1 aplicó al backfill).
+
+**Consecuencia de D1 que hay que decidir fuera de este plan ("quién cobra qué"):** con efectivo el cliente le paga al repartidor la comida **y** el envío, así que por ese pedido el restaurante no recibe nada a través de la plataforma. La app muestra el monto correcto y lo atribuye a quien corresponde; **lo que sigue abierto es la liquidación** (¿el repartidor le entrega la comida al restaurante? ¿PideloYa le paga después?). Es un tema de operación y de negocio, no de código, y por eso está en "fuera de alcance" — pero se documenta acá porque afecta a un tercero que hoy no tiene pantalla donde verlo.
+
+**Nit de copy pendiente (una migración de una línea cuando se toque `complete_delivery`):** su mensaje de rechazo dice "Confirma que cobraste **el envío** en efectivo antes de marcar la entrega", heredado de cuando el efectivo cubría solo el envío. Con D1 el repartidor cobra el pedido completo; el texto debería decir "el pedido". No se corrige ahora para no encadenar una migración de función por un string que la UI ya no muestra en el camino normal (el diálogo pregunta correctamente "¿Cobraste S/ X en efectivo?"); solo aparece si alguien esquiva la UI.
+
+### Verificación final (Fases 6 a 10)
+
+`npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores ✅ · `npm run build` ✅ · suite E2E: **64/64 TODO VERDE** ✅ · contraste de los colores nuevos medido ✅ · dev server detenido tras la corrida.
+

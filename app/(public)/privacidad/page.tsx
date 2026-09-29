@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Cómo PideloYa recopila, usa y protege tus datos personales.',
 }
 
-const UPDATED_AT = '28 de septiembre de 2026'
+const UPDATED_AT = '29 de septiembre de 2026'
 
 export default function PrivacidadPage() {
   return (
@@ -29,7 +29,7 @@ export default function PrivacidadPage() {
           <li>Datos del vehículo: tipo de vehículo usado para repartir (repartidores).</li>
           <li>Imágenes: foto de perfil y código QR de Yape para pagos directos — opcional, solo repartidores.</li>
           <li>Comprobantes de pago: la imagen del comprobante de Yape que adjuntas al confirmar el pago del envío (clientes).</li>
-          <li>Historial de pedidos y preferencias dentro de la plataforma.</li>
+          <li>Historial de pedidos y preferencias dentro de la plataforma, y el método de pago elegido para el envío (Yape o efectivo).</li>
           <li>Credenciales de acceso, almacenadas de forma cifrada.</li>
         </ul>
       </LegalSection>

@@ -19,8 +19,8 @@ export const PAYMENT_VOUCHER_BUCKET = 'payment-vouchers'
  * imagen a JPEG en el navegador antes de subirla, así que la extensión nunca
  * miente. Eso acota los archivos huérfanos posibles a uno por pedido y hace
  * trivial la limpieza (Fase 6). El nombre debe coincidir exactamente con lo que
- * valida la función SQL `confirm_delivery_payment` y con el CHECK
- * `deliveries_voucher_path_check`.
+ * valida la función SQL `select_delivery_payment` (y su envoltorio
+ * `confirm_delivery_payment`) y con el CHECK `deliveries_voucher_path_check`.
  */
 export function paymentVoucherPath(orderId: string): string {
   return `${orderId}/voucher.jpg`

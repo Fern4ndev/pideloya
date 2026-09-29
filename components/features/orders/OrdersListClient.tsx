@@ -237,10 +237,10 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
           </span>
           <div className="min-w-0">
             <p className="text-sm font-medium text-amber-800">
-              Tu repartidor ya está listo — confirma el pago del envío
+              Tu repartidor ya está listo — elige cómo pagar el envío
             </p>
             <p className="text-xs text-amber-700">
-              Toca aquí para ver el QR y confirmar
+              Toca aquí para elegir cómo pagar
             </p>
           </div>
         </Link>

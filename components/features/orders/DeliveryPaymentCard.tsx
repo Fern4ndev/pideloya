@@ -1,20 +1,20 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { ExpandIcon } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { confirmDeliveryPayment } from '@/lib/actions/orders'
 import { DeliveryAvatar } from '@/components/features/admin/DeliveryAvatar'
-import { CopyButton } from '@/components/ui/copy-button'
-import { PaymentVoucherPicker } from '@/components/features/orders/PaymentVoucherPicker'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { PaymentMethodChoice } from '@/components/features/orders/PaymentMethodChoice'
+import { CashPaymentPanel } from '@/components/features/orders/CashPaymentPanel'
 import { useToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/db/client'
-import { toVoucherJpeg } from '@/lib/images/compress-voucher'
-import { formatPePhone } from '@/lib/format/phone'
 import { PAYMENT_VOUCHER_BUCKET, paymentVoucherPath } from '@/lib/constants/payment-voucher'
+import {
+  PAYMENT_METHOD_PROMPT,
+  cashAmountDue,
+  type PaymentMethod,
+} from '@/lib/constants/payment-method'
 
 export type DeliveryOffer = {
   fullName: string
@@ -38,75 +38,120 @@ const PHASE_LABEL: Record<Exclude<Phase, 'idle'>, string> = {
 }
 
 /**
- * Encabezado numerado de cada paso. Vive fuera del componente a propósito:
- * definirlo adentro lo re-crearía en cada render (identidad nueva → React lo
- * desmonta y remonta, perdiendo el DOM real y el foco).
+ * Esqueleto del panel de Yape: reserva una altura parecida a la del panel real
+ * (bloques de QR, comprobante y botón) para que elegir "Pagar ahora" no empuje
+ * el resto de la página. Sin esto, el panel entra cuando termina de descargarse
+ * y todo lo de abajo salta — el layout shift clásico de una carga diferida.
  */
-function StepHeading({ step, children }: { step: number; children: ReactNode }) {
+function YapePanelSkeleton() {
   return (
-    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
-      <span
-        aria-hidden
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-bold text-amber-800 dark:text-amber-200"
-      >
-        {step}
-      </span>
-      {children}
-    </h3>
+    <div className="space-y-3" aria-hidden>
+      <div className="h-4 w-32 animate-pulse rounded bg-amber-500/15" />
+      <div className="h-48 animate-pulse rounded-2xl bg-amber-500/10" />
+      <div className="h-32 animate-pulse rounded-2xl bg-amber-500/10" />
+      <div className="h-11 animate-pulse rounded-full bg-amber-500/15" />
+    </div>
   )
 }
 
 /**
+ * Carga diferida del panel de Yape (Fase 4.3 del plan): quien va a pagar en
+ * efectivo nunca necesita el QR, el QR ampliable, el selector de archivos ni el
+ * compresor de imágenes, así que no tiene por qué descargarlos para decidir.
+ *
+ * `ssr: false` es correcto acá y no un atajo: el panel solo existe después de
+ * una interacción del cliente (elegir un método), así que en el HTML del
+ * servidor no hay nada que hidratar. El `loading` reserva la altura.
+ */
+const YapePaymentPanel = dynamic(
+  () => import('./YapePaymentPanel').then((m) => m.YapePaymentPanel),
+  { ssr: false, loading: () => <YapePanelSkeleton /> }
+)
+
+/**
  * Tarjeta de pago del envío: aparece SOLO cuando el pedido está en
  * AWAITING_PAYMENT, es decir cuando ya hay un repartidor con una tarifa
- * propuesta esperando que el cliente le pague por Yape.
+ * propuesta esperando que el cliente decida cómo le paga.
  *
- * El cliente tiene UNA tarea con TRES pasos, y la tarjeta lo dice y los ordena:
- * 1) pagar, 2) adjuntar el comprobante, 3) confirmar. Antes había un párrafo
- * —"Escanea el QR y paga… no verificamos el pago automáticamente…"— que
- * competía con esa tarea: información importante enterrada en prosa, en el
- * lugar donde debería estar la acción. Se eliminó y su función informativa la
- * cumple el orden numerado, que se lee de un vistazo.
+ * Desde la Fase 4 del plan del método de pago, el cliente tiene UNA DECISIÓN y
+ * después UNA TAREA:
  *
- * Decisiones que no son cosméticas:
+ *   ¿Cómo quieres pagar el envío?  →  Pagar al recibir (efectivo)
+ *                                  →  Pagar ahora (Yape + comprobante)
  *
- * 1. El QR es tocable para verlo en grande. Escanear un QR de 160 px desde el
- *    celular de al lado funciona a duras penas; en grande, siempre.
- * 2. El número del repartidor se muestra agrupado (987 654 321) pero se COPIA
- *    sin espacios (987654321), que es lo que Yape acepta al pegar.
- * 3. Los tokens son ámbar — el lenguaje de "esperando algo de alguien" que el
- *    proyecto ya usa en los banners de negocio cerrado y de pedido buscando
- *    repartidor — y no un color nuevo.
- * 4. La tarjeta entra con `animate-fade-up`: ahora que puede aparecer sola por
- *    realtime, el movimiento es lo que dice "acaba de llegar algo nuevo". La
- *    regla global de `prefers-reduced-motion` la neutraliza sin trabajo extra.
- * 6. Contraste medido, no estimado: los textos pequeños de la tarjeta usan
- *    `amber-900` (~8.8:1 sobre el fondo ámbar) en vez de `muted-foreground`,
- *    que sobre este fondo queda en ~4.7:1 — pasa, pero sin margen para que un
- *    cambio de token lo rompa en silencio.
- * 5. El comprobante es obligatorio para confirmar (el botón está deshabilitado
- *    y un texto visible explica por qué): es la única evidencia que le queda al
- *    repartidor de que le pagaron, porque no hay pasarela integrada. Un botón
- *    gris sin explicación es un callejón sin salida.
+ * Antes había un solo camino (Yape + comprobante obligatorio) y los tres pasos
+ * de Yape se le mostraban también a quien iba a pagar en efectivo. Ahora los
+ * pasos aparecen recién cuando eligen "Pagar ahora": revelado progresivo, una
+ * acción primaria por estado.
+ *
+ * Decisiones que no son cosméticas (D2 y D5 del plan):
+ *
+ * 1. SIN opción preseleccionada: es dinero. Preseleccionar Yape empuja a subir
+ *    un comprobante a quien quería efectivo; preseleccionar efectivo se presta
+ *    a confirmar por inercia. Mientras no haya elección se muestra una ayuda
+ *    visible y NINGÚN botón.
+ * 2. La elección es DEFINITIVA (el pedido sale de AWAITING_PAYMENT y arranca).
+ *    Se avisa antes del clic, en el panel del método elegido.
+ * 3. Mientras hay una operación en curso (`phase !== 'idle'`) el selector queda
+ *    deshabilitado: cambiar de método a mitad de una subida dejaría la promesa
+ *    en vuelo sin ninguna UI que la espere.
+ * 4. El archivo elegido vive ACÁ y no dentro del panel de Yape: si viviera
+ *    dentro, alternar curiosa y brevemente a efectivo y volver a Yape borraría
+ *    la captura y obligaría a buscarla otra vez en la galería.
+ * 5. `busy` se DERIVA de `phase` en vez de guardarse: dos estados para la misma
+ *    verdad pueden contradecirse (botón deshabilitado con fase en idle).
+ *
+ * El contraste de los textos pequeños de la tarjeta está medido, no estimado:
+ * usan `amber-900` (~8.9:1 sobre el fondo ámbar) en vez de `muted-foreground`,
+ * que sobre este fondo queda en ~4.7:1 — pasa, pero sin margen para que un
+ * cambio de token lo rompa en silencio.
  */
 export function DeliveryPaymentCard({
   orderId,
+  total,
   deliveryPerson,
 }: {
   orderId: string
+  /** Total del pedido (comida). Con efectivo (D1) el cliente le paga al
+   *  repartidor este monto MÁS el envío, así que se muestra la suma. */
+  total: number
   deliveryPerson: DeliveryOffer
 }) {
   const router = useRouter()
   const { error, success } = useToast()
+  const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [phase, setPhase] = useState<Phase>('idle')
 
   const fee = deliveryPerson.deliveryFee.toFixed(2)
-  const digits = deliveryPerson.phone?.replace(/\D/g, '') ?? ''
+  const cashDue = cashAmountDue(total, deliveryPerson.deliveryFee).toFixed(2)
   const busy = phase !== 'idle'
 
+  /** Efectivo: no hay archivo que subir ni nada que verificar antes. La Server
+   *  Action valida el método y la función SQL exige que la ruta del comprobante
+   *  vaya vacía, así que acá solo se confirma la elección. */
+  async function handleConfirmCash() {
+    if (busy) return
+    setPhase('confirming')
+    try {
+      await confirmDeliveryPayment(orderId, 'CASH')
+      success(
+        '¡Listo! Tu repartidor ya puede ir por tu pedido.',
+        `Pagarás S/ ${cashDue} en efectivo cuando te lo entregue.`
+      )
+      // El pedido pasa a ASSIGNED: la Server Action revalida la ruta, y el
+      // refresh explícito asegura que esta tarjeta desaparezca de la vista en
+      // el mismo instante.
+      router.refresh()
+    } catch (err) {
+      error('No se pudo confirmar', err instanceof Error ? err.message : undefined)
+    } finally {
+      setPhase('idle')
+    }
+  }
+
   /**
-   * Sube el comprobante y recién después confirma el pago. El orden no es
+   * Yape: sube el comprobante y recién después confirma el pago. El orden no es
    * negociable: la función SQL rechaza la confirmación si el archivo no existe
    * en Storage, justamente para que no se pueda dar por pagado un pedido sin
    * ninguna evidencia.
@@ -120,11 +165,16 @@ export function DeliveryPaymentCard({
    * volver a buscarlo en la galería. Y como el reintento usa la misma ruta con
    * `upsert`, nunca quedan dos comprobantes del mismo pedido.
    */
-  async function handleConfirm() {
+  async function handleConfirmYape() {
     if (!file || busy) return
 
     setPhase('preparing')
     try {
+      // Import DINÁMICO y no estático: el compresor (y su decodificación de
+      // imágenes) es la parte pesada del flujo y solo se necesita acá. Con un
+      // import estático entraría en el bundle inicial de la página, que es lo
+      // que la Fase 4.6 pide evitar.
+      const { toVoucherJpeg } = await import('@/lib/images/compress-voucher')
       const blob = await toVoucherJpeg(file)
 
       setPhase('uploading')
@@ -147,11 +197,8 @@ export function DeliveryPaymentCard({
       }
 
       setPhase('confirming')
-      await confirmDeliveryPayment(orderId)
+      await confirmDeliveryPayment(orderId, 'YAPE')
       success('¡Listo! Tu repartidor ya puede ir por tu pedido.')
-      // El pedido pasa a ASSIGNED: la Server Action revalida la ruta, y el
-      // refresh explícito asegura que esta tarjeta desaparezca de la vista en
-      // el mismo instante.
       router.refresh()
     } catch (err) {
       error('No se pudo confirmar', err instanceof Error ? err.message : undefined)
@@ -163,14 +210,14 @@ export function DeliveryPaymentCard({
   return (
     <section
       aria-labelledby="delivery-payment-heading"
-      className="animate-fade-up rounded-3xl border border-amber-300/60 bg-amber-50/60 p-5 dark:border-amber-500/30 dark:bg-amber-500/10"
+      className="animate-fade-up w-full min-w-0 rounded-3xl border border-amber-300/60 bg-amber-50/60 p-5 dark:border-amber-500/30 dark:bg-amber-500/10"
     >
       <div className="flex items-center gap-3">
         <DeliveryAvatar
           url={deliveryPerson.avatarUrl}
           name={deliveryPerson.fullName}
           size="lg"
-          className="h-14 w-14 ring-2 ring-white dark:ring-neutral-900"
+          className="h-14 w-14 shrink-0 ring-2 ring-white dark:ring-neutral-900"
         />
         <div className="min-w-0">
           <h2 id="delivery-payment-heading" className="text-sm font-medium">
@@ -187,116 +234,38 @@ export function DeliveryPaymentCard({
         </div>
       </div>
 
-      {/* ------------------------------- Paso 1 ------------------------------ */}
       <div className="mt-5 border-t border-amber-300/60 pt-4 dark:border-amber-500/25">
-        <StepHeading step={1}>Paga por Yape</StepHeading>
-
-        <div className="mt-3 space-y-3">
-          {deliveryPerson.yapeQrUrl ? (
-            <Dialog>
-              <DialogTrigger
-                render={
-                  <button
-                    type="button"
-                    className="flex w-full flex-col items-center gap-1 rounded-2xl border border-black/5 bg-white p-3 transition-colors hover:border-amber-400/60 dark:border-white/10 dark:bg-white/5"
-                  />
-                }
-              >
-                <span className="relative block h-40 w-40">
-                  <Image
-                    src={deliveryPerson.yapeQrUrl}
-                    alt="QR de Yape del repartidor"
-                    fill
-                    sizes="160px"
-                    className="object-contain"
-                  />
-                </span>
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <ExpandIcon className="h-3.5 w-3.5" aria-hidden />
-                  Toca para ampliarlo
-                </span>
-              </DialogTrigger>
-              <DialogContent className="flex flex-col items-center gap-3 sm:max-w-xs">
-                <span className="relative block h-72 w-72">
-                  <Image
-                    src={deliveryPerson.yapeQrUrl}
-                    alt="QR de Yape del repartidor"
-                    fill
-                    sizes="288px"
-                    className="object-contain"
-                  />
-                </span>
-                {/* El texto se conserva tal cual (el pedido apuntaba al
-                    párrafo de la tarjeta, no a este), pero como `DialogTitle`
-                    para que el diálogo tenga nombre accesible. */}
-                <DialogTitle className="text-center text-sm font-normal text-muted-foreground">
-                  Escanéalo y transfiere S/ {fee} por Yape.
-                </DialogTitle>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            // Degradación con gracia: un repartidor sin QR no rompe la tarjeta.
-            // Se le dice al cliente qué hacer en cada caso — si hay número, ese
-            // pasa a ser la vía de pago; si tampoco lo hay, la única salida
-            // honesta es avisarle que no hay un medio de pago a la vista.
-            <p className="rounded-2xl border border-dashed border-amber-400/60 px-4 py-3 text-xs text-amber-900 dark:text-amber-100">
-              {digits
-                ? `${deliveryPerson.fullName} todavía no cargó su QR de Yape. Pídele el pago al número de abajo.`
-                : `${deliveryPerson.fullName} todavía no cargó su QR de Yape ni tiene un número registrado. Confirma el pago únicamente si ya acordaron cómo transferirle.`}
-            </p>
-          )}
-
-          {/* La fila solo se renderiza si HAY número: un botón de copiar vacío
-              es peor que no mostrarlo. */}
-          {digits && (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">
-                  {deliveryPerson.yapeQrUrl ? 'O yapea a este número' : 'Yapea a este número'}
-                </p>
-                {/* `select-all`: si el portapapeles fallara por completo, un
-                    toque largo selecciona el número entero y el cliente puede
-                    copiarlo a la vieja usanza. */}
-                <p className="select-all text-lg font-semibold tabular-nums tracking-wide">
-                  {formatPePhone(digits)}
-                </p>
-              </div>
-              <CopyButton value={digits} label="número del repartidor" />
-            </div>
-          )}
-        </div>
+        <PaymentMethodChoice value={method} onChange={setMethod} disabled={busy} />
       </div>
 
-      {/* ------------------------------- Paso 2 ------------------------------ */}
-      <div className="mt-5 border-t border-amber-300/60 pt-4 dark:border-amber-500/25">
-        <StepHeading step={2}>Adjunta tu comprobante</StepHeading>
-        <div className="mt-3">
-          <PaymentVoucherPicker
+      {/* Ayuda visible mientras no hay elección y NINGÚN CTA: la decisión es del
+          cliente y el panel que corresponde todavía no existe. */}
+      {method === null && (
+        <p className="mt-3 text-center text-xs text-amber-900 dark:text-amber-100">
+          {PAYMENT_METHOD_PROMPT}
+        </p>
+      )}
+
+      {method === 'CASH' && (
+        <div className="mt-4">
+          <CashPaymentPanel amount={cashDue} onConfirm={handleConfirmCash} busy={busy} />
+        </div>
+      )}
+
+      {method === 'YAPE' && (
+        <div className="mt-4">
+          <YapePaymentPanel
+            fullName={deliveryPerson.fullName}
+            yapeQrUrl={deliveryPerson.yapeQrUrl}
+            phone={deliveryPerson.phone}
+            fee={fee}
             file={file}
-            onChange={setFile}
+            onFileChange={setFile}
             busy={busy}
             busyLabel={phase === 'idle' ? undefined : PHASE_LABEL[phase]}
+            onConfirm={handleConfirmYape}
           />
         </div>
-      </div>
-
-      {/* ------------------------------- Paso 3 ------------------------------ */}
-      <Button
-        type="button"
-        onClick={handleConfirm}
-        disabled={!file || busy}
-        className="mt-5 h-11 w-full rounded-full"
-      >
-        {phase === 'idle' ? 'Ya pagué, confirmar' : PHASE_LABEL[phase]}
-      </Button>
-
-      {/* El estado deshabilitado del botón se explica SIEMPRE que esté
-          deshabilitado por falta de archivo (no por estar en curso). Sin este
-          texto, un botón gris es un callejón sin salida. */}
-      {!file && (
-        <p className="mt-2 text-center text-xs text-amber-900 dark:text-amber-100">
-          Adjunta tu comprobante para poder confirmar
-        </p>
       )}
     </section>
   )

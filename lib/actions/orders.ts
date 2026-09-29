@@ -5,7 +5,9 @@ import { z } from 'zod'
 import { createClient, createServiceRoleClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import { createOrderSchema, type CreateOrderInput } from '@/lib/validations/order'
+import { type PaymentMethod } from '@/lib/constants/payment-method'
 import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
+import { paymentMethodSchema } from '@/lib/validations/payment-method'
 import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 
 function toFriendlyMessage(err: unknown): string {
@@ -98,18 +100,30 @@ async function releaseUnconfirmedOffer(
 }
 
 /**
- * El cliente confirma que pagó la tarifa de envío por Yape. Llama a la
- * sobrecarga SECURITY DEFINER confirm_delivery_payment(uuid, text)
- * (migración 20260930100300), que hace la transición AWAITING_PAYMENT ->
+ * El cliente elige cómo paga el pedido y con esa elección arranca la entrega.
+ * Llama a la función SECURITY DEFINER select_delivery_payment(uuid, text, text)
+ * (migración 20261001100100), que hace la transición AWAITING_PAYMENT ->
  * ASSIGNED de forma atómica en dos tablas, escribe el snapshot
- * `orders.delivery_fee` Y guarda la ruta del comprobante.
+ * `orders.delivery_fee` y guarda el método elegido (más la ruta del
+ * comprobante, solo con Yape).
  *
- * El comprobante es OBLIGATORIO: la función rechaza la llamada si la ruta no es
- * la de este pedido o si el archivo no existe en Storage. Por eso el orden
- * importa y no es negociable — el navegador sube el archivo ANTES de llamar a
- * esta acción (Fase 4). Si se llama primero, el mensaje de error que ve el
- * usuario es el correcto ("Adjunta el comprobante…"), no una confirmación a
+ * Es la ÚNICA puerta a ASSIGNED para el cliente, y la elección es DEFINITIVA
+ * (D3): cambiarla después obligaría a reabrir el estado del pedido y a
+ * coordinar con un repartidor que ya está en camino. La UI lo avisa antes del
+ * clic (PAYMENT_METHOD_LOCK_NOTICE).
+ *
+ * Con YAPE el comprobante es OBLIGATORIO: la función rechaza la llamada si la
+ * ruta no es la de este pedido o si el archivo no existe en Storage. Por eso el
+ * orden importa y no es negociable — el navegador sube el archivo ANTES de
+ * llamar a esta acción (Fase 4). Si se llama primero, el mensaje de error que ve
+ * el usuario es el correcto ("Adjunta el comprobante…"), no una confirmación a
  * medias.
+ *
+ * Con CASH no se sube ni se envía ningún archivo (y la función rechaza la
+ * llamada si llega una ruta): no hay transferencia que documentar. El cobro en
+ * efectivo se registra recién al entregar (`cash_collected_at`, vía
+ * complete_delivery), no acá: el cliente acá solo se COMPROMETE a pagar al
+ * recibir.
  *
  * El navegador NO elige la ruta: se deriva acá del orderId, y la función SQL la
  * vuelve a validar contra el CHECK de `deliveries` (defensa en profundidad: un
@@ -121,11 +135,23 @@ async function releaseUnconfirmedOffer(
  * pedido sea suyo, que esté en el estado correcto y que el comprobante exista,
  * así que acá no hay que repetir esas comprobaciones.
  */
-export async function confirmDeliveryPayment(orderId: string) {
+export async function confirmDeliveryPayment(orderId: string, method: PaymentMethod) {
+  // El método se valida en el borde: la base y la función lo vuelven a validar,
+  // pero acá se gana que un valor inventado no salga siquiera a la red y que el
+  // mensaje sea en español y mostrable tal cual.
+  const parsed = paymentMethodSchema.safeParse(method)
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? 'Método de pago inválido')
+  }
+
   const supabase = await createClient()
-  const { error } = await supabase.rpc('confirm_delivery_payment', {
+  const { error } = await supabase.rpc('select_delivery_payment', {
     p_order_id: orderId,
-    p_voucher_path: paymentVoucherPath(orderId),
+    p_method: parsed.data,
+    // La ruta viaja SOLO con Yape. Con `undefined` la clave no se envía y
+    // aplica el DEFAULT null de la función, que es lo que espera el CHECK
+    // deliveries_voucher_requires_yape_check.
+    p_voucher_path: parsed.data === 'YAPE' ? paymentVoucherPath(orderId) : undefined,
   })
   if (error) throw new Error(error.message)
 

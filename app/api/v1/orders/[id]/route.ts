@@ -6,6 +6,7 @@ import {
 } from '@/lib/api/response'
 import { authenticateRequest, adminClient, userClient, NotFoundError } from '@/lib/api/auth'
 import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
+import { paymentMethodSchema } from '@/lib/validations/payment-method'
 import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 import type { OrderStatus } from '@/types/order'
 
@@ -163,28 +164,44 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       return errorResponse('Solo el cliente puede confirmar el pago del envío', 403)
     }
 
-    // ORDEN OBLIGATORIO para quien consuma esta API: primero subir el
-    // comprobante a `payment-vouchers/{order_id}/voucher.jpg` con el MISMO token
-    // Bearer (la RLS que lo autoriza es la del usuario; no hay camino
-    // privilegiado que saltarse), y recién después llamar esta acción.
-    // Si no lo hizo, la función responde 400 "Adjunta el comprobante de tu pago
-    // para confirmar": el fallo es explícito, nunca una confirmación sin
-    // evidencia.
+    // El método es OPCIONAL y su default es 'YAPE': las integraciones que ya
+    // llamaban esta acción sin cuerpo siguen funcionando igual. Un valor
+    // distinto de 'YAPE'/'CASH' se rechaza con 400 acá, sin llegar a la base.
+    //
+    // Con 'YAPE' el ORDEN ES OBLIGATORIO: primero subir el comprobante a
+    // `payment-vouchers/{order_id}/voucher.jpg` con el MISMO token Bearer (la
+    // RLS que lo autoriza es la del usuario; no hay camino privilegiado que
+    // saltarse), y recién después llamar esta acción. Si no lo hizo, la función
+    // responde 400 "Adjunta el comprobante de tu pago para confirmar": el fallo
+    // es explícito, nunca una confirmación sin evidencia.
+    //
+    // Con 'CASH' no se sube nada: el cliente se compromete a pagarle al
+    // repartidor el total del pedido al recibirlo, y la función responde 400 si
+    // le llega cualquier ruta de comprobante.
     //
     // La ruta se deriva del id ACÁ y la función la vuelve a validar contra su
     // formato único: el consumidor no elige dónde vive su comprobante.
     //
-    // userClient() y no adminClient(): confirm_delivery_payment() valida que el
+    // userClient() y no adminClient(): select_delivery_payment() valida que el
     // pedido sea del usuario que llama usando auth.uid(), que no existe en un
     // cliente con service role. Con adminClient esto fallaría con 'No
     // autenticado' — comportamiento buscado, no un bug de la ruta.
-    const { error } = await userClient(request).rpc('confirm_delivery_payment', {
+    const parsedMethod = paymentMethodSchema.safeParse(body.method ?? 'YAPE')
+    if (!parsedMethod.success) {
+      return errorResponse(parsedMethod.error.issues[0]?.message ?? 'Método de pago inválido', 400)
+    }
+
+    const { error } = await userClient(request).rpc('select_delivery_payment', {
       p_order_id: id,
-      p_voucher_path: paymentVoucherPath(id),
+      p_method: parsedMethod.data,
+      // La ruta viaja SOLO con Yape: con `undefined` la clave no se envía y la
+      // función aplica su DEFAULT null, que es lo que exige el CHECK
+      // deliveries_voucher_requires_yape_check.
+      p_voucher_path: parsedMethod.data === 'YAPE' ? paymentVoucherPath(id) : undefined,
     })
     if (error) return rpcErrorResponse(error)
 
-    return successResponse({ status: 'ASSIGNED' })
+    return successResponse({ status: 'ASSIGNED', payment_method: parsedMethod.data })
   }
 
   if (action === 'advance') {
@@ -218,6 +235,18 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
         .maybeSingle()
       if (!delivery) {
         return errorResponse('No tienes este pedido asignado', 403)
+      }
+
+      // Último paso por el camino del repartidor: lo hace complete_delivery(),
+      // atómica y con la guarda del cobro en efectivo (D6). El camino del ADMIN
+      // sigue más abajo sin exigirla: es un override de soporte explícito.
+      if (order.status === 'ON_THE_WAY') {
+        const { error } = await userClient(request).rpc('complete_delivery', {
+          p_order_id: id,
+          p_cash_collected: body.cash_collected === true,
+        })
+        if (error) return rpcErrorResponse(error)
+        return successResponse({ status: 'DELIVERED' })
       }
     }
 
