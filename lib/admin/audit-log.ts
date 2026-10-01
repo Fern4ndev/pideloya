@@ -18,6 +18,7 @@ export const AUDIT_ACTIONS = {
   deleteUserHard: 'hard_delete_user',
   approveRestaurantsBulk: 'approve_restaurants_bulk',
   approveDeliveriesBulk: 'approve_deliveries_bulk',
+  resolvePaymentIncident: 'resolve_payment_incident',
 } as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS]
@@ -37,7 +38,7 @@ export async function logAdminAction(
   params: {
     actorProfileId: string
     action: AuditAction
-    targetTable: 'restaurants' | 'profiles'
+    targetTable: 'restaurants' | 'profiles' | 'payment_incidents'
     /** null en acciones EN LOTE: los ids afectados van en
      * metadata.batchIds — UNA entrada por lote, no N idénticas. */
     targetId: string | null

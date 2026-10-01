@@ -4,6 +4,7 @@ import { ProfileForm } from '@/components/features/profile/ProfileForm'
 import { AvatarUploader } from '@/components/features/profile/AvatarUploader'
 import { YapeQrUploader } from '@/components/features/profile/YapeQrUploader'
 import { ProfileDraftProvider } from '@/components/features/profile/ProfileDraftProvider'
+import { PayOnDeliverySwitch } from '@/components/features/profile/PayOnDeliverySwitch'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,7 +21,7 @@ export default async function RepartidorProfilePage() {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select(
-      'id, full_name, phone, document_type, document_number, vehicle_type, avatar_url, yape_qr_url'
+      'id, full_name, phone, document_type, document_number, vehicle_type, avatar_url, yape_qr_url, accepts_pay_on_delivery'
     )
     .eq('auth_id', user.id)
     .single()
@@ -61,10 +62,17 @@ export default async function RepartidorProfilePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <QrCodeIcon className="size-4 text-muted-foreground" />
-                    Cobro por Yape
+                    Cobros
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-5">
+                  <PayOnDeliverySwitch
+                    initialAccepts={profile.accepts_pay_on_delivery}
+                  />
+                  {/* Separación visual, no un `Separator` nuevo: la tarjeta ya
+                      usa `space-y-*` y un hr con los tokens del tema sería otro
+                      componente que mantener para una sola línea. */}
+                  <div className="border-t" />
                   <YapeQrUploader
                     profileId={profile.id}
                     currentYapeQrUrl={profile.yape_qr_url ?? null}

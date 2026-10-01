@@ -6,7 +6,10 @@ export const metadata: Metadata = {
   description: 'Cómo PideloYa recopila, usa y protege tus datos personales.',
 }
 
-const UPDATED_AT = '29 de septiembre de 2026'
+// NOTA INTERNA (D10): política actualizada para reflejar el flujo de pago al
+// repartidor y la conciliación. No sustituye una revisión legal antes de un
+// lanzamiento comercial.
+const UPDATED_AT = '30 de septiembre de 2026'
 
 export default function PrivacidadPage() {
   return (
@@ -29,7 +32,14 @@ export default function PrivacidadPage() {
           <li>Datos del vehículo: tipo de vehículo usado para repartir (repartidores).</li>
           <li>Imágenes: foto de perfil y código QR de Yape para pagos directos — opcional, solo repartidores.</li>
           <li>Comprobantes de pago: la imagen del comprobante de Yape que adjuntas al confirmar el pago del envío (clientes).</li>
-          <li>Historial de pedidos y preferencias dentro de la plataforma, y el método de pago elegido para el envío (Yape o efectivo).</li>
+          <li>Historial de pedidos y preferencias dentro de la plataforma.</li>
+          <li>
+            Datos del pago al repartidor: método elegido (Yape o efectivo),
+            momento del pago (ahora o al recibir), el cobro que el repartidor
+            declara haber recibido, la constancia de que pagaste la comida al
+            restaurante cuando el repartidor la adelantó, y las incidencias de
+            pago que cualquiera de las partes reporte.
+          </li>
           <li>Credenciales de acceso, almacenadas de forma cifrada.</li>
         </ul>
       </LegalSection>
@@ -39,7 +49,16 @@ export default function PrivacidadPage() {
         <ul className="list-disc pl-5 space-y-1.5">
           <li>Crear y administrar tu cuenta, y validar tu identidad al registrarte.</li>
           <li>Procesar pedidos y coordinar la entrega entre cliente, restaurante y repartidor.</li>
-          <li>Confirmar el pago del envío: el comprobante que adjuntas se comparte únicamente con el repartidor asignado a tu pedido, como constancia de que le pagaste.</li>
+          <li>Confirmar el pago al repartidor: el comprobante que adjuntas se comparte únicamente con el repartidor asignado a tu pedido, como constancia de que le pagaste.</li>
+          <li>
+            Llevar la conciliación del pago entre cliente, repartidor y
+            restaurante, y resolver disputas o incidencias de pago entre las
+            partes.
+          </li>
+          <li>
+            Mostrar al restaurante si el repartidor pagó o quedó debiendo el precio
+            de los productos, para que pueda cobrar el pedido.
+          </li>
           <li>Comunicarnos contigo por WhatsApp, correo o notificaciones sobre tus pedidos o tu registro.</li>
           <li>Prevenir fraude y mantener la seguridad de la plataforma.</li>
           <li>Cumplir obligaciones legales y responder a autoridades competentes.</li>
@@ -79,7 +98,12 @@ export default function PrivacidadPage() {
           proveedor de almacenamiento, de modo que dejan de estar accesibles. El
           registro de la transacción (pedidos, montos y fechas, sin datos que te
           identifiquen directamente) se conserva por 5 años, plazo exigido por
-          obligaciones contables y tributarias (SUNAT, Código Tributario).
+          obligaciones contables y tributarias (SUNAT, Código Tributario). Los
+          datos del pago al repartidor —método, momento del pago, cobro declarado,
+          constancia de pago al restaurante e incidencias reportadas— forman parte
+          de ese registro de la transacción: no identifican directamente a una
+          persona, se usan para conciliar y resolver disputas, y se conservan
+          también por 5 años.
         </p>
         <p>
           Si tu cuenta no registra pedidos, se elimina por completo junto con sus

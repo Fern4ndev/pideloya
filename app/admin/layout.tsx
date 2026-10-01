@@ -24,7 +24,7 @@ export default async function AdminLayout({
   // Best-effort a propósito: si el conteo falla, se registra y el panel se
   // muestra sin badges — un adorno no puede tumbar todas las páginas de
   // admin. El rol ya se validó arriba contra las cabeceras del middleware.
-  let pending = { restaurants: 0, deliveries: 0 }
+  let pending = { restaurants: 0, deliveries: 0, paymentIncidents: 0 }
   try {
     pending = await fetchPendingApprovalCounts(await createClient())
   } catch (err) {
@@ -54,10 +54,19 @@ export default async function AdminLayout({
         event="INSERT"
         filter="role=eq.DELIVERY"
       />
+      {/* Incidencias de pago (Fase 8): sin filtro — cualquier INSERT nuevo
+       * cambia el conteo del badge, y el UPDATE de resolución también lo baja
+       * (un `filter=resolved_at=is.null` solo cubriría la mitad del ciclo). */}
+      <RealtimeRefresh
+        channelName="admin-incidencias-pago"
+        table="payment_incidents"
+        event="*"
+      />
       <AdminSidebar
         fullName={fullName}
         pendingRestaurants={pending.restaurants}
         pendingDeliveries={pending.deliveries}
+        openPaymentIncidents={pending.paymentIncidents}
       />
       <main className="flex-1 overflow-y-auto px-8 pt-16 pb-6 lg:py-6">{children}</main>
     </div>

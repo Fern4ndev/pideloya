@@ -513,3 +513,91 @@ Ningún camino legítimo del código lo necesita: el repartidor llega a DELIVERE
 
 `npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores ✅ · `npm run build` ✅ · suite E2E: **64/64 TODO VERDE** ✅ · contraste de los colores nuevos medido ✅ · dev server detenido tras la corrida.
 
+---
+
+## 2026-09-30 — Pagar al recibir con Yape o efectivo y conciliación con el restaurante (Fases 1 a 8)
+
+Plan: `docs/plans/plan-pago-al-recibir-yape-o-efectivo-y-conciliacion-restaurante.md`. Cinco migraciones nuevas, todas aplicadas a la base remota en este orden:
+
+1. `20261002100000_payment_timing_and_collection.sql` — expand: `deliveries.payment_timing/collected_at/collected_method/allows_pay_on_delivery` y `orders.payment_timing/restaurant_paid_at`, con backfill (Yape → UPFRONT, efectivo → ON_DELIVERY) y los CHECK nuevos.
+2. `20261002100100_select_delivery_payment_v2.sql` — misma RPC, firma de 4 argumentos (DROP + CREATE: la firma cambia).
+3. `20261002100200_complete_delivery_v2.sql` — `complete_delivery(p_order_id, p_cash_collected, p_collected_method)`.
+4. `20261002100300_pickup_delivery.sql` — la constancia D6 (`orders.restaurant_paid_at`).
+5. `20261002100400_profiles_accepts_pay_on_delivery.sql` (Fase 7) y `20261002100500_payment_incidents.sql` (Fase 8).
+
+### Desviaciones del texto del plan (conscientes, documentadas en la migración)
+
+- **Se REEMPLAZA el CHECK `deliveries_cash_collected_requires_cash_check`** por `deliveries_collected_check`. El plan lo pedía atado a `payment_method = 'CASH'`, pero D4 dice que el medio DECLARADO por el repartidor puede diferir del anunciado; atarlo al anuncio haría imposible registrar el desvío que el propio D4 autoriza. La simplificación del plan ("no hace falta `collected_method`") era incompatible con su propia decisión D4.
+- **`complete_delivery` no registra nada en UPFRONT** ni cuando vienen los flags legacy: el primer intento derivaba `collected_at` también para UPFRONT y violaba el CHECK nuevo (`23514`). Se reaplicó con `migration repair --status reverted` + `drop function` + `db push --include-all`.
+- **Fase 7.2: `create or replace` y no un archivo aparte.** `offer_delivery` mantiene SU MISMA FIRMA, así que el reemplazo es invisible para la app desplegada; se repitieron los `revoke/grant` para que el archivo sea autosuficiente.
+
+### Fase 7 — el snapshot, no una lectura en vivo
+
+El flag vive en `profiles.accepts_pay_on_delivery` pero **se copia a `deliveries.allows_pay_on_delivery` al ofertar**. El cliente puede tardar en decidir y no puede ver retirarse una promesa que ya tenía delante; y el repartidor tampoco puede quedar obligado por lo que era su perfil ayer. Consecuencia práctica: los reportes de "¿por qué este pedido dice que no acepto pago al recibir?" se contestan mirando la Entrega, no el Perfil.
+
+El repartidor sigue expuesto al cliente que no paga: el interruptor le devuelve la decisión, no elimina el riesgo (límite de adelanto, reputación del cliente y bloqueo tras incidencias quedan fuera de este plan).
+
+### Fase 8 — incidencias: la nota de resolución vive en la auditoría
+
+`payment_incidents` no tiene columna de nota de resolución (el plan no la definía). El admin resuelve con `resolved_at/resolved_by` y **la nota interna viaja en `admin_audit_log.metadata.note`**: la tabla es la bandeja, la bitácora es la auditoría. Si algún día hace falta mostrar la nota en el panel, el dato ya está donde corresponde.
+
+- **Idempotencia real, no solo un chequeo previo:** índice único parcial `(order_id, kind, reported_by) where resolved_at is null`. Sin él, dos toques en el botón de la puerta crean dos filas; la función usa `on conflict (…) where resolved_at is null do nothing` y devuelve la existente. Tras resolver, el mismo hecho puede volver a reportarse (y debe poder).
+- **El rol del reportante NO se acepta del cliente:** se resuelve contra el pedido (`customer_id`, `deliveries.delivery_person_id`, `restaurant_members` vía `order_items.restaurant_id`) y cada rol tiene su matriz de tipos (repartidor: los tres del diálogo; restaurante: `RESTAURANT_NOT_PAID`; cliente: `AMOUNT_MISMATCH`/`OTHER`).
+- **D8 verificado en la suite:** reportar NO cambia el estado del pedido (el repartidor que no pudo cobrar sigue en `ON_THE_WAY` y puede reintentar).
+- **`/admin/pagos` usa `?status=`** (el mismo parámetro de las otras tablas) para reutilizar `AdminTableShell`, `StatusFilterSelect` y el export CSV sin inventar un eje. La paginación es EN MEMORIA: `mismatch` compara dos columnas entre sí y PostgREST no puede filtrar eso, así que la fila se descarta en JS; el tope (`PAYMENT_REVIEW_LIMIT = 200`) se dice en la UI en vez de fingir que la tabla está completa.
+- **`ResolveIncidentDialog` en lugar de `ConfirmDialog`:** el contrato de `ConfirmDialog` no acepta campos y la nota es el dato que justifica la resolución.
+- **La vista de integridad NO está vacía en la base de pruebas, y está bien:** el override de ADMIN puede cerrar un ON_DELIVERY sin exigir el cobro (limitación conocida y deliberada, ya cubierta por la suite E2E). Esas filas aparecen en el filtro `integrity` exactamente como debe: la vista existe para que el admin VEA el patrón, no para fingir que el caso no ocurre.
+
+### Limpieza de residuo de datos de prueba
+
+`verify-timing-phase1.mjs` quedaba con 1 FAIL por **8 filas imposibles** (`payment_method='YAPE'`, `payment_timing='UPFRONT'` y `cash_collected_at` poblado) creadas por los `UPDATE` crudos que la suite E2E hacía ANTES de que se actualizara su aserción. No se backfillearon (un `collected_at` en UPFRONT viola el CHECK, que es justamente el invariante): se puso `cash_collected_at = null`, que es el estado correcto de un UPFRONT. La suite queda **32/32 TODO VERDE**.
+
+### Verificación (Fases 7 y 8)
+
+`npm run typecheck` ✅ · `npm run lint`: 8 warnings preexistentes, 0 errores ✅ (bajó de 9: el aviso de `hasQr` sin uso se resolvió implementando el aviso "Súbelo en tu perfil", que el plan pedía y faltaba) · `npm run build` ✅ (con `/admin/pagos` y `/api/admin/export` en el árbol) · `scripts/e2e-delivery-offer.mjs`: **64/64 TODO VERDE** ✅ · `scripts/verify-payment-api-phase2.mjs`: **12/12 TODO VERDE** ✅ · `scripts/verify-timing-phase1.mjs`: **32/32 TODO VERDE** (tras la limpieza) ✅ · `scripts/verify-payment-incidents-phase8.mjs` (nuevo): **24/24 TODO VERDE** — snapshot inmutable de Fase 7, rechazo de ON_DELIVERY con snapshot apagado, idempotencia, matriz rol/tipo, nota > 500, anon → `42501`, RLS de lectura (admin ve todo, repartidor solo lo suyo) y D8. El script limpia todo lo que crea y restaura los flags de los repartidores E2E. Las cuatro consultas de `/admin/pagos` (el hint de FK `payment_incidents_reported_by_fkey`, los embeds `deliveries(profiles)` y `orders!inner(...)`) se probaron además contra la API con una sesión ADMIN real: el hint equivocado o el `!inner` mal puesto fallan en runtime aunque el typecheck pase.
+
+### Pendiente antes del despliegue (Fase 12 contract)
+
+`docs/plans/…` Fase 12: drop del envoltorio `confirm_delivery_payment`, endurecer `orders_update_delivery_assigned` quitando DELIVERED y PICKED_UP, y quitar el dual-write de `cash_collected_at`. **Ninguno de esos archivos debe estar en `supabase/migrations/` antes del deploy** (la app desplegada todavía usa las firmas viejas). Las Fases 9 (privacidad/términos), 10 (accesibilidad medida) y 11 (checklist manual) siguen abiertas.
+
+## 2026-09-30 — Pagar al recibir: cierre del plan (Fases 9 a 12)
+
+Cierra el mismo plan (`docs/plans/plan-pago-al-recibir-yape-o-efectivo-y-conciliacion-restaurante.md`). Lo de las Fases 1–8 queda arriba; esta entrada es lo que se decidió en el cierre.
+
+### Fase 9 — textos legales: funcionalmente completos, legalmente pendientes (D10)
+
+- **Privacidad:** los datos del pago al repartidor (método, timing, cobro declarado, constancia al restaurante, incidencias) entran en "Datos que recopilamos" y en la finalidad de "conciliación y resolución de disputas", y se documentan como **parte del registro de la transacción** (5 años, sobrevive a la anonimización porque no identifican por sí solos). También se agregó la finalidad de mostrar al restaurante si el repartidor pagó o quedó debiendo (D6).
+- **Términos, nueva sección 6 "Pago del pedido y del envío":** pago de comida vs. envío al repartidor (D1), el adelanto obliga al cliente al total al recibir, el desvío de medio declarado es válido (D4), el toggle es voluntad del repartidor (D7), la incidencia es el canal de reclamo (D8), PideloYa **no procesa ni custodia dinero**, y comprobantes/atestaciones son **declaración de las partes, no verificación bancaria**. La consecuencia de no pagar se redactó como "puede suspenderse la cuenta" (facultad, no obligación automática).
+- **D10 sigue abierto por diseño:** quién emite la boleta y si el repartidor es comprador o mandatario no se decide en código. Ambos textos llevan una nota interna de que no sustituyen revisión legal antes de un lanzamiento comercial.
+
+### Fase 10 — accesibilidad: medir, no estimar
+
+- **El foco lima de la marca FALLA el contraste sobre fondos claros** (medido: **1.15:1** sobre blanco, 1.08:1 sobre `amber-100/60`; el umbral de 1.4.11 es 3:1). En vez de cambiar el color de marca global, se agregó la utilidad `focus-halo` en `globals.css` (halo `black/45` = 3.35:1 en claro, `white/60` = 7.06:1 en oscuro) y se aplica con `outline-offset-2` en los tres grupos de radios nuevos (`PaymentMethodChoice`, `CollectMethodChoice`, `PaymentIncidentDialog`) y el checkbox de atestación. Offset 2 y no 1: con 1 px el halo queda tapado por el outline.
+- Lo demás midió bien y quedó: chips `amber-900/amber-100` 8.15:1, `emerald-900/emerald-100` 8.57:1, borde de bloque de cobro `amber-600` 3.07:1, radio `black/45` 3.35:1, oscuro todo ≥ 4.49:1. **El foco del checkbox nativo no se puede pintar con `peer`**: se le pone el halo directo (`focus-visible:focus-halo`).
+- **Regiones vivas donde el cambio no lo provoca la pantalla que lee:** chip "Cobrar…→Cobrado" en la lista del repartidor y la constancia "Cobrado el…" en el detalle (ambos `role="status" aria-live="polite"`). El `sr-only` huérfano de `PaymentMethodChoice` (duplicaba el copy del panel de abajo) se eliminó; no fue reemplazado por nada.
+- **La degradación sin QR ahora existe en los dos lados:** el botón del detalle del repartidor ya no desaparece cuando falta el QR (pasa a "Mostrar mi número de Yape"; sin QR **ni** número, el diálogo lo dice en vez de prometer "el número de abajo"), y el detalle recupera la fila copiable del número propio con el aviso "Súbelo en tu perfil" (hueco de la Fase 3.2 que quedó pendiente del ciclo anterior). QR a 360 px: `aspect-square w-72 max-w-full` en los dos diálogos (con `h-72 w-72` fijos se salía del padding).
+- **D1 cerrado:** `YapePaymentPanel` ahora recibe `amount` (comida + envío) y el diálogo del QR dice "transfiere S/ X: comida + envío"; la prop `fee` desapareció (quedaba del ciclo anterior y era el único monto inconsistente que faltaba).
+
+### Fase 11 — la suite E2E creció a 72 checks y casi todo el trabajo fue de coreografía
+
+- Seis pasos nuevos de punta a punta por la API v1 (la misma puerta de la UI): YAPE+ON_DELIVERY sin comprobante → ASSIGNED; guard de entrega sin declaración; cobro declarado Yape vs. anunciado Yape; guards de la elección (voucher en ON_DELIVERY, CASH+UPFRONT); pickup con `restaurant_paid` (D6); Fase 7 por la API con snapshot y restauración del flag.
+- **El guard de "una sola oferta o entrega activa" convive mal con suites largas en la MISMA cuenta:** `cash4` queda a propósito esperando elección al final de su grupo y bloquea todas las ofertas siguientes; y dentro del grupo nuevo, dejar `od1` en ASSIGNED mientras se ofertaba `od2` daba el mismo 409. La solución fue de orden, no de permisos: cancelar/entregar cada pedido antes de ofertar el siguiente (y un paso de limpieza de estado al arrancar: ver abajo).
+- **Un fixture corrompido por la propia suite es peor que un fallo:** el paso de Fase 7 apagaba `accepts_pay_on_delivery` y restauraba AL FINAL; un `throw` intermedio saltaba fuera y dejaba el flag apagado para TODAS las suites siguientes (fue una corrida con 22 fallos en cascada y el mensaje engañoso de "Este repartidor solo acepta pago por adelantado"). Ahora se restaura ANTES de las aserciones, y existe un script de limpieza que re-encera flags, cancela pedidos E2E vivos y borra entregas sin pago confirmado.
+- Resultado: **72/72 TODO VERDE** (dos pasadas limpias consecutivas), sin tocar nada de la app para que pasara.
+
+### Fase 12 — la migración contract vive en docs/, no en migrations/
+- `docs/db-contract/20261002100600_drop_legacy_payment_columns.sql`: drop de la firma `complete_delivery(uuid, boolean)`, CHECK viejo idempotente, `drop column cash_collected_at`, firma unificada `(uuid, text)` y endurecimiento de `orders_update_delivery_assigned` (quita DELIVERED del `with check`; PICKED_UP se conserva porque `pickup_delivery()` es SECURITY DEFINER y no atraviesa la policy). Con checklist de requisitos y ROLLBACK verbatim del cuerpo v2, mismo estilo de `20260930100400_drop_legacy_offer_functions.sql`.
+- **El acompañante de código se aplicó YA en este ciclo** (no puede esperar al deploy): `advanceOrderStatus` pierde `cashCollected`/`p_cash_collected` y manda `p_collected_method` (default `'CASH'` si no declaran el medio); las dos rutas API pierden el alias `cash_collected`; el select del detalle del repartidor deja de leer `cash_collected_at`; `cashAmountDue` eliminada. **Mientras la base siga en la v2 (3 args), todo sigue funcionando**: la firma `(uuid, text)` no es alcanzable con `(uuid, boolean, text)` posicional… PERO PostgREST manda por NOMBRE, no por posición: los llamadores con `p_cash_collected` en el body fallarían en la base contract. Por eso el orden del plan (código antes que contract) y por eso la suite se mantiene verde hoy.
+- La suite E2E ya ejercita el cuerpo nuevo (`{ collected: true, collected_method: 'CASH' }` en vez del alias), de modo que cuando la migración contract se aplique no haya que tocarla.
+
+### Verificación del cierre
+
+`npm run typecheck` ✅ · `npm run lint`: 9 warnings preexistentes (0 errores) ✅ · `e2e-delivery-offer.mjs` **72/72 TODO VERDE** ✅ · `verify-timing-phase1.mjs` **31 PASS + resumen** ✅ · `verify-payment-api-phase2.mjs` **12/12** ✅ · `verify-payment-incidents-phase8.mjs` **24/24** ✅. `npm run build` pendiente de la pasada final.
+
+### Aprendizaje transversal para próximas suites
+
+1. Toda mutación de fixture global (flags de perfil, filas) se restaura ANTES de las aserciones del paso, no después.
+2. Un guard de exclusividad ("una sola oferta activa") se trata como recurso que la SUITE administra: liberar antes del siguiente caso.
+3. Guardar un script de limpieza de estado junto a las suites: recupera una corrida abortada en minutos.
+4. `grep` del contrato tras cada cierre: alias deprecados y columnas dual-write sobreviven al plan si nadie los caza (sobrevivieron dos ciclos).
+

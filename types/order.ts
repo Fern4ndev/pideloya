@@ -1,4 +1,4 @@
-import type { PaymentMethod } from '@/lib/constants/payment-method'
+import type { PaymentMethod, PaymentTiming } from '@/lib/constants/payment-method'
 
 export type OrderStatus =
   | "PENDING"
@@ -35,10 +35,16 @@ export interface ApiOrder {
   /** Snapshot del envío cobrado por el repartidor. NULL hasta que el cliente
    * confirma el pago (nunca se suma a `total`: son ingresos de otro dueño). */
   delivery_fee: number | null
-  /** Cómo paga el cliente el pedido. YAPE = pagó por adelantado con comprobante;
-   * CASH = le paga al repartidor TODO el pedido (comida + envío) al recibirlo.
-   * NULL mientras no eligió y en los pedidos legacy aceptados sin oferta. */
+  /** Cómo paga el cliente el pedido. NULL mientras no eligió y en los pedidos
+   * legacy aceptados sin oferta. Snapshot de deliveries.payment_method. */
   payment_method: PaymentMethod | null
+  /** Cuándo paga (D2): UPFRONT = ahora con comprobante; ON_DELIVERY = al
+   * recibir (Yape o efectivo). Snapshot de deliveries.payment_timing. */
+  payment_timing: PaymentTiming | null
+  /** Constancia D6 de que el repartidor declaró haberle pagado la comida al
+   * restaurante al recoger. NULL mientras no lo declaró (o el pedido no llegó
+   * a PICKED_UP). */
+  restaurant_paid_at?: string | null
   created_at: string
   order_items?: ApiOrderItem[] | null
   addresses?: {
@@ -57,8 +63,18 @@ export interface ApiOrder {
     /** Cómo paga el cliente el envío de ESTE pedido (mismo valor que el
      * snapshot de `orders`). NULL en las entregas legacy sin oferta. */
     payment_method?: PaymentMethod | null
-    /** Cuándo el repartidor confirmó el cobro en efectivo al entregar. Solo
-     * con CASH: es su constancia de que el cliente le pagó. */
+    /** Cuándo paga (mismo valor que el snapshot de `orders`). */
+    payment_timing?: PaymentTiming | null
+    /** Snapshot D7 al enviar la oferta: el repartidor acepta cobrar al recibir
+     * (adelantando la comida). False => solo pago por adelantado. */
+    allows_pay_on_delivery?: boolean
+    /** Cuándo y CON QUÉ el repartidor DECLARÓ haber cobrado al entregar (D4).
+     * Puede diferir de payment_method (lo anunciado): el desvío es válido y se
+     * audita. Solo con payment_timing = 'ON_DELIVERY'. */
+    collected_at?: string | null
+    collected_method?: PaymentMethod | null
+    /** DEPRECADO (Fase 12): columna eliminada en la migración contract. Solo
+     * presente mientras el tipo se regenere contra una base vieja. */
     cash_collected_at?: string | null
     payment_voucher_path?: string | null
   } | null

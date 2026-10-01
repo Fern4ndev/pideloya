@@ -26,6 +26,10 @@ export default async function RestaurantOrdersPage({
   const total = (await getCount).count ?? 0
   const pagination = getPagination(total, page)
 
+  // Fase 6: `restaurant_paid_at` es de `orders` y la policy de lectura del
+  // restaurante ya cubre la tabla entera — sin policy nueva ni join a
+  // `deliveries` (mínimo privilegio: no se exponen método del cliente ni
+  // datos del repartidor, solo SI y CUÁNDO se le pagó).
   const { data: orders, error } = await supabase
     .from('orders')
     .select(`
@@ -33,6 +37,7 @@ export default async function RestaurantOrdersPage({
       status,
       total,
       created_at,
+      restaurant_paid_at,
       order_items (
         product_name,
         quantity,
@@ -54,6 +59,7 @@ export default async function RestaurantOrdersPage({
         status: order.status as OrderStatus,
         total: Number(order.total),
         createdAt: order.created_at,
+        restaurantPaidAt: order.restaurant_paid_at ?? null,
         items: items.map((i) => ({
           productName: i.product_name,
           quantity: i.quantity,
@@ -71,6 +77,13 @@ export default async function RestaurantOrdersPage({
         title="Pedidos"
         description="Historial de pedidos que incluyen tus productos."
       />
+
+      {/* Fase 6: se explica UNA sola vez, en el encabezado. El repartidor le
+          paga la comida al recoger; la tabla muestra cuándo lo registró. */}
+      <p className="mt-2 text-sm text-muted-foreground">
+        El repartidor te paga la comida al recoger el pedido. Aquí ves cuándo lo
+        registró.
+      </p>
 
       {error && (
         <p role="alert" className="mt-6 text-sm text-destructive">

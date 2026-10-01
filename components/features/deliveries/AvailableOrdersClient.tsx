@@ -22,7 +22,13 @@ async function fetchAvailableOrders(url: string): Promise<{ success: true; data:
   return res.json()
 }
 
-export function AvailableOrdersClient() {
+export function AvailableOrdersClient({
+  acceptsPayOnDelivery,
+}: {
+  /** `profiles.accepts_pay_on_delivery` del repartidor: la página lo lee una vez
+   * (Server Component) y lo baja para no repetir la consulta por tarjeta. */
+  acceptsPayOnDelivery: boolean
+}) {
   const { data, error, isLoading, mutate } = useSWR<{ success: true; data: ApiOrder[] }>(
     '/api/v1/orders',
     fetchAvailableOrders,
@@ -75,7 +81,26 @@ export function AvailableOrdersClient() {
                 itemsSummary={itemsSummary}
                 deliveryAddress={order.addresses?.address_text}
                 total={Number(order.total)}
-                footer={<SendOfferForm orderId={order.id} />}
+                footer={
+                  <div className="space-y-2">
+                    {/* Fase 5.2: la comida como LÍNEA propia, no sumergida en
+                        el total. Si el cliente termina pagando al recibir (Yape
+                        o efectivo), ESTA es la plata que el repartidor adelanta
+                        al recoger — tiene que verla ANTES de ofertar, porque
+                        después solo queda retirar. */}
+                    <p className="text-xs text-muted-foreground">
+                      Comida: S/ {Number(order.total).toFixed(2)}
+                      {acceptsPayOnDelivery
+                        ? ' · si te pagan al recibir, la adelantas tú'
+                        : ' · este pedido solo admite pago por adelantado'}
+                    </p>
+                    <SendOfferForm
+                      orderId={order.id}
+                      acceptsPayOnDelivery={acceptsPayOnDelivery}
+                      foodAmount={Number(order.total)}
+                    />
+                  </div>
+                }
               />
             )
           })}

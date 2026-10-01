@@ -224,6 +224,53 @@ export async function updateProfile(input: ProfileUpdateInput) {
   return { success: true }
 }
 
+const acceptsPayOnDeliverySchema = z.boolean()
+
+/**
+ * Interruptor D7 (Fase 7): ¿acepta el repartidor que el cliente pague al
+ * recibir, adelantando él la comida de su dinero?
+ *
+ * Valida el rol en el servidor por el mismo motivo que saveYapeQr: la policy
+ * RLS permite al usuario escribir su propia fila, pero no distingue columnas,
+ * así que "el interruptor solo se muestra al repartidor" no impide que un
+ * cliente lo invoque desde DevTools y se ponga el flag (hoy inocuo, pero el
+ * dato es de negocio del repartidor y no debe poder falsearse desde otro rol).
+ *
+ * No revalida rutas de reparto: el snapshot ya enviado vive en
+ * `deliveries.allows_pay_on_delivery` y NO depende de este valor (ver la
+ * migración 20261002100400). El cambio solo afecta ofertas futuras.
+ */
+export async function setAcceptsPayOnDelivery(accepts: boolean) {
+  let value: boolean
+  try {
+    value = acceptsPayOnDeliverySchema.parse(accepts)
+  } catch (err) {
+    throw new Error(toFriendlyMessage(err))
+  }
+
+  const { supabase, authId } = await getCurrentAuthUser()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('auth_id', authId)
+    .single()
+
+  if (profile?.role !== 'DELIVERY') {
+    throw new Error('Solo los repartidores pueden cambiar esta preferencia')
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ accepts_pay_on_delivery: value })
+    .eq('auth_id', authId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/repartidor/perfil')
+  return { success: true }
+}
+
 const passwordSchema = z.string().min(8, 'Mínimo 8 caracteres')
 
 export async function changePassword(newPassword: string) {

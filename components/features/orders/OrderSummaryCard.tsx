@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import {
-  PAYMENT_METHOD_COPY,
-  cashAmountDue,
+  amountDueToCourier,
+  paymentLabel,
   type PaymentMethod,
+  type PaymentTiming,
 } from '@/lib/constants/payment-method'
 
 export type SummaryItem = {
@@ -80,6 +81,7 @@ export function OrderSummaryCard({
   subtotal,
   deliveryFee,
   paymentMethod = null,
+  paymentTiming = null,
   action,
   voucher,
 }: {
@@ -92,6 +94,11 @@ export function OrderSummaryCard({
    * si todavía no eligió / si es una entrega legacy aceptada sin oferta.
    */
   paymentMethod?: PaymentMethod | null
+  /**
+   * Cuándo paga (snapshot de `orders.payment_timing`): con los dos ejes la
+   * nota bajo el total puede distinguir "Yape (pagado)" de "Yape al recibir".
+   */
+  paymentTiming?: PaymentTiming | null
   /** Slot para una acción contextual futura (ej. "Repetir pedido") — hoy sin uso. */
   action?: ReactNode
   /**
@@ -111,23 +118,27 @@ export function OrderSummaryCard({
   // Total del pedido = comida + envío. `subtotal` es la comida: el nombre viene
   // de la tarjeta, que suma el envío por separado para poder mostrarlo.
   const total = subtotal + (deliveryFee ?? 0)
-  const methodCopy = paymentMethod ? PAYMENT_METHOD_COPY[paymentMethod] : null
-  const cashDue = cashAmountDue(subtotal, deliveryFee)
+  const label = paymentLabel(paymentMethod, paymentTiming)
+  const due = amountDueToCourier(subtotal, deliveryFee)
 
-  // Nota bajo el total. Con la tarifa ya fijada:
-  //   - CASH  → cuánto le va a entregar al repartidor (comida + envío, D1);
-  //   - YAPE  → el texto que ya existía;
-  //   - null  → ni chip ni nota. Solo pueden ser pedidos LEGACY (aceptados sin
-  //     oferta, anteriores a esta función) o el momento previo a la elección.
-  //     No se inventa un método ni se le promete al cliente algo que no eligió.
+  // Nota bajo el total, según la TUPLA (método + momento) y no solo el método:
+  //   - YAPE+UPFRONT     → pagado por adelantado: comida + envío (D1);
+  //   - YAPE+ON_DELIVERY → yapeará al recibir: comida + envío;
+  //   - CASH             → entregará el total en efectivo al recibir.
+  //   - null             → ni chip ni nota (legacy o previo a la elección): no
+  //     se inventa un método ni se promete algo que no eligió.
+  // Auditar con `grep` (Fase 4.6): NINGÚN texto de un pedido ON_DELIVERY puede
+  // decir "pagaste" ni "el envío se paga por Yape".
   const paymentNote =
     deliveryFee === null
       ? null
-      : paymentMethod === 'CASH'
-        ? `Pagas S/ ${cashDue.toFixed(2)} en efectivo al repartidor cuando llegue tu pedido: comida + envío.`
-        : paymentMethod === 'YAPE'
-          ? 'El envío se paga directo a tu repartidor por Yape.'
-          : 'Elige cómo pagar el envío.'
+      : paymentMethod === null
+        ? 'Elige cómo pagar el envío.'
+        : paymentMethod === 'CASH'
+          ? `Pagas S/ ${due.toFixed(2)} en efectivo al repartidor cuando llegue tu pedido: comida + envío.`
+          : paymentTiming === 'ON_DELIVERY'
+            ? `Pagas S/ ${due.toFixed(2)} por Yape a tu repartidor al recibir tu pedido: comida + envío.`
+            : `Pagaste S/ ${due.toFixed(2)} por Yape a tu repartidor: comida + envío.`
 
   return (
     <div className="w-full min-w-0 rounded-3xl bg-white/80 p-5 shadow-client-card backdrop-blur-xl dark:bg-white/5">
@@ -170,11 +181,11 @@ export function OrderSummaryCard({
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span className="flex min-w-0 items-center gap-2">
             Envío
-            {/* El método es TEXTO ("Efectivo al recibir"), no un punto de color:
+            {/* El método es TEXTO ("Yape al recibir"), no un punto de color:
                 tiene que seguir siendo legible con daltonismo o impreso. */}
-            {methodCopy && (
+            {label && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-100">
-                {methodCopy.short}
+                {label}
               </span>
             )}
           </span>

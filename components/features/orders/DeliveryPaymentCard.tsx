@@ -7,13 +7,15 @@ import { confirmDeliveryPayment } from '@/lib/actions/orders'
 import { DeliveryAvatar } from '@/components/features/admin/DeliveryAvatar'
 import { PaymentMethodChoice } from '@/components/features/orders/PaymentMethodChoice'
 import { CashPaymentPanel } from '@/components/features/orders/CashPaymentPanel'
+import { YapeOnDeliveryPanel } from '@/components/features/orders/YapeOnDeliveryPanel'
 import { useToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/db/client'
 import { PAYMENT_VOUCHER_BUCKET, paymentVoucherPath } from '@/lib/constants/payment-voucher'
 import {
   PAYMENT_METHOD_PROMPT,
-  cashAmountDue,
+  amountDueToCourier,
   type PaymentMethod,
+  type PaymentTiming,
 } from '@/lib/constants/payment-method'
 
 export type DeliveryOffer = {
@@ -24,6 +26,9 @@ export type DeliveryOffer = {
    * cuenta está incompleta: en ese caso la fila del número no se renderiza. */
   phone: string | null
   deliveryFee: number
+  /** Snapshot D7 de la oferta: ¿este repartidor acepta cobrar al recibir?
+   * False => "Pagar al recibir" se muestra deshabilitada con motivo. */
+  allowsPayOnDelivery: boolean
 }
 
 /** Fases del envío del comprobante. Se modela explícitamente porque cada una
@@ -55,13 +60,12 @@ function YapePanelSkeleton() {
 }
 
 /**
- * Carga diferida del panel de Yape (Fase 4.3 del plan): quien va a pagar en
- * efectivo nunca necesita el QR, el QR ampliable, el selector de archivos ni el
- * compresor de imágenes, así que no tiene por qué descargarlos para decidir.
- *
- * `ssr: false` es correcto acá y no un atajo: el panel solo existe después de
- * una interacción del cliente (elegir un método), así que en el HTML del
- * servidor no hay nada que hidratar. El `loading` reserva la altura.
+ * Carga diferida del panel de Yape "por adelantado": quien va a pagar al
+ * recibir nunca necesita el QR ampliable del pago previo, el selector de
+ * archivos ni el compresor de imágenes. `ssr: false` es correcto acá y no un
+ * atajo: el panel solo existe después de una interacción del cliente (elegir
+ * la tupla de pago), así que en el HTML del servidor no hay nada que hidratar.
+ * El `loading` reserva la altura (sin CLS).
  */
 const YapePaymentPanel = dynamic(
   () => import('./YapePaymentPanel').then((m) => m.YapePaymentPanel),
@@ -70,41 +74,35 @@ const YapePaymentPanel = dynamic(
 
 /**
  * Tarjeta de pago del envío: aparece SOLO cuando el pedido está en
- * AWAITING_PAYMENT, es decir cuando ya hay un repartidor con una tarifa
- * propuesta esperando que el cliente decida cómo le paga.
+ * AWAITING_PAYMENT, cuando ya hay un repartidor con una tarifa propuesta
+ * esperando que el cliente decida cómo le paga.
  *
- * Desde la Fase 4 del plan del método de pago, el cliente tiene UNA DECISIÓN y
- * después UNA TAREA:
+ * Desde el plan "Pagar al recibir", la decisión tiene DOS EJES (D2):
  *
- *   ¿Cómo quieres pagar el envío?  →  Pagar al recibir (efectivo)
- *                                  →  Pagar ahora (Yape + comprobante)
+ *   ¿Cuándo?  → Pagar ahora (Yape + comprobante) | Pagar al recibir
+ *   ¿Con qué? → (solo al recibir) Efectivo | Yape
  *
- * Antes había un solo camino (Yape + comprobante obligatorio) y los tres pasos
- * de Yape se le mostraban también a quien iba a pagar en efectivo. Ahora los
- * pasos aparecen recién cuando eligen "Pagar ahora": revelado progresivo, una
- * acción primaria por estado.
+ * y la tupla elegida llega a la RPC select_delivery_payment completa. Los
+ * paneles que se muestran según la tupla:
  *
- * Decisiones que no son cosméticas (D2 y D5 del plan):
+ *   UPFRONT + YAPE      → YapePaymentPanel (QR, comprobante obligatorio)
+ *   ON_DELIVERY + CASH  → CashPaymentPanel (como el ciclo anterior)
+ *   ON_DELIVERY + YAPE  → YapeOnDeliveryPanel (nuevo, sin comprobante, D5)
  *
- * 1. SIN opción preseleccionada: es dinero. Preseleccionar Yape empuja a subir
- *    un comprobante a quien quería efectivo; preseleccionar efectivo se presta
- *    a confirmar por inercia. Mientras no haya elección se muestra una ayuda
- *    visible y NINGÚN botón.
- * 2. La elección es DEFINITIVA (el pedido sale de AWAITING_PAYMENT y arranca).
- *    Se avisa antes del clic, en el panel del método elegido.
- * 3. Mientras hay una operación en curso (`phase !== 'idle'`) el selector queda
- *    deshabilitado: cambiar de método a mitad de una subida dejaría la promesa
- *    en vuelo sin ninguna UI que la espere.
- * 4. El archivo elegido vive ACÁ y no dentro del panel de Yape: si viviera
- *    dentro, alternar curiosa y brevemente a efectivo y volver a Yape borraría
- *    la captura y obligaría a buscarla otra vez en la galería.
- * 5. `busy` se DERIVA de `phase` en vez de guardarse: dos estados para la misma
- *    verdad pueden contradecirse (botón deshabilitado con fase en idle).
+ * Decisiones heredadas que siguen sosteniendo el diseño:
  *
- * El contraste de los textos pequeños de la tarjeta está medido, no estimado:
- * usan `amber-900` (~8.9:1 sobre el fondo ámbar) en vez de `muted-foreground`,
- * que sobre este fondo queda en ~4.7:1 — pasa, pero sin margen para que un
- * cambio de token lo rompa en silencio.
+ * 1. SIN preselección en ningún nivel (D3): es dinero. El CTA solo existe con
+ *    la tupla completa; mientras falta algo, se muestra la ayuda.
+ * 2. La elección es DEFINITIVA (D3 del ciclo anterior). Se avisa antes del
+ *    clic, en cada panel.
+ * 3. Mientras hay una operación en curso (`phase !== 'idle'`), `busy` se
+ *    DERIVA de `phase` (dos estados para la misma verdad pueden contradecirse)
+ *    y el selector queda deshabilitado.
+ * 4. El archivo del comprobante vive ACÁ y no dentro del panel: alternar a
+ *    "al recibir" y volver a "Pagar ahora" no borra la captura ya elegida.
+ * 5. Cambiar el "cuándo" limpia el "con qué" si la pareja dejó de tener
+ *    sentido (de UPFRONT no hay método; al volver a UPFRONT no hay nada que
+ *    conservar porque el panel de Yape-ahora no usa `method`).
  */
 export function DeliveryPaymentCard({
   orderId,
@@ -112,36 +110,61 @@ export function DeliveryPaymentCard({
   deliveryPerson,
 }: {
   orderId: string
-  /** Total del pedido (comida). Con efectivo (D1) el cliente le paga al
-   *  repartidor este monto MÁS el envío, así que se muestra la suma. */
+  /** Total del pedido (comida). En TODOS los métodos (D1) el cliente le paga
+   *  al repartidor este monto MÁS el envío. */
   total: number
   deliveryPerson: DeliveryOffer
 }) {
   const router = useRouter()
   const { error, success } = useToast()
+  const [timing, setTiming] = useState<PaymentTiming | null>(null)
   const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [phase, setPhase] = useState<Phase>('idle')
 
   const fee = deliveryPerson.deliveryFee.toFixed(2)
-  const cashDue = cashAmountDue(total, deliveryPerson.deliveryFee).toFixed(2)
+  const due = amountDueToCourier(total, deliveryPerson.deliveryFee).toFixed(2)
   const busy = phase !== 'idle'
+  const tupleComplete =
+    timing !== null && (timing === 'UPFRONT' || method !== null)
 
-  /** Efectivo: no hay archivo que subir ni nada que verificar antes. La Server
-   *  Action valida el método y la función SQL exige que la ruta del comprobante
-   *  vaya vacía, así que acá solo se confirma la elección. */
+  /** Nivel 1: al cambiar el "cuándo" se desmonta el sub-grupo y el "con qué"
+   *  deja de existir salvo que siga siendo ON_DELIVERY (donde se conserva:
+   *  alternar dos veces no debe borrar lo ya elegido). */
+  function handleTimingChange(next: PaymentTiming) {
+    setTiming(next)
+    if (next !== 'ON_DELIVERY') setMethod(null)
+  }
+
+  /** Efectivo al recibir: no hay archivo que subir ni nada que verificar. La
+   *  Server Action valida la tupla y la función SQL vuelve a validarla. */
   async function handleConfirmCash() {
-    if (busy) return
+    if (busy || timing !== 'ON_DELIVERY' || method !== 'CASH') return
     setPhase('confirming')
     try {
-      await confirmDeliveryPayment(orderId, 'CASH')
+      await confirmDeliveryPayment(orderId, { method: 'CASH', timing: 'ON_DELIVERY' })
       success(
         '¡Listo! Tu repartidor ya puede ir por tu pedido.',
-        `Pagarás S/ ${cashDue} en efectivo cuando te lo entregue.`
+        `Pagarás S/ ${due} en efectivo cuando te lo entregue.`
       )
-      // El pedido pasa a ASSIGNED: la Server Action revalida la ruta, y el
-      // refresh explícito asegura que esta tarjeta desaparezca de la vista en
-      // el mismo instante.
+      router.refresh()
+    } catch (err) {
+      error('No se pudo confirmar', err instanceof Error ? err.message : undefined)
+    } finally {
+      setPhase('idle')
+    }
+  }
+
+  /** Yape AL RECIBIR: solo se anuncia la promesa (D5, sin comprobante). */
+  async function handleConfirmYapeOnDelivery() {
+    if (busy || timing !== 'ON_DELIVERY' || method !== 'YAPE') return
+    setPhase('confirming')
+    try {
+      await confirmDeliveryPayment(orderId, { method: 'YAPE', timing: 'ON_DELIVERY' })
+      success(
+        '¡Listo! Tu repartidor ya puede ir por tu pedido.',
+        `Yapearás S/ ${due} cuando te entregue el pedido.`
+      )
       router.refresh()
     } catch (err) {
       error('No se pudo confirmar', err instanceof Error ? err.message : undefined)
@@ -151,29 +174,22 @@ export function DeliveryPaymentCard({
   }
 
   /**
-   * Yape: sube el comprobante y recién después confirma el pago. El orden no es
-   * negociable: la función SQL rechaza la confirmación si el archivo no existe
-   * en Storage, justamente para que no se pueda dar por pagado un pedido sin
-   * ninguna evidencia.
+   * Yape POR ADELANTADO: sube el comprobante y recién después confirma. El
+   * orden no es negociable: la función SQL rechaza la confirmación si el
+   * archivo no existe en Storage.
    *
-   * El archivo se sube DIRECTO del navegador a Storage con la sesión del
-   * cliente (RLS aplicada), no por Server Action: las Server Actions tienen un
-   * límite de cuerpo de 1 MB por defecto y un comprobante no siempre cabe;
-   * subir el límite global sería peor que este camino.
-   *
-   * Si algo falla, el archivo ELEGIDO se conserva: el cliente reintenta sin
-   * volver a buscarlo en la galería. Y como el reintento usa la misma ruta con
-   * `upsert`, nunca quedan dos comprobantes del mismo pedido.
+   * El archivo sube DIRECTO del navegador a Storage con la sesión del cliente
+   * (RLS aplicada): las Server Actions tienen un límite de cuerpo de 1 MB y un
+   * comprobante no siempre cabe. Si algo falla, el archivo ELEGIDO se conserva
+   * y el reintento usa la misma ruta con `upsert`.
    */
-  async function handleConfirmYape() {
-    if (!file || busy) return
+  async function handleConfirmYapeUpfront() {
+    if (!file || busy || timing !== 'UPFRONT') return
 
     setPhase('preparing')
     try {
-      // Import DINÁMICO y no estático: el compresor (y su decodificación de
-      // imágenes) es la parte pesada del flujo y solo se necesita acá. Con un
-      // import estático entraría en el bundle inicial de la página, que es lo
-      // que la Fase 4.6 pide evitar.
+      // Import DINÁMICO: el compresor es la parte pesada del flujo y solo se
+      // necesita acá (la Fase 4.6 del plan pide sacarlo del bundle inicial).
       const { toVoucherJpeg } = await import('@/lib/images/compress-voucher')
       const blob = await toVoucherJpeg(file)
 
@@ -184,9 +200,6 @@ export function DeliveryPaymentCard({
         .upload(paymentVoucherPath(orderId), blob, {
           upsert: true,
           contentType: 'image/jpeg',
-          // El comprobante es único por pedido y puede reemplazarse en un
-          // reintento: cachear la versión vieja haría que el repartidor vea una
-          // imagen que ya no es la que se envió.
           cacheControl: '0',
         })
 
@@ -197,7 +210,7 @@ export function DeliveryPaymentCard({
       }
 
       setPhase('confirming')
-      await confirmDeliveryPayment(orderId, 'YAPE')
+      await confirmDeliveryPayment(orderId, { method: 'YAPE', timing: 'UPFRONT' })
       success('¡Listo! Tu repartidor ya puede ir por tu pedido.')
       router.refresh()
     } catch (err) {
@@ -224,46 +237,71 @@ export function DeliveryPaymentCard({
             {deliveryPerson.fullName} llevará tu pedido
           </h2>
           {/* La tarifa sube de `text-xs` a `text-lg`: es EL dato que el cliente
-              necesita para pagar, no una nota al pie. */}
+              necesita para decidir. El total a pagarle al repartidor (comida +
+              envío, D1) se agrega como segunda línea: los tres paneles lo
+              repiten, pero es el número que decide la elección. */}
           <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
             <span className="text-xs text-amber-900 dark:text-amber-100">
               Costo de envío
             </span>
             <span className="text-lg font-semibold tabular-nums">S/ {fee}</span>
           </p>
+          <p className="text-xs text-amber-900 dark:text-amber-100">
+            Total a pagarle al repartidor: S/ {due}
+          </p>
         </div>
       </div>
 
       <div className="mt-5 border-t border-amber-300/60 pt-4 dark:border-amber-500/25">
-        <PaymentMethodChoice value={method} onChange={setMethod} disabled={busy} />
+        <PaymentMethodChoice
+          timing={timing}
+          method={method}
+          onTimingChange={handleTimingChange}
+          onMethodChange={setMethod}
+          disabled={busy}
+          allowsOnDelivery={deliveryPerson.allowsPayOnDelivery}
+        />
       </div>
 
-      {/* Ayuda visible mientras no hay elección y NINGÚN CTA: la decisión es del
-          cliente y el panel que corresponde todavía no existe. */}
-      {method === null && (
+      {/* Ayuda visible mientras la tupla esté incompleta y NINGÚN CTA: la
+          decisión es del cliente y el panel que corresponde aún no existe. */}
+      {!tupleComplete && (
         <p className="mt-3 text-center text-xs text-amber-900 dark:text-amber-100">
           {PAYMENT_METHOD_PROMPT}
         </p>
       )}
 
-      {method === 'CASH' && (
+      {timing === 'ON_DELIVERY' && method === 'CASH' && (
         <div className="mt-4">
-          <CashPaymentPanel amount={cashDue} onConfirm={handleConfirmCash} busy={busy} />
+          <CashPaymentPanel amount={due} onConfirm={handleConfirmCash} busy={busy} />
         </div>
       )}
 
-      {method === 'YAPE' && (
+      {timing === 'ON_DELIVERY' && method === 'YAPE' && (
+        <div className="mt-4">
+          <YapeOnDeliveryPanel
+            fullName={deliveryPerson.fullName}
+            yapeQrUrl={deliveryPerson.yapeQrUrl}
+            phone={deliveryPerson.phone}
+            amount={due}
+            busy={busy}
+            onConfirm={handleConfirmYapeOnDelivery}
+          />
+        </div>
+      )}
+
+      {timing === 'UPFRONT' && (
         <div className="mt-4">
           <YapePaymentPanel
             fullName={deliveryPerson.fullName}
             yapeQrUrl={deliveryPerson.yapeQrUrl}
             phone={deliveryPerson.phone}
-            fee={fee}
+            amount={due}
             file={file}
             onFileChange={setFile}
             busy={busy}
             busyLabel={phase === 'idle' ? undefined : PHASE_LABEL[phase]}
-            onConfirm={handleConfirmYape}
+            onConfirm={handleConfirmYapeUpfront}
           />
         </div>
       )}

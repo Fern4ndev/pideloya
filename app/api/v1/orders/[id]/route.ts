@@ -6,7 +6,7 @@ import {
 } from '@/lib/api/response'
 import { authenticateRequest, adminClient, userClient, NotFoundError } from '@/lib/api/auth'
 import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
-import { paymentMethodSchema } from '@/lib/validations/payment-method'
+import { paymentSelectionSchema } from '@/lib/validations/payment-method'
 import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 import type { OrderStatus } from '@/types/order'
 
@@ -164,20 +164,22 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       return errorResponse('Solo el cliente puede confirmar el pago del envío', 403)
     }
 
-    // El método es OPCIONAL y su default es 'YAPE': las integraciones que ya
-    // llamaban esta acción sin cuerpo siguen funcionando igual. Un valor
-    // distinto de 'YAPE'/'CASH' se rechaza con 400 acá, sin llegar a la base.
+    // El método es OPCIONAL y su default es 'YAPE' + 'UPFRONT': las
+    // integraciones que ya llamaban esta acción sin cuerpo siguen funcionando
+    // igual. Con método y sin timing, el timing se DERIVA en la función (YAPE ->
+    // UPFRONT, CASH -> ON_DELIVERY): también compatibilidad.
     //
-    // Con 'YAPE' el ORDEN ES OBLIGATORIO: primero subir el comprobante a
+    // Con YAPE+UPFRONT el ORDEN ES OBLIGATORIO: primero subir el comprobante a
     // `payment-vouchers/{order_id}/voucher.jpg` con el MISMO token Bearer (la
     // RLS que lo autoriza es la del usuario; no hay camino privilegiado que
     // saltarse), y recién después llamar esta acción. Si no lo hizo, la función
     // responde 400 "Adjunta el comprobante de tu pago para confirmar": el fallo
     // es explícito, nunca una confirmación sin evidencia.
     //
-    // Con 'CASH' no se sube nada: el cliente se compromete a pagarle al
-    // repartidor el total del pedido al recibirlo, y la función responde 400 si
-    // le llega cualquier ruta de comprobante.
+    // Con ON_DELIVERY no se sube nada (D5): en la puerta existe la app de Yape
+    // del repartidor o el billete, no una captura previa. La función responde
+    // 400 si le llega cualquier ruta, y 400 "Este repartidor solo acepta pago
+    // por adelantado" si el repartidor no acepta cobrar al recibir (D7).
     //
     // La ruta se deriva del id ACÁ y la función la vuelve a validar contra su
     // formato único: el consumidor no elige dónde vive su comprobante.
@@ -186,22 +188,33 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
     // pedido sea del usuario que llama usando auth.uid(), que no existe en un
     // cliente con service role. Con adminClient esto fallaría con 'No
     // autenticado' — comportamiento buscado, no un bug de la ruta.
-    const parsedMethod = paymentMethodSchema.safeParse(body.method ?? 'YAPE')
-    if (!parsedMethod.success) {
-      return errorResponse(parsedMethod.error.issues[0]?.message ?? 'Método de pago inválido', 400)
+    const rawMethod = body.method ?? 'YAPE'
+    const parsed = paymentSelectionSchema.safeParse({
+      method: rawMethod,
+      // Sin timing explícito se DERIVA del método (YAPE -> UPFRONT, CASH ->
+      // ON_DELIVERY): es exactamente la semántica que tenía cada método antes
+      // de que existiera el eje, así que las integraciones viejas producen lo
+      // mismo que ayer. Solo un timing EXPLÍCITO puede cambiarla.
+      timing: body.timing ?? (rawMethod === 'YAPE' ? 'UPFRONT' : 'ON_DELIVERY'),
+    })
+    if (!parsed.success) {
+      return errorResponse(parsed.error.issues[0]?.message ?? 'Elección de pago inválida', 400)
     }
+    const { method, timing } = parsed.data
 
     const { error } = await userClient(request).rpc('select_delivery_payment', {
       p_order_id: id,
-      p_method: parsedMethod.data,
-      // La ruta viaja SOLO con Yape: con `undefined` la clave no se envía y la
-      // función aplica su DEFAULT null, que es lo que exige el CHECK
-      // deliveries_voucher_requires_yape_check.
-      p_voucher_path: parsedMethod.data === 'YAPE' ? paymentVoucherPath(id) : undefined,
+      p_method: method,
+      p_timing: timing,
+      // La ruta viaja SOLO con Yape por adelantado: con `undefined` la clave no
+      // se envía y la función aplica su DEFAULT null, que es lo que exige el
+      // CHECK deliveries_voucher_requires_upfront_yape_check.
+      p_voucher_path:
+        method === 'YAPE' && timing === 'UPFRONT' ? paymentVoucherPath(id) : undefined,
     })
     if (error) return rpcErrorResponse(error)
 
-    return successResponse({ status: 'ASSIGNED', payment_method: parsedMethod.data })
+    return successResponse({ status: 'ASSIGNED', payment_method: method, payment_timing: timing })
   }
 
   if (action === 'advance') {
@@ -238,15 +251,36 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       }
 
       // Último paso por el camino del repartidor: lo hace complete_delivery(),
-      // atómica y con la guarda del cobro en efectivo (D6). El camino del ADMIN
-      // sigue más abajo sin exigirla: es un override de soporte explícito.
+      // atómica y con la guarda del cobro declarado (D4: un pedido que se paga
+      // al recibir no se cierra sin declarar el medio real; D8: "no pude
+      // cobrar" no es este camino, es una incidencia). El alias cash_collected
+      // del ciclo anterior se retiró con la Fase 12. El camino del ADMIN sigue
+      // más abajo sin exigirla: es un override de soporte explícito.
       if (order.status === 'ON_THE_WAY') {
+        const collectedMethod =
+          body.collected_method === 'YAPE' || body.collected_method === 'CASH'
+            ? body.collected_method
+            : undefined
+        const collected = body.collected === true
         const { error } = await userClient(request).rpc('complete_delivery', {
           p_order_id: id,
-          p_cash_collected: body.cash_collected === true,
+          p_collected_method: collected ? (collectedMethod ?? 'CASH') : null,
         })
         if (error) return rpcErrorResponse(error)
         return successResponse({ status: 'DELIVERED' })
+      }
+
+      // Primer paso por el camino del repartidor: pickup_delivery() (migración
+      // 20261002100300), que además de PICKED_UP escribe la constancia D6
+      // `orders.restaurant_paid_at` cuando el cuerpo lo pide. Body:
+      // { restaurant_paid?: boolean }.
+      if (order.status === 'ASSIGNED') {
+        const { error } = await userClient(request).rpc('pickup_delivery', {
+          p_order_id: id,
+          p_restaurant_paid: body.restaurant_paid === true,
+        })
+        if (error) return rpcErrorResponse(error)
+        return successResponse({ status: 'PICKED_UP' })
       }
     }
 

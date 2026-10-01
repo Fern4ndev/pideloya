@@ -11,7 +11,7 @@ import {
   type DeliveryOffer,
 } from '@/components/features/orders/DeliveryPaymentCard'
 import { PAYMENT_VOUCHER_BUCKET, VOUCHER_SIGNED_URL_TTL_S } from '@/lib/constants/payment-voucher'
-import { cashAmountDue, toPaymentMethod } from '@/lib/constants/payment-method'
+import { amountDueToCourier, toPaymentMethod, toPaymentTiming } from '@/lib/constants/payment-method'
 import type { OrderStatus } from '@/lib/constants/order-status'
 import { MapPinIcon, StickyNoteIcon } from 'lucide-react'
 
@@ -42,7 +42,7 @@ export default async function OrderDetailPage({
   const { data: order } = await supabase
     .from('orders')
     .select(
-      `id, status, total, delivery_fee, payment_method, notes, created_at,
+      `id, status, total, delivery_fee, payment_method, payment_timing, notes, created_at,
        addresses(address_text, reference),
        order_items(quantity, unit_price, product_name, image_url)`
     )
@@ -74,23 +74,50 @@ export default async function OrderDetailPage({
   let deliveryOffer: DeliveryOffer | null = null
   let voucherUrl: string | null = null
 
+  let courierQrUrl: string | null = null
+  let courierName: string | null = null
+  let courierPhone: string | null = null
+
   if (LIVE_ORDER_STATUSES.includes(order.status)) {
     const { data: offers } = await supabase.rpc('get_delivery_offer_details', {
       p_order_id: id,
     })
     const offer = offers?.[0]
 
+    // Con Yape AL RECIBIR, el cliente necesita el QR/telefono del repartidor
+    // para preparar su pago (Fase 4.5). La RPC ya los devuelve en estados
+    // vivos — sin RPC nueva y sin leer la fila de profiles (que la RLS del
+    // cliente le prohibe igual).
+    courierQrUrl = offer?.yape_qr_url ?? null
+    courierName = offer?.full_name ?? null
+    courierPhone = offer?.phone ?? null
+
     if (offer) {
       // Si la entrega no tiene tarifa (dato imposible en el flujo nuevo) no se
       // muestra la tarjeta: mejor no ofrecer un botón de "confirmar pago"
       // sobre un monto en cero que inventar un S/ 0.00.
       if (order.status === 'AWAITING_PAYMENT' && offer.delivery_fee != null) {
+        // (D7) ¿El repartidor acepta cobrar al recibir? La función RPC acotada
+        // no lo expone (agregarle un campo exigiría DROP+CREATE que rompería el
+        // código desplegado), así que se lee la fila de `deliveries` con la
+        // policy ya existente: el cliente de un pedido vivo puede leer SU
+        // entrega. Es un snapshot de la oferta: si el repartidor cambia su
+        // perfil después, la oferta enviada no cambia.
+        const { data: deliveryRow } = await supabase
+          .from('deliveries')
+          .select('allows_pay_on_delivery')
+          .eq('order_id', id)
+          .maybeSingle()
+
         deliveryOffer = {
           fullName: offer.full_name,
           avatarUrl: offer.avatar_url,
           yapeQrUrl: offer.yape_qr_url,
           phone: offer.phone,
           deliveryFee: Number(offer.delivery_fee),
+          // Default `true` = el comportamiento de siempre (el efectivo ya
+          // existía): un dato ausente no le cierra opciones al cliente.
+          allowsPayOnDelivery: deliveryRow?.allows_pay_on_delivery !== false,
         }
       }
 
@@ -123,11 +150,13 @@ export default async function OrderDetailPage({
   // aceptada sin oferta, anterior a esta función.
   const paymentMethod = toPaymentMethod(order.payment_method)
 
-  // Monto que el cliente le ENTREGA en efectivo al recibir (D1: comida +
-  // envío). Solo con CASH: en cualquier otro caso no hay monto que mostrar y la
-  // tarjeta de estados no dibuja ningún recordatorio.
+  // Monto que el cliente le paga al repartidor al recibir (D1: comida +
+  // envío). Solo en ON_DELIVERY hay monto pendiente que recordar; en UPFRONT ya
+  // pagó y no se le repite nada.
   const cashAmount =
-    paymentMethod === 'CASH' ? cashAmountDue(Number(order.total), deliveryFee) : null
+    toPaymentTiming(order.payment_timing) === 'ON_DELIVERY'
+      ? amountDueToCourier(Number(order.total), deliveryFee)
+      : null
 
   // Layout: UNA pila vertical explícita, con el orden del DOM como orden
   // visual — Resumen → Pago (si falta elegir) → Estados → Entrega — y una sola
@@ -215,6 +244,7 @@ export default async function OrderDetailPage({
           subtotal={Number(order.total)}
           deliveryFee={deliveryFee}
           paymentMethod={paymentMethod}
+          paymentTiming={toPaymentTiming(order.payment_timing)}
           voucher={
             voucherUrl ? (
               <div className="flex items-center gap-3">
@@ -252,7 +282,11 @@ export default async function OrderDetailPage({
           orderId={order.id}
           status={order.status}
           paymentMethod={paymentMethod}
+          paymentTiming={toPaymentTiming(order.payment_timing)}
           cashAmount={cashAmount}
+          courierQrUrl={courierQrUrl}
+          courierName={courierName}
+          courierPhone={courierPhone}
         />
 
         {/* Tarjeta "Entrega" (Fase 3.4): una sola tarjeta secundaria con

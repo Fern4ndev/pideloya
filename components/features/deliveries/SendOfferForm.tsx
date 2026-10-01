@@ -15,8 +15,24 @@ import { useToast } from '@/components/ui/toast'
  * DEFAULT_DELIVERY_FEE (S/ 5) como punto de partida neutral, no como
  * recomendación: el repartidor lo cambia con dos toques según su propio
  * criterio (tráfico, hora, cuán conocida es la zona, etc.).
+ *
+ * Fase 7 (D7): la línea bajo el formulario recuerda qué implica ofertar según
+ * su preferencia — si acepta pago al recibir, el importe de la comida que
+ * adelanta; si no, que este pedido solo admitirá pago por adelantado. Se
+ * recibe por props y no se lee de la sesión acá para no duplicar consulta: la
+ * página ya cargó el perfil.
  */
-export function SendOfferForm({ orderId }: { orderId: string }) {
+export function SendOfferForm({
+  orderId,
+  acceptsPayOnDelivery,
+  foodAmount,
+}: {
+  orderId: string
+  /** Snapshot que quedará en la oferta: viene de `profiles.accepts_pay_on_delivery`. */
+  acceptsPayOnDelivery: boolean
+  /** `orders.total` = lo que el repartidor adelantaría al restaurante. */
+  foodAmount: number
+}) {
   const inputId = useId()
   const router = useRouter()
   const [fee, setFee] = useState(String(DEFAULT_DELIVERY_FEE))
@@ -72,6 +88,15 @@ export function SendOfferForm({ orderId }: { orderId: string }) {
       <Button type="submit" variant="lime" disabled={isPending}>
         {isPending ? 'Enviando…' : 'Enviar oferta'}
       </Button>
+      <p className="w-full text-xs text-muted-foreground">
+        {acceptsPayOnDelivery ? (
+          <>
+            Aceptas pago al recibir (adelantas S/ {foodAmount.toFixed(2)} de comida)
+          </>
+        ) : (
+          'Solo cobras por adelantado'
+        )}
+      </p>
     </form>
   )
 }

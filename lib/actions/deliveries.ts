@@ -190,15 +190,25 @@ const NEXT_STATUS: Partial<
  * en el orden correcto (no se puede "saltar" de ASSIGNED a DELIVERED) —
  * esto es la parte que RLS por sí sola no valida, así que se hace aquí.
  *
- * `opts.cashCollected` solo aplica al último paso y solo tiene efecto en un
- * pedido pagado en EFECTIVO: complete_delivery() rechaza la entrega si el
- * método es CASH y el repartidor no confirma que cobró (D6). Para Yape y para
- * las entregas legacy se ignora.
+ * `opts.restaurantPaid` solo aplica al primer paso (ASSIGNED -> PICKED_UP, vía
+ * pickup_delivery, migración 20261002100300) y registra la constancia D6 de que
+ * el repartidor le pagó la comida al restaurante al recoger.
+ *
+ * `opts.collected` + `opts.collectedMethod` solo aplican al último paso
+ * (ON_THE_WAY -> DELIVERED): complete_delivery() rechaza la entrega de un
+ * pedido que se paga al recibir si el repartidor no declara el medio REAL del
+ * cobro (D4/D8). Para Yape por adelantado y para las entregas legacy se ignora.
+ * (El alias `cashCollected` del ciclo anterior se retiró con la Fase 12:
+ * la única puerta es `collected` + `collectedMethod`.)
  */
 export async function advanceOrderStatus(
   orderId: string,
   currentStatus: OrderStatus,
-  opts?: { cashCollected?: boolean }
+  opts?: {
+    restaurantPaid?: boolean
+    collected?: boolean
+    collectedMethod?: 'YAPE' | 'CASH'
+  }
 ) {
   const supabase = await createClient()
   const profileId = await getMyProfileId(supabase)
@@ -228,11 +238,32 @@ export async function advanceOrderStatus(
   if (currentStatus === 'ON_THE_WAY') {
     const { error } = await supabase.rpc('complete_delivery', {
       p_order_id: orderId,
-      p_cash_collected: opts?.cashCollected === true,
+      // Fase 12: la firma de la función pasa a (uuid, text). El flag booleano
+      // p_cash_collected y el alias cashCollected desaparecen juntos.
+      p_collected_method:
+        opts?.collected === true ? (opts.collectedMethod ?? 'CASH') : undefined,
     })
     if (error) throw new Error(error.message)
 
     revalidatePath('/repartidor/pedidos')
+    revalidatePath('/cliente/pedidos')
+    revalidatePath(`/cliente/pedidos/${orderId}`)
+    return { success: true }
+  }
+
+  // Primer paso con constancia de la compra al restaurante (D6): pasa por la
+  // función SQL y no por el UPDATE directo de abajo porque es la única puerta
+  // que escribe `orders.restaurant_paid_at` de forma atómica con el cambio de
+  // estado (y su guarda de pertenencia es por fila, como complete_delivery).
+  if (currentStatus === 'ASSIGNED') {
+    const { error } = await supabase.rpc('pickup_delivery', {
+      p_order_id: orderId,
+      p_restaurant_paid: opts?.restaurantPaid === true,
+    })
+    if (error) throw new Error(error.message)
+
+    revalidatePath('/repartidor/pedidos')
+    revalidatePath('/repartidor/disponibles')
     revalidatePath('/cliente/pedidos')
     revalidatePath(`/cliente/pedidos/${orderId}`)
     return { success: true }

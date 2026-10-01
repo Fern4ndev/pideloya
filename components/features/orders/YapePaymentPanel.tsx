@@ -51,7 +51,7 @@ export function YapePaymentPanel({
   fullName,
   yapeQrUrl,
   phone,
-  fee,
+  amount,
   file,
   onFileChange,
   busy,
@@ -62,8 +62,11 @@ export function YapePaymentPanel({
   yapeQrUrl: string | null
   /** Celular crudo del repartidor (9 dígitos) o null si no lo registró. */
   phone: string | null
-  /** Tarifa de envío ya formateada con dos decimales (ej. "7.50"). */
-  fee: string
+  /** Total a transferir, ya formateado con dos decimales (ej. "27.50"):
+   *  comida + envío (D1). Un solo monto en todo el plan; la tarifa de envío
+   *  suelta sigue visible en el encabezado de la tarjeta, donde es el dato del
+   *  repartidor, pero lo que se transfiere es el total. */
+  amount: string
   file: File | null
   onFileChange: (file: File | null) => void
   busy: boolean
@@ -114,7 +117,7 @@ export function YapePaymentPanel({
                   />
                 </span>
                 <DialogTitle className="text-center text-sm font-normal text-muted-foreground">
-                  Escanéalo y transfiere S/ {fee} por Yape.
+                  Escanéalo y transfiere S/ {amount} por Yape: comida + envío.
                 </DialogTitle>
               </DialogContent>
             </Dialog>

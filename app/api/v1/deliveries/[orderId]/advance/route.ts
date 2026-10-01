@@ -63,17 +63,37 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
     }
 
     // Último paso por el camino del repartidor: complete_delivery(), atómica y
-    // con la guarda del cobro en efectivo (D6: no se puede marcar entregado un
-    // pedido CASH sin declarar que se cobró). El camino del ADMIN sigue más
-    // abajo sin exigirla: es un override de soporte explícito.
+    // con la guarda del cobro declarado (D4/D8: un pedido que se paga al
+    // recibir no se cierra sin declarar el medio real del cobro; body
+    // { collected?: boolean, collected_method?: 'YAPE'|'CASH' }). El alias
+    // cash_collected del ciclo anterior se retiró con la Fase 12. El camino del
+    // ADMIN sigue más abajo sin exigirla: es un override de soporte explícito.
     if (order.status === 'ON_THE_WAY') {
       const body = await request.json().catch(() => ({}))
+      const collectedMethod =
+        body?.collected_method === 'YAPE' || body?.collected_method === 'CASH'
+          ? body.collected_method
+          : undefined
+      const collected = body?.collected === true
       const { error } = await userClient(request).rpc('complete_delivery', {
         p_order_id: orderId,
-        p_cash_collected: body?.cash_collected === true,
+        p_collected_method: collected ? (collectedMethod ?? 'CASH') : null,
       })
       if (error) return rpcErrorResponse(error)
       return successResponse({ status: 'DELIVERED' })
+    }
+
+    // Primer paso: pickup_delivery() (migración 20261002100300), que además de
+    // PICKED_UP escribe la constancia D6 `orders.restaurant_paid_at` cuando el
+    // cuerpo lo pide. Body: { restaurant_paid?: boolean }.
+    if (order.status === 'ASSIGNED') {
+      const body = await request.json().catch(() => ({}))
+      const { error } = await userClient(request).rpc('pickup_delivery', {
+        p_order_id: orderId,
+        p_restaurant_paid: body?.restaurant_paid === true,
+      })
+      if (error) return rpcErrorResponse(error)
+      return successResponse({ status: 'PICKED_UP' })
     }
   }
 

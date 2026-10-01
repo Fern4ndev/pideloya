@@ -435,6 +435,23 @@
   outline-offset: 1px;
 }
 
+/*
+ * Halo de contraste para el anillo de foco (Fase 10 del plan "pagar al
+ * recibir"). Medido con los tokens reales: el lima de marca sobre blanco da
+ * 1.15:1 y sobre `amber-100/60` 1.08:1 — por debajo del 3:1 que exige 1.4.11
+ * para indicadores de foco. No se cambia el color de marca (sería un cambio
+ * global de toda la app): se le añade un halo debajo, `black/45` = 3.35:1
+ * sobre blanco y `white/60` = 7.06:1 sobre el fondo oscuro. Se usa siempre
+ * junto a `outline-offset-2`, para que el halo no quede tapado por el outline.
+ */
+@utility focus-halo {
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.45);
+
+  @variant dark {
+    box-shadow: 0 0 0 2px rgb(255 255 255 / 0.6);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

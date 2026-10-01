@@ -2,7 +2,7 @@
 
 import useSWR from 'swr'
 import Link from 'next/link'
-import { BanknoteIcon, PaperclipIcon } from 'lucide-react'
+import { BanknoteIcon, CheckCircle2Icon, PaperclipIcon, SmartphoneIcon } from 'lucide-react'
 import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { AdvanceStatusButton } from '@/components/features/deliveries/AdvanceStatusButton'
@@ -10,7 +10,7 @@ import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrde
 import { RetractOfferButton } from '@/components/features/deliveries/RetractOfferButton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
-import { cashAmountDue, toPaymentMethod } from '@/lib/constants/payment-method'
+import { amountDueToCourier, toPaymentMethod, toPaymentTiming } from '@/lib/constants/payment-method'
 import type { ApiOrder } from '@/types/order'
 
 async function fetchDeliveryOrders(url: string): Promise<{ success: true; data: ApiOrder[] }> {
@@ -77,11 +77,18 @@ export function DeliveryOrdersClient() {
             // de la tarjeta, con el monto que está cobrando a la vista.
             const waitingPayment = order.status === 'AWAITING_PAYMENT'
             const fee = order.deliveries?.delivery_fee ?? null
-            // El método llega con el `deliveries(*)` que ya traía esta consulta;
-            // `toPaymentMethod` lo estrecha a YAPE | CASH | null para que un
-            // valor inesperado caiga en el estado neutro en vez de romper el pie.
+            // Método y timing llegan con el `deliveries(*)` que ya traía esta
+            // consulta; `toPaymentMethod`/`toPaymentTiming` los estrechan a los
+            // valores del dominio para que un valor inesperado caiga en el estado
+            // neutro en vez de romper el pie. Legacy sin timing: el único método
+            // que existía era efectivo.
             const paymentMethod = toPaymentMethod(order.deliveries?.payment_method)
-            const cashDue = cashAmountDue(Number(order.total), fee)
+            const paymentTiming = toPaymentTiming(order.deliveries?.payment_timing)
+            const paysOnDelivery =
+              paymentTiming === 'ON_DELIVERY' || (paymentTiming === null && paymentMethod === 'CASH')
+            const due = amountDueToCourier(Number(order.total), fee)
+            const collectedAt = order.deliveries?.collected_at ?? null
+            const collectedMethod = toPaymentMethod(order.deliveries?.collected_method)
 
             return (
               <DeliveryOrderCard
@@ -100,7 +107,10 @@ export function DeliveryOrdersClient() {
                       orderId={order.id}
                       currentStatus={order.status}
                       paymentMethod={paymentMethod}
-                      cashAmount={cashDue}
+                      paymentTiming={paymentTiming}
+                      cashAmount={due}
+                      foodAmount={Number(order.total)}
+                      restaurantName={item0?.restaurant_name ?? restaurant?.name ?? 'el restaurante'}
                     />
                   )
                 }
@@ -114,14 +124,31 @@ export function DeliveryOrdersClient() {
                       </p>
                       <RetractOfferButton orderId={order.id} deliveryFee={fee} />
                     </div>
-                  ) : paymentMethod === 'CASH' ? (
-                    // El dato ACCIONABLE del pedido en efectivo: cuánto tiene que
-                    // cobrar en la puerta (comida + envío, D1). Va como chip de
-                    // texto y no solo color, y con ícono para que se distinga de
-                    // un estado de un vistazo en la lista.
+                  ) : paysOnDelivery && collectedAt ? (
+                    // Ya cobró: la constancia en verde, con el medio como TEXTO
+                    // y no solo color (mismo criterio que el chip ámbar).
+                    // Región viva: el chip pasa de "Cobrar…" a "Cobrado" tras la
+                    // acción del propio repartidor, y ese cambio no se anuncia solo.
+                    <span
+                      role="status"
+                      aria-live="polite"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-100"
+                    >
+                      <CheckCircle2Icon className="h-3.5 w-3.5" aria-hidden />
+                      Cobrado · {collectedMethod === 'YAPE' ? 'Yape' : 'efectivo'}
+                    </span>
+                  ) : paysOnDelivery ? (
+                    // El dato ACCIONABLE de un pedido que se paga al recibir:
+                    // cuánto cobrar en la puerta (comida + envío, D1) y con qué
+                    // medio anunció el cliente. Texto + ícono, nunca solo color.
                     <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-100">
-                      <BanknoteIcon className="h-3.5 w-3.5" aria-hidden />
-                      Cobrar S/ {cashDue.toFixed(2)} en efectivo al entregar
+                      {paymentMethod === 'YAPE' ? (
+                        <SmartphoneIcon className="h-3.5 w-3.5" aria-hidden />
+                      ) : (
+                        <BanknoteIcon className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                      Cobrar S/ {due.toFixed(2)} al entregar
+                      {paymentMethod === 'YAPE' ? ' · pagará con Yape' : ' en efectivo'}
                     </span>
                   ) : order.deliveries?.payment_voucher_path ? (
                     // Indicador, no la imagen: cargar la miniatura en la lista
