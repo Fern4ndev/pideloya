@@ -50,7 +50,16 @@ const EXPORT_ROW_LIMIT = 10_000
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return ''
-  const str = String(value)
+  let str = String(value)
+  // Inyección de fórmulas (Hallazgo H7): un valor que empiece por = + - @ o
+  // TAB/CR se interpreta como fórmula al abrir el CSV en Excel/Sheets
+  // (=HYPERLINK("http://evil", "click")), con los datos de la fila como
+  // cebo. Se prefija una comilla simple apóstrofo, que Excel/Sheets tratan
+  // como literal. WhatsApp/document_number empiezan por 9, así que el caso
+  // real es un nombre hostil tipo "=cmd|...'".
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`
+  }
   // Si contiene comillas, comas o saltos de línea: entrecomillar y
   // duplicar las comillas internas (RFC 4180).
   if (/[",\n\r]/.test(str)) {

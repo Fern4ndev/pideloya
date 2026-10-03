@@ -123,35 +123,44 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       return errorResponse('No tienes permiso para cancelar pedidos', 403)
     }
 
-    // adminClient salta RLS, así que el dueño del pedido hay que verificarlo
-    // EXPLÍCITAMENTE cuando quien llama es el cliente: sin este filtro, un
-    // cliente autenticado podía cancelar cualquier pedido PENDING ajeno con
-    // solo conocer su id (el rol ADMIN sí puede cancelar cualquiera).
-    let query = client
+    // CLIENTE: la RPC SECURITY DEFINER cancel_order(uuid) (migración
+    // 20261003120100) valida por dentro que el pedido sea suyo (42501 si no)
+    // y que siga cancelable — PENDING o AWAITING_PAYMENT, el criterio de la
+    // antigua policy orders_update_own_customer_cancel — y borra la oferta sin
+    // confirmar en la MISMA transacción. userClient() y no adminClient(): la
+    // función resuelve identidad con auth.uid(), que no existe en service
+    // role (comportamiento buscado, no un bug).
+    if (context.role === 'CUSTOMER') {
+      const { error } = await userClient(request).rpc('cancel_order', {
+        p_order_id: id,
+      })
+      if (error) return rpcErrorResponse(error)
+
+      // Comprobante huérfano, best-effort DESPUÉS de la RPC: la fila de
+      // `deliveries` ya no existe (la RPC la borró con su guarda
+      // payment_confirmed_at is null), así que removeUnconfirmedVoucher borra
+      // el archivo sin riesgo de tocar un pago confirmado.
+      await removeUnconfirmedVoucher(client, id)
+
+      return successResponse({ message: 'Pedido cancelado' })
+    }
+
+    // ADMIN: override de soporte por service role (cancela cualquier estado;
+    // el cliente ya no pasa por acá). La limpieza de la oferta es manual y el
+    // filtro `payment_confirmed_at is null` es la misma guarda dura que nunca
+    // toca una entrega con dinero ya confirmado.
+    const { data, error } = await client
       .from('orders')
       .update({ status: 'CANCELLED' })
       .eq('id', id)
-      // Mismo criterio que la policy orders_update_own_customer_cancel: el
-      // cliente puede cancelar mientras el pago del envío no esté confirmado.
-      .in('status', ['PENDING', 'AWAITING_PAYMENT'])
-    if (context.role === 'CUSTOMER') query = query.eq('customer_id', context.profileId)
-
-    const { data, error } = await query.select('id').maybeSingle()
+      .select('id')
+      .maybeSingle()
 
     if (error) throw error
     if (!data) {
-      return errorResponse(
-        'No se pudo cancelar. El pedido puede estar en camino o no ser tuyo.',
-        400
-      )
+      return errorResponse('No se pudo cancelar el pedido', 400)
     }
 
-    // Misma limpieza que la Server Action cancelOrder() —y en el MISMO orden—:
-    // si el pedido estaba en AWAITING_PAYMENT, la oferta del repartidor queda
-    // huérfana y con ella su comprobante. El comprobante va primero porque la
-    // guarda de `removeUnconfirmedVoucher` lee `payment_confirmed_at` de la
-    // fila que el delete borra justo después. La guarda asegura que nunca se
-    // borre una entrega (ni su comprobante) con dinero ya confirmado.
     await removeUnconfirmedVoucher(client, id)
     await client
       .from('deliveries')
@@ -301,6 +310,20 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
         })
         if (error) return rpcErrorResponse(error)
         return successResponse({ status: 'PICKED_UP' })
+      }
+
+      // Paso intermedio PICKED_UP → ON_THE_WAY: start_route() (migración
+      // 20261003120100), que valida por dentro que el pedido esté asignado a
+      // quien llama (42501) y que esté PICKED_UP (22000). Antes era un UPDATE
+      // directo; la migración contract revoca UPDATE en orders para
+      // `authenticated` y esta es la puerta de reemplazo. El camino del ADMIN
+      // sigue más abajo sin pasar por acá: es un override de soporte explícito.
+      if (order.status === 'PICKED_UP') {
+        const { error } = await userClient(request).rpc('start_route', {
+          p_order_id: id,
+        })
+        if (error) return rpcErrorResponse(error)
+        return successResponse({ status: 'ON_THE_WAY' })
       }
     }
 
