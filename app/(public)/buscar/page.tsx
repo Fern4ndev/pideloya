@@ -36,6 +36,10 @@ export default async function BuscarPage({
       .eq('is_active', true)
       .or(`name.ilike.%${safe}%,food_type.ilike.%${safe}%,address_text.ilike.%${safe}%`)
       .order('name', { ascending: true })
+      // Tope de resultados (plan Fase 2): la búsqueda es un ilike OR sobre
+      // tres columnas; sin límite, un término genérico podía traer el catálogo
+      // completo renderizado en una sola página.
+      .limit(30)
 
     restaurants = data ?? []
     error = !!err

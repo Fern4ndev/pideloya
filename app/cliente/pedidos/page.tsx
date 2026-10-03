@@ -1,5 +1,6 @@
 import { OrdersListClient } from '@/components/features/orders/OrdersListClient'
 import { ClientPageContainer } from '@/components/layout/ClientPageContainer'
+import { getSessionContext } from '@/lib/auth/session'
 import type { OrderStatusFilter } from '@/lib/constants/order-status'
 
 type OrdersPageProps = {
@@ -14,13 +15,17 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     ? (status as OrderStatusFilter)
     : undefined
 
+  // Para el filtro de realtime de OrdersListClient (la cadena de identidad
+  // vive en lib/auth/session.ts con cache() de React).
+  const session = await getSessionContext()
+
   return (
     <ClientPageContainer size="wide">
       <h1 className="text-2xl font-semibold tracking-tight">Mis pedidos</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         El historial y estado de todo lo que has pedido.
       </p>
-      <OrdersListClient status={filter} />
+      <OrdersListClient status={filter} profileId={session?.profileId ?? ''} />
     </ClientPageContainer>
   )
 }

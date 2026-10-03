@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
+import { getSessionContext } from '@/lib/auth/session'
 import { ProfileForm } from '@/components/features/profile/ProfileForm'
 import { AvatarUploader } from '@/components/features/profile/AvatarUploader'
 import { YapeQrUploader } from '@/components/features/profile/YapeQrUploader'
@@ -12,18 +13,18 @@ import { ImageIcon, QrCodeIcon, UserIcon } from 'lucide-react'
 
 export default async function RepartidorProfilePage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
+  // La cadena de identidad (getUser + profiles) vive en lib/auth/session.ts
+  // con cache() de React; esta página además necesita la FILA completa del
+  // perfil (documentos, Yape…), así que la trae por id ya resuelto.
+  const session = await getSessionContext()
+  if (!session) redirect('/login')
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select(
       'id, full_name, phone, document_type, document_number, vehicle_type, avatar_url, yape_qr_url, accepts_pay_on_delivery'
     )
-    .eq('auth_id', user.id)
+    .eq('id', session.profileId)
     .single()
 
   if (profileError) {
@@ -92,7 +93,7 @@ export default async function RepartidorProfilePage() {
               </CardHeader>
               <CardContent>
                 <ProfileForm
-                  email={user?.email ?? ''}
+                  email={session.email ?? ''}
                   initialData={{
                     fullName: profile?.full_name ?? '',
                     phone: profile?.phone ?? '',

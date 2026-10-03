@@ -1,17 +1,13 @@
-import { createClient } from '@/lib/db/server'
+import { getPublicRestaurants } from '@/lib/db/public'
 import { RestaurantCard } from '@/components/features/restaurants/RestaurantCard'
 
-export const dynamic = 'force-dynamic'
-
+// Caché pública (Fase 2): la consulta sale de unstable_cache con tag
+// 'restaurants' y se invalida desde las actions de mutación. Sin
+// force-dynamic ni cookies() la página se puede prerenderear estáticamente.
 export default async function RestaurantesPage() {
-  const supabase = await createClient()
+  const restaurants = await getPublicRestaurants()
 
-  const { data: restaurants, error } = await supabase
-    .from('restaurants')
-    .select('slug, name, description, logo_url, address_text, food_type, is_open')
-    .eq('is_approved', true)
-    .eq('is_active', true)
-    .order('name', { ascending: true })
+  const error = restaurants === null
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">

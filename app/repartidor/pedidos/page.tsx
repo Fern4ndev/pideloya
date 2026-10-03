@@ -36,16 +36,22 @@ export default async function DeliveryOrdersPage() {
       {/* La pantalla espera datos de OTROS (que el cliente confirme el pago o
           cancele): sin realtime, el repartidor vería la oferta muerta hasta un
           refresh manual. `syncOnSubscribe`/`refreshOnFocus` cierran las
-          ventanas clásicas de suscripción tardía y pestaña dormida. */}
+          ventanas clásicas de suscripción tardía y pestaña dormida.
+          Filtros por fila (Fase 2): solo la entrega ACTIVA de este repartidor,
+          no cada pedido del sistema. */}
       <RealtimeRefresh
         channelName="delivery-active-order"
         table="orders"
+        event="*"
+        filter={activeOrder ? `id=eq.${activeOrder.id}` : 'id=eq.00000000-0000-0000-0000-000000000000'}
         syncOnSubscribe
         refreshOnFocus
       />
       <RealtimeRefresh
         channelName="delivery-active-order-deliveries"
         table="deliveries"
+        event="*"
+        filter={activeOrder ? `order_id=eq.${activeOrder.id}` : 'order_id=eq.00000000-0000-0000-0000-000000000000'}
         syncOnSubscribe
         refreshOnFocus
       />

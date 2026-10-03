@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/db/server'
-import { limaDayKey } from '@/lib/dates'
+import { limaDayKey, RANGE_MAX_DAYS } from '@/lib/dates'
 import { DashboardCards } from '@/components/features/admin/DashboardCards'
-import { AdminDashboardCharts } from '@/components/features/admin/AdminDashboardCharts'
+import { AdminDashboardChartsLazy } from '@/components/features/admin/AdminDashboardChartsLazy'
+import type { AdminDashboardData } from '@/components/features/admin/AdminDashboardCharts'
 import { RecentOrdersTable } from '@/components/features/admin/RecentOrdersTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -15,44 +16,24 @@ export default async function AdminHomePage() {
   // hay hydration mismatch por fecha (ver lib/dates.ts).
   const todayKey = limaDayKey(new Date())
 
-  const [
-    { data: orders },
-    { data: orderItems },
-    { data: restaurants },
-    { data: deliveries },
-  ] = await Promise.all([
-    supabase
-      .from('orders')
-      .select('id, status, total, created_at'),
-    supabase
-      .from('order_items')
-      .select('order_id, restaurant_id'),
-    supabase
-      .from('restaurants')
-      .select('id, name')
-      .eq('is_approved', true)
-      .order('name', { ascending: true }),
-    supabase
-      .from('deliveries')
-      .select('order_id, delivery_person_id'),
-  ])
+  // UNA consulta para todo el panel de gráficas: admin_dashboard(p_days)
+  // (migración 20261003120600) pre-agrega ventas por día, por restaurante y
+  // entregas por repartidor (zonas horarias de Lima resueltas en SQL), y
+  // trae las opciones de los selects. Antes eran 5 consultas que traían
+  // orders + order_items + deliveries SIN límite: PostgREST truncaba
+  // silenciosamente a max_rows=1000 y las gráficas mentían al crecer (H4).
+  const { data, error } = await supabase.rpc('admin_dashboard', {
+    p_days: RANGE_MAX_DAYS,
+  })
+  if (error) throw new Error(error.message)
 
-  const deliveryPersonIds = [
-    ...new Set(
-      (deliveries ?? [])
-        .map((delivery) => delivery.delivery_person_id)
-        .filter((id): id is string => Boolean(id))
-    ),
-  ]
-
-  const { data: deliveryPersons } =
-    deliveryPersonIds.length > 0
-      ? await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', deliveryPersonIds)
-          .order('full_name', { ascending: true })
-      : { data: [] }
+  const dashboard: AdminDashboardData = data ?? {
+    restaurants: [],
+    delivery_persons: [],
+    sales_daily: [],
+    sales_by_restaurant: [],
+    delivered_by_person: [],
+  }
 
   return (
     <PageContainer size="full">
@@ -67,14 +48,8 @@ export default async function AdminHomePage() {
       <div className="mt-6 space-y-6">
         <DashboardCards />
 
-        <AdminDashboardCharts
-          orders={orders ?? []}
-          orderItems={orderItems ?? []}
-          restaurants={restaurants ?? []}
-          deliveries={deliveries ?? []}
-          deliveryPersons={deliveryPersons ?? []}
-          todayKey={todayKey}
-        />
+        {/* Lazy (Fase 4): recharts entra en un chunk aparte con ssr:false */}
+        <AdminDashboardChartsLazy data={dashboard} todayKey={todayKey} />
 
         <RecentOrdersTable />
       </div>

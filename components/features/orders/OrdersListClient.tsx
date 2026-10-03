@@ -12,6 +12,7 @@ import {
   type OrderStatusFilter,
 } from '@/lib/constants/order-status'
 import { addDays, dayParts, limaDayKey, MONTHS_FULL } from '@/lib/dates'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ChevronRightIcon, ClockIcon, QrCodeIcon, ReceiptIcon } from 'lucide-react'
@@ -67,9 +68,15 @@ function matchesFilter(orderStatus: string, filter: OrderStatusFilter) {
 
 type OrdersListClientProps = {
   status?: OrderStatusFilter
+  /** profileId del cliente (resuelto en el servidor con la sesión): filtra el
+   *  canal de realtime por SU propietario. Sin filtro, cada cliente recibía
+   *  eventos de TODOS los pedidos del sistema (RLS de realtime no filtra
+   *  postgres_changes por fila sin filtro explícito) y cada cambio ajeno
+   *  disparaba un refetch del listado completo. */
+  profileId: string
 }
 
-export function OrdersListClient({ status }: OrdersListClientProps) {
+export function OrdersListClient({ status, profileId }: OrdersListClientProps) {
   const router = useRouter()
   const activeFilter = status ?? null
 
@@ -93,11 +100,20 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
       return `/api/v1/orders?${params}`
     },
     fetchOrders,
-    { revalidateOnFocus: true }
+    {
+      // Fase 2 (anti-churn): el foco de la pestaña ya NO dispara consulta —
+      // el realtime filtrado de abajo invalida cuando algo REAL cambia.
+      revalidateOnFocus: false,
+    }
   )
 
   useRealtimeInvalidate(
-    { channelName: 'customer-orders', table: 'orders', event: '*' },
+    {
+      channelName: 'customer-orders',
+      table: 'orders',
+      event: '*',
+      filter: `customer_id=eq.${profileId}`,
+    },
     () => mutate()
   )
 
@@ -310,9 +326,11 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                                   {item.image_url ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
-                                      src={item.image_url}
+                                      src={withImageKitTransform(item.image_url, 160)}
                                       alt={item.product_name ?? ''}
                                       className="h-full w-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
                                     />
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">

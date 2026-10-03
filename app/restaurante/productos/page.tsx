@@ -18,6 +18,7 @@ import { TablePagination } from '@/components/ui/table-pagination'
 import { TableShell } from '@/components/ui/table-shell'
 import { EmptyState } from '@/components/ui/empty-state'
 import { getPagination } from '@/lib/pagination'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { PlusIcon, PackageOpenIcon } from 'lucide-react'
 
 export default async function RestaurantProductsPage({
@@ -133,10 +134,16 @@ export default async function RestaurantProductsPage({
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted">
                         {product.imageUrl ? (
+                          // Miniatura 36×36: con `?tr=` ImageKit la sirve ya
+                          // reducida (Fase 4) en vez de bajar el original.
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={product.imageUrl}
+                            src={withImageKitTransform(product.imageUrl, 96)}
                             alt={product.name}
+                            width={36}
+                            height={36}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         ) : null}

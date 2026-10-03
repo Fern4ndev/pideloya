@@ -18,24 +18,30 @@ import {
 } from '@/components/ui/select'
 import { BarChart3Icon, TruckIcon } from 'lucide-react'
 import {
-  aggregateOrders,
-  filterByRange,
+  aggregateDailyCounts,
+  filterDailyByRange,
 } from '@/lib/dashboard/chart-utils'
 import { useDashboardRange } from '@/lib/dashboard/use-dashboard-range'
 import { DashboardRangeFilterBar } from '@/components/features/dashboard/DashboardRangeFilterBar'
 
-type AdminChartOrder = { id: string; status: string; total: number; created_at: string }
-type AdminChartOrderItem = { order_id: string; restaurant_id: string }
-type AdminChartRestaurant = { id: string; name: string }
-type AdminChartDelivery = { order_id: string; delivery_person_id: string | null }
-type AdminChartPerson = { id: string; full_name: string }
+/**
+ * Payload pre-agregado de admin_dashboard(p_days) (migración 20261003120600):
+ * la agregación por día de Lima corre en la base, el cliente re-bucketea
+ * día→semana/mes en memoria (cambiar rango/granularidad no dispara
+ * consultas, igual que antes) y ya no depende de traer TODAS las filas de
+ * orders/order_items/deliveries — el límite PostgREST max_rows truncaba
+ * silenciosamente a 1000 y las gráficas mentían al crecer.
+ */
+export type AdminDashboardData = {
+  restaurants: { id: string; name: string }[]
+  delivery_persons: { id: string; full_name: string }[]
+  sales_daily: { day: string; n: number }[]
+  sales_by_restaurant: { day: string; restaurant_id: string; n: number }[]
+  delivered_by_person: { day: string; delivery_person_id: string; n: number }[]
+}
 
 type AdminDashboardChartsProps = {
-  orders: AdminChartOrder[]
-  orderItems: AdminChartOrderItem[]
-  restaurants: AdminChartRestaurant[]
-  deliveries: AdminChartDelivery[]
-  deliveryPersons: AdminChartPerson[]
+  data: AdminDashboardData
   todayKey: string
 }
 
@@ -48,11 +54,7 @@ const deliveriesConfig = {
 } satisfies ChartConfig
 
 export function AdminDashboardCharts({
-  orders,
-  orderItems,
-  restaurants,
-  deliveries,
-  deliveryPersons,
+  data,
   todayKey,
 }: AdminDashboardChartsProps) {
   const { granularity, setGranularity, dateFrom, setDateFrom, dateTo, setDateTo, rangeError } =
@@ -60,45 +62,34 @@ export function AdminDashboardCharts({
   const [restaurantId, setRestaurantId] = useState('all')
   const [deliveryPersonId, setDeliveryPersonId] = useState('all')
 
-  const spanOrders = useMemo(() => {
-    if (rangeError) return []
-
-    return filterByRange(orders, dateFrom, dateTo)
-  }, [orders, dateFrom, dateTo, rangeError])
+  const restaurants = data.restaurants
+  const deliveryPersons = data.delivery_persons
 
   const sales = useMemo(() => {
     if (rangeError) return []
 
-    const restaurantOrderIds =
-      restaurantId === 'all'
-        ? null
-        : new Set(
-            orderItems
-              .filter((item) => item.restaurant_id === restaurantId)
-              .map((item) => item.order_id)
-          )
-
+    // Filtro "Todos": las ventas ya vienen pre-agregadas por día;
+    // con un restaurante elegido, la serie por restaurante (misma base).
     const relevant =
-      restaurantOrderIds === null
-        ? spanOrders
-        : spanOrders.filter((order) => restaurantOrderIds.has(order.id))
+      restaurantId === 'all'
+        ? data.sales_daily
+        : data.sales_by_restaurant.filter((row) => row.restaurant_id === restaurantId)
 
-    return aggregateOrders(relevant, granularity)
-  }, [spanOrders, orderItems, restaurantId, granularity, rangeError])
+    return aggregateDailyCounts(filterDailyByRange(relevant, dateFrom, dateTo), granularity)
+  }, [data.sales_daily, data.sales_by_restaurant, restaurantId, dateFrom, dateTo, granularity, rangeError])
 
   const delivered = useMemo(() => {
     if (rangeError) return []
 
-    const personByOrder = new Map(deliveries.map((d) => [d.order_id, d.delivery_person_id]))
+    // La RPC solo cuenta entregas de pedidos DELIVERED (ver admin_dashboard),
+    // así que acá solo falta el filtro del repartidor.
+    const relevant =
+      deliveryPersonId === 'all'
+        ? data.delivered_by_person
+        : data.delivered_by_person.filter((row) => row.delivery_person_id === deliveryPersonId)
 
-    const relevant = spanOrders.filter((order) => {
-      if (order.status !== 'DELIVERED') return false
-      const personId = personByOrder.get(order.id)
-      return personId !== undefined && (deliveryPersonId === 'all' || personId === deliveryPersonId)
-    })
-
-    return aggregateOrders(relevant, granularity)
-  }, [spanOrders, deliveries, deliveryPersonId, granularity, rangeError])
+    return aggregateDailyCounts(filterDailyByRange(relevant, dateFrom, dateTo), granularity)
+  }, [data.delivered_by_person, deliveryPersonId, dateFrom, dateTo, granularity, rangeError])
 
   const hasSales = sales.some((bucket) => bucket.count > 0)
   const hasDeliveries = delivered.some((bucket) => bucket.count > 0)

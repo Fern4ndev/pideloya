@@ -5,6 +5,16 @@ import Image from 'next/image'
 import { PlusIcon, UtensilsCrossedIcon } from 'lucide-react'
 import { useCartStore } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 export interface FeaturedProduct {
@@ -23,6 +33,12 @@ export function FeaturedProductCard({
   disabled?: boolean
 }) {
   const [justAdded, setJustAdded] = useState(false)
+  // Conflicto de carrito con AlertDialog accesible (Fase 4) en vez de
+  // confirm(): el estado guarda el ítem pendiente y el diálogo lo confirma
+  // o descarta — mismo patrón que ProductOrderCard.
+  const [conflictPending, setConflictPending] = useState<{
+    item: Parameters<ReturnType<typeof useCartStore.getState>['addItem']>[1]
+  } | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const switchRestaurantAndAdd = useCartStore((state) => state.switchRestaurantAndAdd)
 
@@ -36,12 +52,17 @@ export function FeaturedProductCard({
     }
     const result = addItem(product.restaurant, item, 1)
     if (result === 'conflict') {
-      const confirmSwitch = confirm(
-        `Tu carrito tiene productos de otro negocio. ¿Vaciarlo y agregar "${product.name}" de ${product.restaurant.name}?`
-      )
-      if (!confirmSwitch) return
-      switchRestaurantAndAdd(product.restaurant, item, 1)
+      setConflictPending({ item })
+      return
     }
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 1200)
+  }
+
+  function handleConfirmSwitch() {
+    if (!conflictPending) return
+    switchRestaurantAndAdd(product.restaurant, conflictPending.item, 1)
+    setConflictPending(null)
     setJustAdded(true)
     setTimeout(() => setJustAdded(false), 1200)
   }
@@ -92,6 +113,31 @@ export function FeaturedProductCard({
           <span className="text-sm font-semibold">S/ {product.price.toFixed(2)}</span>
         </div>
       </div>
+
+      {/* Conflicto de carrito: AlertDialog accesible en vez de confirm(). */}
+      <AlertDialog
+        open={conflictPending !== null}
+        onOpenChange={(open) => {
+          if (!open) setConflictPending(null)
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Vaciar tu carrito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tu carrito tiene productos de otro negocio. Si continúas, se
+              vaciará y se agregará &quot;{product.name}&quot; de{' '}
+              {product.restaurant.name}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Conservar mi carrito</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleConfirmSwitch}>
+              Vaciar y agregar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -41,7 +41,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/scripts
+# supabase CLI (project-ref y URL del pooler — Fase 0.5 del plan de optimización)
+supabase/.temp/
+
+# /scripts local (e2e/verificaciones) fuera del repo, PERO la suite de
+# regresión RLS sí se versiona: Fase 5.4 la exige corriendo en CI.
+/scripts/*
+!/scripts/test-rls.mjs
 .agents
 .freebuff
 /docs

@@ -1,14 +1,12 @@
-import { Icon } from '@iconify-icon/react'
+import { SearchIcon } from 'lucide-react'
 
 export function SearchBar() {
   return (
     <div className="hidden md:flex flex-1 max-w-md mx-8">
       <div className="relative w-full">
-        <Icon
-          icon="lucide:search"
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          width="16"
-          height="16"
+        <SearchIcon
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
         />
         <input
           type="search"

@@ -1,85 +1,48 @@
 import { createClient } from '@/lib/db/server'
-import { limaDayKey, weekStartKey } from '@/lib/dates'
 import { StatCardGrid, type StatCardData } from '@/components/features/dashboard/StatCard'
 import { PackageIcon, TagsIcon, ShoppingBagIcon, ClockIcon } from 'lucide-react'
 
-async function getMyRestaurantId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile) return null
-
-  const { data: member } = await supabase
-    .from('restaurant_members')
-    .select('restaurant_id')
-    .eq('user_id', profile.id)
-    .single()
-
-  return member?.restaurant_id as string | null
-}
-
 export async function RestaurantDashboardCards() {
   const supabase = await createClient()
-  const restaurantId = await getMyRestaurantId(supabase)
 
-  if (!restaurantId) return null
+  // Los 4 conteos en UNA consulta: restaurant_stats() (migración
+  // 20261003120600, SECURITY INVOKER — la RLS sigue aplicando y resuelve el
+  // restaurante del usuario con current_restaurant_ids()). Antes era la
+  // cadena getUser + profiles + members y 4 counts 'exact' en Promise.all.
+  // "Esta semana" = lunes 00:00 de Lima, la MISMA definición que el
+  // weekStartIso() que vivía aquí (ahora en SQL, sin reloj del servidor).
+  const { data, error } = await supabase.rpc('restaurant_stats')
+  if (error) throw new Error(error.message)
 
-  const [
-    { count: totalProducts },
-    { count: availableProducts },
-    { count: totalCategories },
-    { count: ordersThisWeek },
-  ] = await Promise.all([
-    supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurantId),
-    supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurantId)
-      .eq('available', true),
-    supabase
-      .from('categories')
-      .select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurantId),
-    supabase
-      .from('order_items')
-      .select('order_id', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurantId)
-      .gte('created_at', weekStartIso()),
-  ])
+  const stats = data?.[0]
+  if (!stats) return null
+
+  const totalProducts = Number(stats.total_products)
+  const availableProducts = Number(stats.available_products)
+  const totalCategories = Number(stats.total_categories)
+  const ordersThisWeek = Number(stats.orders_this_week)
 
   const availabilityRate = totalProducts
-    ? Math.round(((availableProducts ?? 0) / totalProducts) * 100)
+    ? Math.round((availableProducts / totalProducts) * 100)
     : 0
 
   const cards: StatCardData[] = [
     {
       title: 'Total productos',
-      value: totalProducts ?? 0,
+      value: totalProducts,
       icon: PackageIcon,
-      description: `${availableProducts ?? 0} disponibles`,
+      description: `${availableProducts} disponibles`,
     },
     {
       title: 'Categorías',
-      value: totalCategories ?? 0,
+      value: totalCategories,
       icon: TagsIcon,
       description: 'Organiza tu menú',
       tone: totalCategories === 0 ? 'warning' : 'default',
     },
     {
       title: 'Pedidos esta semana',
-      value: ordersThisWeek ?? 0,
+      value: ordersThisWeek,
       icon: ShoppingBagIcon,
       description: 'Con tus productos',
     },
@@ -88,17 +51,9 @@ export async function RestaurantDashboardCards() {
       value: `${availabilityRate}%`,
       icon: ClockIcon,
       description: 'Productos activos',
-      tone: totalProducts && availabilityRate < 50 ? 'warning' : 'default',
+      tone: totalProducts > 0 && availabilityRate < 50 ? 'warning' : 'default',
     },
   ]
 
   return <StatCardGrid cards={cards} />
-}
-
-// Inicio de la semana en curso (lunes) a medianoche de Lima, como timestamp
-// ISO. Antes era `getDay()` + `toISOString()` en la timezone del SERVIDOR, así
-// que según dónde corriera Next el lunes empezaba un día tarde (o temprano).
-function weekStartIso(): string {
-  const monday = weekStartKey(limaDayKey(new Date()))
-  return new Date(`${monday}T00:00:00-05:00`).toISOString()
 }

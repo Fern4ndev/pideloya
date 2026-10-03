@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCartStore, cartTotal } from '@/lib/hooks/use-cart'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { createOrder, getRestaurantCheckoutState } from '@/lib/actions/orders'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -71,6 +72,11 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
       try {
         await createOrder({
           addressId: address.id,
+          // Idempotencia (migración 20261003120700): un reintento de red o un
+          // doble clic con este MISMO uuid devuelve el pedido ya creado en vez
+          // de crear otro. La RPC lo valida contra el índice único
+          // (customer_id, client_request_id).
+          clientRequestId: crypto.randomUUID(),
           notes,
           items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         })
@@ -148,9 +154,11 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={item.imageUrl}
+                      src={withImageKitTransform(item.imageUrl, 160)}
                       alt={item.name}
                       className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">

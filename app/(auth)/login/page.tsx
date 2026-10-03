@@ -1,6 +1,7 @@
 import { signInWithGoogle } from '@/lib/actions/auth'
 import { Logo } from '@/components/shared/Logo'
 import { createClient } from '@/lib/db/server'
+import { safeInternalPath } from '@/lib/utils'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -39,7 +40,9 @@ export default async function LoginPage({
     redirect(ROLE_HOME[profile?.role ?? 'CUSTOMER'])
   }
 
-  const next = params.next ?? '/cliente'
+  // Open redirect: `next` solo acepta rutas internas (jamás //host ni URLs
+  // absolutas — ver safeInternalPath).
+  const next = safeInternalPath(params.next)
   const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null
 
   // Server Action "atada" al path de destino: así el form puede seguir

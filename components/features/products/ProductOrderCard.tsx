@@ -4,6 +4,16 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { useCartStore } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 export interface OrderableProduct {
@@ -25,10 +35,22 @@ export function ProductOrderCard({
 }) {
   const [quantity, setQuantity] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
+  // El conflicto de "otro negocio en el carrito" se pregunta con AlertDialog
+  // (Fase 4, accesible) y no con confirm(): el estado guarda el ítem pendiente
+  // y el diálogo lo confirma o descarta.
+  const [conflictPending, setConflictPending] = useState<{
+    item: Parameters<ReturnType<typeof useCartStore.getState>['addItem']>[1]
+  } | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const switchRestaurantAndAdd = useCartStore(
     (state) => state.switchRestaurantAndAdd
   )
+
+  function markAdded() {
+    setQuantity(1)
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 1200)
+  }
 
   function handleAdd() {
     const item = {
@@ -41,16 +63,18 @@ export function ProductOrderCard({
     const result = addItem(restaurant, item, quantity)
 
     if (result === 'conflict') {
-      const confirmSwitch = confirm(
-        `Tu carrito tiene productos de otro negocio. ¿Vaciarlo y agregar "${product.name}" de ${restaurant.name}?`
-      )
-      if (!confirmSwitch) return
-      switchRestaurantAndAdd(restaurant, item, quantity)
+      setConflictPending({ item })
+      return
     }
 
-    setQuantity(1)
-    setJustAdded(true)
-    setTimeout(() => setJustAdded(false), 1200)
+    markAdded()
+  }
+
+  function handleConfirmSwitch() {
+    if (!conflictPending) return
+    switchRestaurantAndAdd(restaurant, conflictPending.item, quantity)
+    setConflictPending(null)
+    markAdded()
   }
 
   return (
@@ -136,6 +160,34 @@ export function ProductOrderCard({
           </Button>
         </div>
       </div>
+
+      {/* Conflicto de carrito: AlertDialog accesible en vez de confirm(). */}
+      <AlertDialog
+        open={conflictPending !== null}
+        onOpenChange={(open) => {
+          if (!open) setConflictPending(null)
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Vaciar tu carrito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tu carrito tiene productos de otro negocio. Si continúas, se
+              vaciará y se agregarán {quantity} × &quot;{product.name}&quot; de{' '}
+              {restaurant.name}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Conservar mi carrito</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleConfirmSwitch}
+            >
+              Vaciar y agregar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

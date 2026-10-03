@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Icon } from '@iconify-icon/react'
+import { ArrowLeftIcon, StoreIcon, ZapIcon } from 'lucide-react'
 import { RegistrationForms } from '@/components/features/registration/RegistrationForms'
 import { PublicFooter } from '@/components/features/home/PublicFooter'
 
@@ -62,13 +62,13 @@ export default async function RegistroPage({ searchParams }: RegistroPageProps) 
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-4xl">
           <Link href="/#unete" className="mb-8 inline-flex items-center gap-2 text-sm text-neutral-500 transition-colors hover:text-purple-700">
-            <Icon icon="lucide:arrow-left" width="16" height="16" />
+            <ArrowLeftIcon className="h-4 w-4" aria-hidden />
             Volver a opciones
           </Link>
 
           <div className="mb-10 text-center">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-purple-100 px-4 py-1.5 text-xs font-semibold text-purple-700">
-              <Icon icon={isRepartidor ? 'lucide:zap' : 'lucide:store'} width="14" height="14" />
+              {isRepartidor ? <ZapIcon className="h-3.5 w-3.5" /> : <StoreIcon className="h-3.5 w-3.5" />}
               Registro de {isRepartidor ? 'repartidor' : 'restaurante'}
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">

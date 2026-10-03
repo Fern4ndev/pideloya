@@ -5,6 +5,7 @@ import {
   type PaymentMethod,
   type PaymentTiming,
 } from '@/lib/constants/payment-method'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 
 export type SummaryItem = {
   productName: string | null
@@ -30,9 +31,11 @@ function ItemList({ items }: { items: SummaryItem[] }) {
             {item.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={item.imageUrl}
+                src={withImageKitTransform(item.imageUrl, 160)}
                 alt={item.productName ?? ''}
                 className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
