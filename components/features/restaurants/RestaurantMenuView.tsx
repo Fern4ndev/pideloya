@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import { UtensilsCrossedIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProductOrderCard } from '@/components/features/products/ProductOrderCard'
 import { RestaurantOpenBanner } from '@/components/features/restaurants/RestaurantOpenBanner'
@@ -16,7 +15,6 @@ export interface RestaurantMenuData {
   description: string | null
   logo_url: string | null
   address_text: string | null
-  whatsapp: string | null
   food_type: string | null
   is_open: boolean
 }
@@ -51,12 +49,6 @@ export function RestaurantMenuView({
     .filter((group) => group.products.length > 0)
 
   const uncategorized = products.filter((p) => !p.category_id)
-
-  const whatsappLink = restaurant.whatsapp
-    ? `https://wa.me/51${restaurant.whatsapp}?text=${encodeURIComponent(
-        `Hola, quiero hacer un pedido en ${restaurant.name} desde PideloYa`
-      )}`
-    : null
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-10 pt-6">
@@ -113,18 +105,6 @@ export function RestaurantMenuView({
             )}
           </div>
         </div>
-
-        {whatsappLink && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4 rounded-full"
-            render={<a href={whatsappLink} target="_blank" rel="noopener noreferrer" />}
-            nativeButton={false}
-          >
-            Pedir por WhatsApp
-          </Button>
-        )}
       </div>
 
       <div className="mt-6">
