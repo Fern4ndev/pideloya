@@ -11,7 +11,7 @@ import {
   type DeliveryOffer,
 } from '@/components/features/orders/DeliveryPaymentCard'
 import { PAYMENT_VOUCHER_BUCKET, VOUCHER_SIGNED_URL_TTL_S } from '@/lib/constants/payment-voucher'
-import { amountDueToCourier, toPaymentMethod, toPaymentTiming } from '@/lib/constants/payment-method'
+import { toPaymentMethod, toPaymentTiming } from '@/lib/constants/payment-method'
 import type { OrderStatus } from '@/lib/constants/order-status'
 import { MapPinIcon, StickyNoteIcon } from 'lucide-react'
 
@@ -71,26 +71,19 @@ export default async function OrderDetailPage({
   //     YA pagó (payment_voucher_path no es null) y que es de SOLO LECTURA: la
   //     policy de `update` del bucket ya impide reemplazarlo después de
   //     confirmar (Fase 2).
+  //
+  // El QR y el teléfono del repartidor NO se leen acá: con pago al recibir el
+  // cliente no necesita transferir nada por adelantado, y el QR se muestra en
+  // la puerta desde el teléfono del repartidor (Fase 5 del plan "pagar al
+  // recibir"). Pedirlos igual sería traer datos que nadie dibuja.
   let deliveryOffer: DeliveryOffer | null = null
   let voucherUrl: string | null = null
-
-  let courierQrUrl: string | null = null
-  let courierName: string | null = null
-  let courierPhone: string | null = null
 
   if (LIVE_ORDER_STATUSES.includes(order.status)) {
     const { data: offers } = await supabase.rpc('get_delivery_offer_details', {
       p_order_id: id,
     })
     const offer = offers?.[0]
-
-    // Con Yape AL RECIBIR, el cliente necesita el QR/telefono del repartidor
-    // para preparar su pago (Fase 4.5). La RPC ya los devuelve en estados
-    // vivos — sin RPC nueva y sin leer la fila de profiles (que la RLS del
-    // cliente le prohibe igual).
-    courierQrUrl = offer?.yape_qr_url ?? null
-    courierName = offer?.full_name ?? null
-    courierPhone = offer?.phone ?? null
 
     if (offer) {
       // Si la entrega no tiene tarifa (dato imposible en el flujo nuevo) no se
@@ -115,8 +108,8 @@ export default async function OrderDetailPage({
           yapeQrUrl: offer.yape_qr_url,
           phone: offer.phone,
           deliveryFee: Number(offer.delivery_fee),
-          // Default `true` = el comportamiento de siempre (el efectivo ya
-          // existía): un dato ausente no le cierra opciones al cliente.
+          // Default `true` = el comportamiento de siempre (el pago al recibir
+          // ya existía): un dato ausente no le cierra opciones al cliente.
           allowsPayOnDelivery: deliveryRow?.allows_pay_on_delivery !== false,
         }
       }
@@ -145,18 +138,11 @@ export default async function OrderDetailPage({
 
   // Método de pago elegido (snapshot de `orders.payment_method`), estrechado a
   // PaymentMethod: la columna es `text` con un CHECK que la acota, pero
-  // TypeScript no lo sabe. Sin método quedan dos casos legítimos: el pedido
-  // todavía espera la elección (AWAITING_PAYMENT) o es una entrega legacy
-  // aceptada sin oferta, anterior a esta función.
+  // TypeScript no lo sabe. Solo lo llenan las filas anteriores al pago al
+  // recibir sin método: con ON_DELIVERY queda NULL y el resumen decide con el
+  // TIMING. Sin método quedan dos casos legítimos: el pedido todavía espera la
+  // elección (AWAITING_PAYMENT) o es una entrega legacy aceptada sin oferta.
   const paymentMethod = toPaymentMethod(order.payment_method)
-
-  // Monto que el cliente le paga al repartidor al recibir (D1: comida +
-  // envío). Solo en ON_DELIVERY hay monto pendiente que recordar; en UPFRONT ya
-  // pagó y no se le repite nada.
-  const cashAmount =
-    toPaymentTiming(order.payment_timing) === 'ON_DELIVERY'
-      ? amountDueToCourier(Number(order.total), deliveryFee)
-      : null
 
   // Layout: UNA pila vertical explícita, con el orden del DOM como orden
   // visual — Resumen → Pago (si falta elegir) → Estados → Entrega — y una sola
@@ -247,26 +233,25 @@ export default async function OrderDetailPage({
           paymentTiming={toPaymentTiming(order.payment_timing)}
           voucher={
             voucherUrl ? (
+              // "Comprobante enviado" + "Ver", sin frase explicativa: el
+              // comprobante solo existe con pago por adelantado, y la nota de
+              // arriba ya dice "Pagaste S/ X por Yape." — la frase repetía lo
+              // mismo dos veces en la misma tarjeta.
               <div className="flex items-center gap-3">
                 <PaymentVoucherViewer
                   url={voucherUrl}
                   alt="Comprobante de pago por Yape"
                   actionLabel="Ver"
                 />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Comprobante enviado</p>
-                  <p className="text-xs text-muted-foreground">
-                    Es tu constancia del pago del envío por Yape.
-                  </p>
-                </div>
+                <p className="min-w-0 text-sm font-medium">Comprobante enviado</p>
               </div>
             ) : undefined
           }
         />
 
-        {/* La acción pendiente va pegada al resumen, donde está el monto que
-            el cliente tiene que decidir (`total` viaja para poder mostrar lo
-            que le pagará al repartidor si elige efectivo). */}
+        {/* La acción pendiente va pegada al resumen, donde está el monto que el
+            cliente tiene que decidir: `total` viaja para que cada opción
+            muestre lo que le pagará al repartidor (comida + envío, D1). */}
         {deliveryOffer && (
           <DeliveryPaymentCard
             orderId={order.id}
@@ -276,18 +261,10 @@ export default async function OrderDetailPage({
         )}
 
         {/* Los estados van DEBAJO del resumen y de la acción: responden "¿cómo
-            va?", que es la segunda pregunta, no la primera. El recordatorio del
-            efectivo vive dentro de esta tarjeta (Fase 5.3) en vez de una nueva. */}
-        <OrderStatusSection
-          orderId={order.id}
-          status={order.status}
-          paymentMethod={paymentMethod}
-          paymentTiming={toPaymentTiming(order.payment_timing)}
-          cashAmount={cashAmount}
-          courierQrUrl={courierQrUrl}
-          courierName={courierName}
-          courierPhone={courierPhone}
-        />
+            va?", que es la segunda pregunta, no la primera. No reciben datos de
+            pago: la nota del monto vive SOLO en el resumen, junto al número que
+            explica (Fase 5 del plan "pagar al recibir"). */}
+        <OrderStatusSection orderId={order.id} status={order.status} />
 
         {/* Tarjeta "Entrega" (Fase 3.4): una sola tarjeta secundaria con
             dirección y notas — antes eran dos tarjetas casi idénticas. */}

@@ -16,23 +16,15 @@ import { useToast } from '@/components/ui/toast'
  * recomendación: el repartidor lo cambia con dos toques según su propio
  * criterio (tráfico, hora, cuán conocida es la zona, etc.).
  *
- * Fase 7 (D7): la línea bajo el formulario recuerda qué implica ofertar según
- * su preferencia — si acepta pago al recibir, el importe de la comida que
- * adelanta; si no, que este pedido solo admitirá pago por adelantado. Se
- * recibe por props y no se lee de la sesión acá para no duplicar consulta: la
- * página ya cargó el perfil.
+ * `acceptsPayOnDelivery` ya no se recibe: su única consecuencia en esta
+ * pantalla era la línea de ayuda, que se movió al pie de la tarjeta del pedido.
+ *
+ * La línea que explica el adelanto NO vive acá: "Comida S/ X · si te pagan al
+ * recibir, la adelantas tú" es una sola en `AvailableOrdersClient`, arriba de
+ * este formulario, porque describe el pedido y no la oferta — y en este
+ * formulario se repetía en cada tarjeta junto al mismo número.
  */
-export function SendOfferForm({
-  orderId,
-  acceptsPayOnDelivery,
-  foodAmount,
-}: {
-  orderId: string
-  /** Snapshot que quedará en la oferta: viene de `profiles.accepts_pay_on_delivery`. */
-  acceptsPayOnDelivery: boolean
-  /** `orders.total` = lo que el repartidor adelantaría al restaurante. */
-  foodAmount: number
-}) {
+export function SendOfferForm({ orderId }: { orderId: string }) {
   const inputId = useId()
   const router = useRouter()
   const [fee, setFee] = useState(String(DEFAULT_DELIVERY_FEE))
@@ -47,7 +39,7 @@ export function SendOfferForm({
         success('Oferta enviada', 'Te avisaremos cuando el cliente confirme el pago.')
         // Navegar (y no solo refrescar) es intencional: el pedido sale de
         // "Disponibles" en cuanto queda en AWAITING_PAYMENT, así que el
-        // repartidor tiene que poder verlo donde ahora vive — "Mis entregas",
+        // repartidor tiene que poder verlo donde ahora vive — "Mi entrega",
         // con su badge de espera y la opción de retirar la oferta. Mismo
         // criterio que el antiguo botón "Aceptar".
         router.push('/repartidor/pedidos')
@@ -88,15 +80,6 @@ export function SendOfferForm({
       <Button type="submit" variant="lime" disabled={isPending}>
         {isPending ? 'Enviando…' : 'Enviar oferta'}
       </Button>
-      <p className="w-full text-xs text-muted-foreground">
-        {acceptsPayOnDelivery ? (
-          <>
-            Aceptas pago al recibir (adelantas S/ {foodAmount.toFixed(2)} de comida)
-          </>
-        ) : (
-          'Solo cobras por adelantado'
-        )}
-      </p>
     </form>
   )
 }

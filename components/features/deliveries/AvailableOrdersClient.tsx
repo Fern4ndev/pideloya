@@ -83,22 +83,18 @@ export function AvailableOrdersClient({
                 total={Number(order.total)}
                 footer={
                   <div className="space-y-2">
-                    {/* Fase 5.2: la comida como LÍNEA propia, no sumergida en
-                        el total. Si el cliente termina pagando al recibir (Yape
-                        o efectivo), ESTA es la plata que el repartidor adelanta
-                        al recoger — tiene que verla ANTES de ofertar, porque
-                        después solo queda retirar. */}
+                    {/* La comida como LÍNEA propia, no sumergida en el total.
+                        Si el cliente termina pagando al recibir, ESTA es la
+                        plata que el repartidor adelanta al recoger — tiene que
+                        verla ANTES de ofertar, porque después solo queda
+                        retirar. */}
                     <p className="text-xs text-muted-foreground">
                       Comida: S/ {Number(order.total).toFixed(2)}
                       {acceptsPayOnDelivery
                         ? ' · si te pagan al recibir, la adelantas tú'
                         : ' · este pedido solo admite pago por adelantado'}
                     </p>
-                    <SendOfferForm
-                      orderId={order.id}
-                      acceptsPayOnDelivery={acceptsPayOnDelivery}
-                      foodAmount={Number(order.total)}
-                    />
+                    <SendOfferForm orderId={order.id} />
                   </div>
                 }
               />

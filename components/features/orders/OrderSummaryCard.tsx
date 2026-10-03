@@ -70,11 +70,12 @@ function ItemList({ items }: { items: SummaryItem[] }) {
  * de servidor: no tiene estado ni interacción, así que no necesita JS de
  * cliente.
  *
- * Desde la Fase 5 del plan del método de pago, la fila "Envío" lleva un chip
- * con el método elegido y bajo el total aparece una nota que depende de ese
- * método. La razón es que el texto "El envío se paga directo a tu repartidor
- * por Yape." dejó de ser universal: mostrárselo a quien eligió pagar en
- * efectivo sería una afirmación falsa sobre su dinero.
+ * La fila "Envío" lleva un chip con el momento del pago y bajo el total, UNA
+ * nota que lo explica. El texto original ("El envío se paga directo a tu
+ * repartidor por Yape.") dejó de ser universal cuando apareció el pago al
+ * recibir: mostrárselo a quien paga en la puerta sería una afirmación falsa
+ * sobre su dinero, y mostrarle el detalle de con qué paga (Yape o efectivo)
+ * obligaría a preguntar algo que el sistema decidió no volver a pedir.
  */
 export function OrderSummaryCard({
   items,
@@ -90,13 +91,14 @@ export function OrderSummaryCard({
   /** null = "por confirmar" (todavía no hay oferta o no se confirmó el pago). */
   deliveryFee: number | null
   /**
-   * Método elegido por el cliente (snapshot de `orders.payment_method`) o null
-   * si todavía no eligió / si es una entrega legacy aceptada sin oferta.
+   * [LEGACY] Método con el que pagó, solo en filas anteriores al pago al
+   * recibir sin método (snapshot de `orders.payment_method`) o null en las
+   * nuevas entregas y en las aceptadas sin oferta.
    */
   paymentMethod?: PaymentMethod | null
   /**
-   * Cuándo paga (snapshot de `orders.payment_timing`): con los dos ejes la
-   * nota bajo el total puede distinguir "Yape (pagado)" de "Yape al recibir".
+   * Cuándo paga (snapshot de `orders.payment_timing`): es el ÚNICO eje que
+   * decide el chip y la nota, porque con pago al recibir el método es NULL.
    */
   paymentTiming?: PaymentTiming | null
   /** Slot para una acción contextual futura (ej. "Repetir pedido") — hoy sin uso. */
@@ -121,24 +123,23 @@ export function OrderSummaryCard({
   const label = paymentLabel(paymentMethod, paymentTiming)
   const due = amountDueToCourier(subtotal, deliveryFee)
 
-  // Nota bajo el total, según la TUPLA (método + momento) y no solo el método:
-  //   - YAPE+UPFRONT     → pagado por adelantado: comida + envío (D1);
-  //   - YAPE+ON_DELIVERY → yapeará al recibir: comida + envío;
-  //   - CASH             → entregará el total en efectivo al recibir.
-  //   - null             → ni chip ni nota (legacy o previo a la elección): no
-  //     se inventa un método ni se promete algo que no eligió.
-  // Auditar con `grep` (Fase 4.6): NINGÚN texto de un pedido ON_DELIVERY puede
-  // decir "pagaste" ni "el envío se paga por Yape".
+  // Nota bajo el total, UNA sola por pantalla y según el momento del pago:
+  //   - ON_DELIVERY → "Pagas S/ X al recibir." (el monto es comida + envío, D1);
+  //   - UPFRONT     → "Pagaste S/ X por Yape." (ya ocurrió, en pasado);
+  //   - sin timing  → sin nota: el pedido todavía está esperando la elección
+  //     (para eso está la tarjeta de pago, arriba) o es una entrega legacy de
+  //     la que no se sabe nada. No se inventa un método ni se promete algo que
+  //     el cliente no eligió.
+  // Auditar con `grep` (criterio de la Fase 5): NINGÚN texto de un pedido
+  // ON_DELIVERY puede decir "pagaste" ni "por Yape".
   const paymentNote =
     deliveryFee === null
       ? null
-      : paymentMethod === null
-        ? 'Elige cómo pagar el envío.'
-        : paymentMethod === 'CASH'
-          ? `Pagas S/ ${due.toFixed(2)} en efectivo al repartidor cuando llegue tu pedido: comida + envío.`
-          : paymentTiming === 'ON_DELIVERY'
-            ? `Pagas S/ ${due.toFixed(2)} por Yape a tu repartidor al recibir tu pedido: comida + envío.`
-            : `Pagaste S/ ${due.toFixed(2)} por Yape a tu repartidor: comida + envío.`
+      : paymentTiming === 'ON_DELIVERY'
+        ? `Pagas S/ ${due.toFixed(2)} al recibir.`
+        : paymentTiming === 'UPFRONT'
+          ? `Pagaste S/ ${due.toFixed(2)} por Yape.`
+          : null
 
   return (
     <div className="w-full min-w-0 rounded-3xl bg-white/80 p-5 shadow-client-card backdrop-blur-xl dark:bg-white/5">
@@ -181,8 +182,9 @@ export function OrderSummaryCard({
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span className="flex min-w-0 items-center gap-2">
             Envío
-            {/* El método es TEXTO ("Yape al recibir"), no un punto de color:
-                tiene que seguir siendo legible con daltonismo o impreso. */}
+            {/* El momento del pago es TEXTO ("Pago al recibir"), no un punto de
+                color: tiene que seguir siendo legible con daltonismo o
+                impreso. */}
             {label && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-100">
                 {label}

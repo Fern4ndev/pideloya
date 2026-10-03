@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createClient, createServiceRoleClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import { createOrderSchema, type CreateOrderInput } from '@/lib/validations/order'
-import { type PaymentMethod, type PaymentTiming } from '@/lib/constants/payment-method'
+import { type PaymentTiming } from '@/lib/constants/payment-method'
 import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
 import { paymentSelectionSchema } from '@/lib/validations/payment-method'
 import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
@@ -100,30 +100,30 @@ async function releaseUnconfirmedOffer(
 }
 
 /**
- * El cliente elige CÓMO y CUÁNDO paga el pedido y con esa elección arranca la
- * entrega. Llama a la función SECURITY DEFINER
- * select_delivery_payment(uuid, text, text, text) (migración 20261002100100),
+ * El cliente elige CUÁNDO paga el pedido y con esa elección arranca la entrega.
+ * Llama a la función SECURITY DEFINER
+ * select_delivery_payment(uuid, text, text, text) (migración 20261003100000),
  * que hace la transición AWAITING_PAYMENT -> ASSIGNED de forma atómica en dos
- * tablas, escribe el snapshot `orders.delivery_fee` y guarda la tupla elegida
- * (método + timing, más la ruta del comprobante, solo con Yape por adelantado).
+ * tablas, escribe el snapshot `orders.delivery_fee` y guarda el momento elegido
+ * (más la ruta del comprobante, solo con pago por adelantado).
  *
  * Es la ÚNICA puerta a ASSIGNED para el cliente, y la elección es DEFINITIVA
  * (D3): cambiarla después obligaría a reabrir el estado del pedido y a
  * coordinar con un repartidor que ya está en camino. La UI lo avisa antes del
  * clic (PAYMENT_METHOD_LOCK_NOTICE).
  *
- * Con YAPE el comprobante es OBLIGATORIO: la función rechaza la llamada si la
- * ruta no es la de este pedido o si el archivo no existe en Storage. Por eso el
- * orden importa y no es negociable — el navegador sube el archivo ANTES de
- * llamar a esta acción (Fase 4). Si se llama primero, el mensaje de error que ve
- * el usuario es el correcto ("Adjunta el comprobante…"), no una confirmación a
- * medias.
+ * Con UPFRONT el pago es por Yape y el comprobante es OBLIGATORIO: la función
+ * rechaza la llamada si la ruta no es la de este pedido o si el archivo no
+ * existe en Storage. Por eso el orden importa y no es negociable — el navegador
+ * sube el archivo ANTES de llamar a esta acción (Fase 4). Si se llama primero,
+ * el mensaje de error que ve el usuario es el correcto ("Adjunta el
+ * comprobante…"), no una confirmación a medias.
  *
  * Con ON_DELIVERY no se sube ni se envía ningún archivo (y la función rechaza
  * la llamada si llega una ruta): en la puerta existe la app de Yape del
- * repartidor o el billete, no una captura previa (D5). El cobro REAL se registra
- * recién al entregar (`collected_at`/`collected_method`, vía complete_delivery
- * desde la v2): acá el cliente solo se COMPROMETE a pagar al recibir.
+ * repartidor o el billete, no una captura previa (D5). Tampoco se elige ni se
+ * guarda un método: acá el cliente solo se COMPROMETE a pagar al recibir, y la
+ * constancia de que pagó es `collected_at` al finalizar la entrega.
  *
  * El navegador NO elige la ruta: se deriva acá del orderId, y la función SQL la
  * vuelve a validar contra el CHECK de `deliveries` (defensa en profundidad: un
@@ -135,31 +135,28 @@ async function releaseUnconfirmedOffer(
  * pedido sea suyo, que esté en el estado correcto y que el comprobante exista,
  * así que acá no hay que repetir esas comprobaciones.
  */
-export async function confirmDeliveryPayment(
-  orderId: string,
-  selection: { method: PaymentMethod; timing: PaymentTiming }
-) {
-  // La tupla (método + momento) se valida en el borde, cruce imposible
-  // incluido (CASH+UPFRONT): la base y la función SQL lo vuelven a validar, pero
-  // acá se gana que un valor inventado no salga siquiera a la red y que el
-  // mensaje sea en español y mostrable tal cual.
-  const parsed = paymentSelectionSchema.safeParse(selection)
+export async function confirmDeliveryPayment(orderId: string, timing: PaymentTiming) {
+  // El momento se valida en el borde: la base y la función SQL lo vuelven a
+  // validar, pero acá se gana que un valor inventado no salga siquiera a la red
+  // y que el mensaje sea en español y mostrable tal cual.
+  const parsed = paymentSelectionSchema.safeParse({ timing })
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? 'Elección de pago inválida')
   }
-  const { method, timing } = parsed.data
 
   const supabase = await createClient()
   const { error } = await supabase.rpc('select_delivery_payment', {
     p_order_id: orderId,
-    p_method: method,
-    p_timing: timing,
-    // La ruta viaja SOLO con Yape POR ADELANTADO (D5: Yape al recibir no lleva
-    // comprobante; efectivo tampoco). Con `undefined` la clave no se envía y
-    // aplica el DEFAULT null de la función, que es lo que espera el CHECK
-    // deliveries_voucher_requires_upfront_yape_check.
+    p_timing: parsed.data.timing,
+    // Con pago por adelantado el único método posible es Yape (la función lo
+    // exige, CHECK deliveries_timing_method_check): por eso se manda explícito
+    // y NO se envía con ON_DELIVERY, donde el método queda NULL por diseño.
+    p_method: parsed.data.timing === 'UPFRONT' ? 'YAPE' : undefined,
+    // La ruta viaja SOLO con pago por adelantado. Con `undefined` la clave no
+    // se envía y aplica el DEFAULT null de la función, que es lo que espera el
+    // CHECK deliveries_voucher_requires_upfront_check.
     p_voucher_path:
-      method === 'YAPE' && timing === 'UPFRONT' ? paymentVoucherPath(orderId) : undefined,
+      parsed.data.timing === 'UPFRONT' ? paymentVoucherPath(orderId) : undefined,
   })
   if (error) throw new Error(error.message)
 

@@ -14,7 +14,7 @@ import { ORDER_STATUS_LABELS, type OrderStatus } from '@/lib/constants/order-sta
  * viven las dos transiciones que el cliente no provocó y que cambian lo que
  * tiene que hacer:
  *
- * - alguien le ofrece un envío (hay algo que decidir y pagar) → info;
+ * - alguien le ofrece un envío (hay una decisión de pago pendiente) → info;
  * - la oferta se retiró o expiró (volvió a PENDING) → warning, porque el
  *   cliente ya había visto un monto y un repartidor con nombre y ahora no hay
  *   ninguno. Sin aviso, la desaparición de la tarjeta parece un fallo de la
@@ -35,7 +35,9 @@ export function OrderStatusAnnouncer({ status }: { status: OrderStatus }) {
     if (before === status) return
 
     if (status === 'AWAITING_PAYMENT') {
-      info('Tu repartidor envió su oferta', 'Revisa el monto y elige cómo pagar.')
+      // Una línea, sin repetir el monto: la tarjeta de pago que acaba de
+      // aparecer ya lo muestra en cada opción, y el toast no compite con ella.
+      info('Tu repartidor envió su oferta', 'Elige cómo pagar.')
       return
     }
     if (before === 'AWAITING_PAYMENT' && status === 'PENDING') {

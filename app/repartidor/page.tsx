@@ -61,7 +61,7 @@ export default async function RepartidorHomePage() {
     <PageContainer size="full">
       <PageHeader
         title="Panel de reparto"
-        description="Usa el menú de la izquierda para ir a Disponibles (aceptar pedidos) o Mis entregas (los que ya tienes asignados)."
+        description="Usa el menú de la izquierda para ir a Disponibles (ofertar por pedidos) o Mi entrega (la que tienes en curso)."
       />
 
       <div className="mt-6 space-y-6">

@@ -61,10 +61,9 @@ export function PayOnDeliverySwitch({ initialAccepts }: { initialAccepts: boolea
         </span>
       </label>
       <p className="text-xs text-muted-foreground">
-        Si lo apagas, tus ofertas nuevas solo permitirán pago por adelantado. Las
-        ofertas que ya enviaste no cambian. Ojo: si el cliente no te paga al
-        recibir, la plata adelantada la reclamas con soporte desde la incidencia
-        del pedido.
+        Si lo apagas, tus ofertas nuevas solo permitirán pago por adelantado; las
+        que ya enviaste no cambian. Si el cliente no te paga al recibir, reclamas
+        la plata con soporte desde la incidencia del pedido.
       </p>
     </div>
   )

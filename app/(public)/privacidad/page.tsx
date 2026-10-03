@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 // NOTA INTERNA (D10): política actualizada para reflejar el flujo de pago al
 // repartidor y la conciliación. No sustituye una revisión legal antes de un
 // lanzamiento comercial.
-const UPDATED_AT = '30 de septiembre de 2026'
+const UPDATED_AT = '1 de octubre de 2026'
 
 export default function PrivacidadPage() {
   return (
@@ -34,10 +34,9 @@ export default function PrivacidadPage() {
           <li>Comprobantes de pago: la imagen del comprobante de Yape que adjuntas al confirmar el pago del envío (clientes).</li>
           <li>Historial de pedidos y preferencias dentro de la plataforma.</li>
           <li>
-            Datos del pago al repartidor: método elegido (Yape o efectivo),
-            momento del pago (ahora o al recibir), el cobro que el repartidor
-            declara haber recibido, la constancia de que pagaste la comida al
-            restaurante cuando el repartidor la adelantó, y las incidencias de
+            Datos del pago al repartidor: momento del pago (ahora o al recibir),
+            constancia de finalización de la entrega, constancia de pago al
+            restaurante cuando el repartidor adelantó la comida, e incidencias de
             pago que cualquiera de las partes reporte.
           </li>
           <li>Credenciales de acceso, almacenadas de forma cifrada.</li>
@@ -49,7 +48,7 @@ export default function PrivacidadPage() {
         <ul className="list-disc pl-5 space-y-1.5">
           <li>Crear y administrar tu cuenta, y validar tu identidad al registrarte.</li>
           <li>Procesar pedidos y coordinar la entrega entre cliente, restaurante y repartidor.</li>
-          <li>Confirmar el pago al repartidor: el comprobante que adjuntas se comparte únicamente con el repartidor asignado a tu pedido, como constancia de que le pagaste.</li>
+          <li>Confirmar el pago al repartidor: cuando pagas por adelantado, el comprobante que adjuntas se comparte únicamente con el repartidor asignado a tu pedido, como constancia de que le pagaste.</li>
           <li>
             Llevar la conciliación del pago entre cliente, repartidor y
             restaurante, y resolver disputas o incidencias de pago entre las
@@ -99,11 +98,11 @@ export default function PrivacidadPage() {
           registro de la transacción (pedidos, montos y fechas, sin datos que te
           identifiquen directamente) se conserva por 5 años, plazo exigido por
           obligaciones contables y tributarias (SUNAT, Código Tributario). Los
-          datos del pago al repartidor —método, momento del pago, cobro declarado,
-          constancia de pago al restaurante e incidencias reportadas— forman parte
-          de ese registro de la transacción: no identifican directamente a una
-          persona, se usan para conciliar y resolver disputas, y se conservan
-          también por 5 años.
+          datos del pago al repartidor —momento del pago, constancia de
+          finalización de la entrega, constancia de pago al restaurante e
+          incidencias reportadas— forman parte de ese registro de la transacción:
+          no identifican directamente a una persona, se usan para conciliar y
+          resolver disputas, y se conservan también por 5 años.
         </p>
         <p>
           Si tu cuenta no registra pedidos, se elimina por completo junto con sus

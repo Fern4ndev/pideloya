@@ -37,6 +37,11 @@ import { cn } from '@/lib/utils'
  * 4. La autorización real vive en `report_payment_incident()`: si esta UI se
  *    forzara desde DevTools, la función rechaza por rol o por no ser parte del
  *    pedido. Acá no se duplican reglas.
+ *
+ * Mismo patrón visual (y mismo contraste medido) que `PaymentMethodChoice`: el
+ * borde de la opción elegida usa `amber-700` en claro porque `amber-600` sobre
+ * el fondo `amber-100/60` ya compuesto se queda en 2.97:1, por debajo del 3:1
+ * que exige 1.4.11 para el límite del control.
  */
 export function PaymentIncidentDialog({
   open,
@@ -124,7 +129,7 @@ export function PaymentIncidentDialog({
                         className={cn(
                           'flex min-h-12 items-center rounded-2xl border px-3 text-sm font-medium transition-colors',
                           'border-black/10 bg-white dark:border-white/10 dark:bg-white/5',
-                          'peer-checked:border-amber-600 peer-checked:bg-amber-100/60',
+                          'peer-checked:border-amber-700 peer-checked:bg-amber-100/60',
                           'dark:peer-checked:border-amber-400/70 dark:peer-checked:bg-amber-500/15',
                           'peer-focus-visible:outline peer-focus-visible:outline-2',
                           'peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lime',

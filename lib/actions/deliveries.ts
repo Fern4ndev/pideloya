@@ -170,8 +170,8 @@ const NEXT_STATUS: Partial<
   ASSIGNED: { next: 'PICKED_UP', timestampField: 'picked_up_at' },
   PICKED_UP: { next: 'ON_THE_WAY', timestampField: null },
   // ON_THE_WAY no escribe `delivered_at` desde este mapa: ese paso lo ejecuta
-  // complete_delivery() (migración 20261001100200), que marca la entrega Y
-  // registra el cobro en efectivo en la MISMA transacción. Ver la delegación
+  // complete_delivery() (migración 20261003100000), que marca la entrega Y
+  // registra la constancia del cobro en la MISMA transacción. Ver la delegación
   // en advanceOrderStatus.
   ON_THE_WAY: { next: 'DELIVERED', timestampField: null },
   // Desde AWAITING_PAYMENT el pedido NO lo avanza el repartidor: lo desbloquea
@@ -194,21 +194,16 @@ const NEXT_STATUS: Partial<
  * pickup_delivery, migración 20261002100300) y registra la constancia D6 de que
  * el repartidor le pagó la comida al restaurante al recoger.
  *
- * `opts.collected` + `opts.collectedMethod` solo aplican al último paso
- * (ON_THE_WAY -> DELIVERED): complete_delivery() rechaza la entrega de un
- * pedido que se paga al recibir si el repartidor no declara el medio REAL del
- * cobro (D4/D8). Para Yape por adelantado y para las entregas legacy se ignora.
- * (El alias `cashCollected` del ciclo anterior se retiró con la Fase 12:
- * la única puerta es `collected` + `collectedMethod`.)
+ * El último paso (ON_THE_WAY -> DELIVERED) se cierra UN TOQUE, sin declarar
+ * medio del cobro: complete_delivery() (migración 20261003100000) ya no lo
+ * pide y registra `collected_at` como constancia de que se finalizó con cobro.
+ * La salida del repartidor cuando no pudo cobrar es la incidencia de pago
+ * ("No pude cobrar"), que NO cambia el estado del pedido.
  */
 export async function advanceOrderStatus(
   orderId: string,
   currentStatus: OrderStatus,
-  opts?: {
-    restaurantPaid?: boolean
-    collected?: boolean
-    collectedMethod?: 'YAPE' | 'CASH'
-  }
+  opts?: { restaurantPaid?: boolean }
 ) {
   const supabase = await createClient()
   const profileId = await getMyProfileId(supabase)
@@ -232,16 +227,12 @@ export async function advanceOrderStatus(
   // produce el "no me pagaron" de ambos lados.
   //
   // complete_delivery() comprueba por sí sola que el pedido sea de este
-  // repartidor (42501 si no lo es) y exige el flag cuando el método es CASH. La
-  // guarda real vive ahí, no en el diálogo de la UI (Fase 6): la UI solo
-  // pregunta; la base es la que no deja pasar.
+  // repartidor (42501 si no lo es) y, con pago al recibir, escribe
+  // `collected_at` en la MISMA transacción: "entregado sin constancia de cobro"
+  // sigue siendo imposible sin pedirle nada extra al repartidor.
   if (currentStatus === 'ON_THE_WAY') {
     const { error } = await supabase.rpc('complete_delivery', {
       p_order_id: orderId,
-      // Fase 12: la firma de la función pasa a (uuid, text). El flag booleano
-      // p_cash_collected y el alias cashCollected desaparecen juntos.
-      p_collected_method:
-        opts?.collected === true ? (opts.collectedMethod ?? 'CASH') : undefined,
     })
     if (error) throw new Error(error.message)
 

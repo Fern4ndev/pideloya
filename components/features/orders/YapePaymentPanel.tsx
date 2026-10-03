@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import Image from 'next/image'
 import { ExpandIcon } from 'lucide-react'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -8,34 +7,14 @@ import { PaymentVoucherPicker } from '@/components/features/orders/PaymentVouche
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { formatPePhone } from '@/lib/format/phone'
-import { PAYMENT_METHOD_LOCK_NOTICE } from '@/lib/constants/payment-method'
-
 /**
- * Encabezado numerado de cada paso. Vive fuera del componente a propósito:
- * definirlo adentro lo re-crearía en cada render (identidad nueva → React lo
- * desmonta y remonta, perdiendo el DOM real y el foco).
- */
-function StepHeading({ step, children }: { step: number; children: ReactNode }) {
-  return (
-    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
-      <span
-        aria-hidden
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-bold text-amber-800 dark:text-amber-200"
-      >
-        {step}
-      </span>
-      {children}
-    </h3>
-  )
-}
-
-/**
- * Paso 2 de la tarjeta de pago: todo lo que el cliente necesita para pagar por
- * Yape y adjuntar el comprobante. Extraído de DeliveryPaymentCard en la Fase 4
- * del plan del método de pago, sin cambios funcionales.
+ * Todo lo que el cliente necesita para pagar por Yape y adjuntar el
+ * comprobante: el único camino de la tarjeta que necesita QR, archivo y
+ * comprobante. Extraído de DeliveryPaymentCard en un ciclo anterior, sin
+ * cambios funcionales.
  *
  * Va en su PROPIO archivo y se carga con `next/dynamic` (`ssr: false`) desde la
- * tarjeta: quien elige pagar en efectivo nunca necesita el QR ni el compresor de
+ * tarjeta: quien elige pagar al recibir nunca necesita el QR ni el compresor de
  * imágenes del navegador, así que no tiene por qué descargarlos. El resto de las
  * decisiones (el QR tocable para ampliarlo, el número agrupado que se copia sin
  * espacios, la degradación con gracia cuando falta QR o número, el comprobante
@@ -45,7 +24,12 @@ function StepHeading({ step, children }: { step: number; children: ReactNode }) 
  * Es un componente de presentación: recibe `file` y avisa por `onFileChange`,
  * pero no sube nada ni conoce Supabase. El flujo de subida vive en el padre,
  * que es el único que sabe si hay una operación en curso (`busy`) y el único que
- * puede deshabilitar el selector de método mientras tanto.
+ * puede deshabilitar el selector de opciones mientras tanto.
+ *
+ * Recorte del plan: se quitaron los encabezados numerados (1/2/3) y el aviso de
+ * bloqueo propio. El orden visual ya cuenta la secuencia —QR o número,
+ * comprobante y botón— y el aviso de que la elección es definitiva vive UNA
+ * sola vez en la tarjeta, debajo del control que confirma.
  */
 export function YapePaymentPanel({
   fullName,
@@ -77,9 +61,10 @@ export function YapePaymentPanel({
 
   return (
     <div className="space-y-3">
-      {/* ------------------------------- Paso 1 ------------------------------ */}
       <div className="border-t border-amber-300/60 pt-4 dark:border-amber-500/25">
-        <StepHeading step={1}>Paga por Yape</StepHeading>
+        <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+          Paga S/ {amount} por Yape
+        </h3>
 
         <div className="mt-3 space-y-3">
           {yapeQrUrl ? (
@@ -156,20 +141,13 @@ export function YapePaymentPanel({
         </div>
       </div>
 
-      {/* ------------------------------- Paso 2 ------------------------------ */}
-      <div className="border-t border-amber-300/60 pt-4 dark:border-amber-500/25">
-        <StepHeading step={2}>Adjunta tu comprobante</StepHeading>
-        <div className="mt-3">
-          <PaymentVoucherPicker
-            file={file}
-            onChange={onFileChange}
-            busy={busy}
-            busyLabel={busyLabel}
-          />
-        </div>
-      </div>
+      <PaymentVoucherPicker
+        file={file}
+        onChange={onFileChange}
+        busy={busy}
+        busyLabel={busyLabel}
+      />
 
-      {/* ------------------------------- Paso 3 ------------------------------ */}
       <Button
         type="button"
         onClick={onConfirm}
@@ -187,10 +165,6 @@ export function YapePaymentPanel({
           Adjunta tu comprobante para poder confirmar
         </p>
       )}
-
-      <p className="text-center text-xs text-amber-900 dark:text-amber-100">
-        {PAYMENT_METHOD_LOCK_NOTICE}
-      </p>
     </div>
   )
 }

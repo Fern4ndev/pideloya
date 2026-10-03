@@ -18,21 +18,21 @@ import { HandCoinsIcon, SearchXIcon } from 'lucide-react'
 /**
  * /admin/pagos — conciliación de pagos (Fase 8.3 del plan "Pagar al recibir").
  *
- * Cuatro vistas en una sola pantalla, elegidas con `?status=` (el MISMO
+ * Tres vistas en una sola pantalla, elegidas con `?status=` (el MISMO
  * parámetro que las otras tablas admin, para reutilizar `AdminTableShell` y el
  * export CSV tal cual):
  *
  *   open      → incidencias REPORTADAS por una parte (bandeja con acción).
  *   unpaid    → entregados sin constancia de pago al restaurante.
- *   mismatch  → `collected_method <> payment_method` (el desvío válido de D4:
- *               no es un error, es un dato que el admin audita).
  *   integrity → ON_DELIVERY entregado sin `collected_at` (debería ser imposible:
  *               si aparece, algo se saltó `complete_delivery`).
  *
- * Paginación EN MEMORIA, no en el servidor: `mismatch` compara dos columnas
- * entre sí y PostgREST no puede filtrar eso, así que la fila se descarta en JS.
- * El volumen es bajo por diseño (PAYMENT_REVIEW_LIMIT = una cola de soporte, no
- * un histórico); si algún día no lo fuera, el problema es la cola, no la tabla.
+ * La vista `mismatch` ("anunciado vs cobrado") se eliminó con el pago al
+ * recibir sin método: ese desvío ya no puede existir.
+ *
+ * La paginación se hace en memoria sobre las filas ya traídas (con su tope
+ * PAYMENT_REVIEW_LIMIT): es una cola de soporte, no un histórico, y el límite
+ * está a la vista en la UI para que nadie crea que vio todo cuando no.
  */
 export default async function AdminPaymentsPage({
   searchParams,

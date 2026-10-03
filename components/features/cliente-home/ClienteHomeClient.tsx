@@ -8,6 +8,7 @@ import { LogoLoop, type LogoItem } from '@/components/LogoLoop'
 import { useSearchStore } from '@/lib/hooks/use-search'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
 import { useState } from 'react'
 
 export function ClienteHomeClient({
@@ -164,16 +165,24 @@ export function ClienteHomeClient({
             <h2 className="text-lg font-semibold tracking-tight">Platos populares</h2>
           </div>
           {/* El mask insinúa que hay más platos a la derecha sin agregar
-              flechas: el gesto nativo de swipe sigue siendo el control. */}
-          <div className="flex snap-x gap-4 overflow-x-auto pb-2 [mask-image:linear-gradient(to_right,black_86%,transparent_100%)]">
-            {popularProducts.map((product) => (
-              <FeaturedProductCard
-                key={product.id}
-                product={product}
-                disabled={closedRestaurantIds?.includes(product.restaurant.id)}
-              />
-            ))}
-          </div>
+              flechas: el gesto nativo de swipe sigue siendo el control.
+              Embla (Carousel de shadcn) captura el arrastre sin scrollbar
+              nativo, así que el borde inferior queda limpio. */}
+          <Carousel
+            opts={{ align: 'start' }}
+            className="w-full [mask-image:linear-gradient(to_right,black_86%,transparent_100%)]"
+          >
+            <CarouselContent className="-ml-4 select-none">
+              {popularProducts.map((product) => (
+                <CarouselItem key={product.id} className="basis-auto pl-4">
+                  <FeaturedProductCard
+                    product={product}
+                    disabled={closedRestaurantIds?.includes(product.restaurant.id)}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
         </section>
       )}
 

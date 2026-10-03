@@ -15,8 +15,8 @@ const NEXT_STATUS: Partial<
   PICKED_UP: { next: 'ON_THE_WAY' },
   // El `stamp` de ON_THE_WAY solo lo usa el override del ADMIN: el camino del
   // repartidor delega en complete_delivery() (que marca la entrega Y registra
-  // el cobro en efectivo en una sola transacción) y retorna antes de llegar al
-  // UPDATE de abajo.
+  // la constancia del cobro en una sola transacción) y retorna antes de llegar
+  // al UPDATE de abajo.
   ON_THE_WAY: { next: 'DELIVERED', stamp: 'delivered_at' },
   // Ni PENDING ni AWAITING_PAYMENT se avanzan desde acá: el salto a ASSIGNED
   // solo lo produce la elección del método de pago (RPC
@@ -63,21 +63,14 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
     }
 
     // Último paso por el camino del repartidor: complete_delivery(), atómica y
-    // con la guarda del cobro declarado (D4/D8: un pedido que se paga al
-    // recibir no se cierra sin declarar el medio real del cobro; body
-    // { collected?: boolean, collected_method?: 'YAPE'|'CASH' }). El alias
-    // cash_collected del ciclo anterior se retiró con la Fase 12. El camino del
-    // ADMIN sigue más abajo sin exigirla: es un override de soporte explícito.
+    // con la constancia del cobro en `collected_at` (D8: "no pude cobrar" no es
+    // este camino, es una incidencia). Un `collected` o `collected_method` que
+    // llegue en el cuerpo se IGNORA: el medio del cobro ya no se pregunta
+    // (migración 20261003100000). El camino del ADMIN sigue más abajo sin pasar
+    // por acá: es un override de soporte explícito.
     if (order.status === 'ON_THE_WAY') {
-      const body = await request.json().catch(() => ({}))
-      const collectedMethod =
-        body?.collected_method === 'YAPE' || body?.collected_method === 'CASH'
-          ? body.collected_method
-          : undefined
-      const collected = body?.collected === true
       const { error } = await userClient(request).rpc('complete_delivery', {
         p_order_id: orderId,
-        p_collected_method: collected ? (collectedMethod ?? 'CASH') : null,
       })
       if (error) return rpcErrorResponse(error)
       return successResponse({ status: 'DELIVERED' })

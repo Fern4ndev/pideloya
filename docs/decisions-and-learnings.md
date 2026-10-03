@@ -601,3 +601,78 @@ Cierra el mismo plan (`docs/plans/plan-pago-al-recibir-yape-o-efectivo-y-concili
 3. Guardar un script de limpieza de estado junto a las suites: recupera una corrida abortada en minutos.
 4. `grep` del contrato tras cada cierre: alias deprecados y columnas dual-write sobreviven al plan si nadie los caza (sobrevivieron dos ciclos).
 
+## 2026-10-01 — Simplificar el pago al recibir: una decisión que nadie consume no se pregunta (Fases 1–7)
+
+Fuente: `docs/plans/plan-simplificar-pago-al-recibir.md`. Cierra las Fases 1 a 7 de ese plan en un solo ciclo.
+
+### S1–S6 — las seis decisiones del plan
+
+- **S1 · "Pagar al recibir" no guarda método.** `payment_timing='ON_DELIVERY'` con `payment_method` **NULL**: guardar un método que nadie elige sería inventar un dato. La migración `20261003100000` relaja los CHECK (`deliveries_timing_method_check`, `deliveries_collected_check`, `deliveries_collected_method_check`) y `select_delivery_payment` ACEPTA el método legacy que manda la app desplegada y lo ignora al escribir, así que el `db push` no rompe lo desplegado.
+- **S2 · Finalizar es un toque.** Se elimina la guarda `22000 "Confirma que cobraste…"` y los parámetros `p_cash_collected`/`p_collected_method` se aceptan y se IGNORAN (compatibilidad con los llamadores viejos, que PostgREST manda por nombre). La constancia pasa a ser `collected_at` = "el repartidor finalizó la entrega con cobro", escrita en la MISMA transacción que marca DELIVERED.
+- **S3 · "No pude cobrar" sobrevive como enlace de texto secundario.** Es la única salida honesta: sin ella el incentivo es finalizar "como si" hubiera cobrado. `min-h-10` (40 px de área táctil) y color medido (ver Fase 7).
+- **S4 · El cliente ya no ve el QR del repartidor.** Se eliminó el recordatorio ámbar y el diálogo "Ver QR de mi repartidor" de `OrderStatusSection` junto con sus props; la RPC `get_delivery_offer_details` sigue alimentando la tarjeta de pago y el comprobante, pero ya no se leen `yape_qr_url`/`phone` para el estado. El QR se muestra en la puerta desde el teléfono del repartidor.
+- **S5 · El monto sigue siendo comida + envío** (`amountDueToCourier`), derivado y no guardado.
+- **S6 · `PickupDialog` se acorta pero conserva `restaurant_paid_at`** (la evidencia del restaurante no se toca).
+
+### Hallazgo al implementar (no estaba en el plan)
+
+`deliveries_voucher_requires_upfront_yape_check` ataba el comprobante a `payment_method = 'YAPE'`. Con ON_DELIVERY el método es NULL, y el `case when v_timing = 'UPFRONT' then p_voucher_path end` del UPDATE habría violado ese CHECK **después** de escribir la confirmación dentro de la misma transacción: el fallo se habría visto como un error genérico de 23514 en la puerta. Se reemplazó por `deliveries_voucher_requires_upfront_check` (`payment_voucher_path is null or payment_timing = 'UPFRONT'`), que expresa la regla real —el único eje que importa para el comprobante es el momento— y valida seguro sobre el histórico: la ruta solo la escribía la rama UPFRONT+YAPE del RPC, así que toda fila con ruta tiene timing UPFRONT.
+
+**Lección: al quitar un eje hay que releer TODOS los CHECK que lo mencionan, no solo los que "obviamente" hablan de él.** El CHECK del comprobante decía `payment_method = 'YAPE'` y nadie lo miró hasta que la implementación lo iba a violar.
+
+### La lección transversal: una decisión que nadie consume no se pregunta
+
+El segundo eje ("¿con qué pagarás al recibir?": Yape o efectivo) se decidía en el cliente, se anunciaba, el repartidor lo volvía a declarar en la puerta y el sistema comparaba una cosa con la otra (`mismatch` en admin). Nadie consumía el dato: el repartidor cobra con lo que el cliente le entregue. Quitarlo borró 3 archivos (`CashPaymentPanel`, `YapeOnDeliveryPanel`, `CollectPaymentDialog`), el diálogo de cobro, una vista de conciliación completa y ~10 textos duplicados — sin perder ninguna capacidad.
+
+- **La copia se centraliza donde el monto se conoce:** `PAYMENT_TIMING_COPY[t].subtitle(amount)` hace que el número que decide la elección viaje con la opción, en vez de repetirse en un párrafo aparte. `PAYMENT_METHOD_LOCK_NOTICE` queda como única fuente y se renderiza UNA vez (grep: una definición, un uso).
+- **`mismatch` se elimina de la UI, no se deja vacía:** una alerta que siempre va a estar vacía enseña a ignorar la pantalla. `PAYMENT_REVIEW_FILTERS` queda con `open`/`unpaid`/`integrity` y `fetchPaymentReconciliationRows` es exhaustivo a propósito: lanza si aparece un filtro sin consulta, en vez de devolver filas de otro filtro en silencio.
+- **La nota del pago se decide por TIMING, no por método** (`ON_DELIVERY` → "Pagas S/ X al recibir.", `UPFRONT` → "Pagaste S/ X por Yape.", sin timing → sin nota). Un pedido ON_DELIVERY dice su monto en UN solo lugar: se eliminó el recordatorio duplicado del estado y el subtítulo que repetía el banner de la lista.
+- **El orden de despliegue importa y quedó escrito en el plan:** tras el `db push`, la app desplegada funciona en todo el flujo **salvo** el cierre de un ON_DELIVERY (la guarda desapareció a propósito). Migración y código deben salir juntos, migración primero.
+
+### Fase 7 — accesibilidad: medir, no estimar
+
+Se midió con un script temporal (borrado después de correr) que lee los tokens **reales** de `node_modules/tailwindcss/theme.css` y de `globals.css`, convierte oklch → sRGB, **compone los alfa en espacio gamma** (como el navegador) y recién ahí calcula el ratio WCAG. Estimar sobre el color base habría dado números falsos en modo oscuro: el fondo `--background` oscuro es `neutral-950`, y componer sobre un gris inventado movía los ratios entre 3 y 12 puntos.
+
+**Dos fallos reales encontrados y corregidos:**
+
+1. **Radio elegido `amber-600`: 2.97:1** sobre el fondo ya compuesto (`amber-100/60` sobre `amber-50/60`), por debajo del 3:1 de 1.4.11. Pasa a **`amber-700` = 4.69:1**. En oscuro ya estaba bien (`amber-400/70` sobre `amber-500/15` = 3.72:1). Se corrigió en `PaymentMethodChoice` y en `PaymentIncidentDialog`, que comparten el patrón.
+2. **"No pude cobrar" en `text-muted-foreground`: 3.29:1** sobre el blanco de la tarjeta, y es texto de 12 px (necesita 4.5:1). Pasa a **`text-foreground`** (≈19:1 en claro, 17.5:1 en oscuro). El peso de "secundario" ya lo dan el tamaño, el subrayado y compartir fila con el CTA lleno — no el gris apagado.
+
+El resto del flujo midió bien: chip "Cobrar S/ X al entregar" **8.17:1** claro / **12.46:1** oscuro; monto `text-3xl` **8.77:1** / **13.78:1**; subtítulos de las dos opciones **9.09:1** / **8.96:1**; borde del bloque de cobro `amber-600` sobre `amber-50` **3.08:1**; radio sin elegir `black/45` **3.31:1**; "Cobrado el…" **5.18:1** / **7.94:1**; nota del resumen **9.09:1** / **16.21:1**.
+
+Sin cambios en lo demás: un solo `fieldset` con `legend` y dos radios nativos (flechas y foco por `focus-halo`), `DialogTitle` en el diálogo del QR, `role="status" aria-live="polite"` en "Cobrado el…", objetivos táctiles 56/44/40 px, y ninguna animación nueva (`prefers-reduced-motion` global ya cubierto, esqueleto de `YapePaymentPanel` intacto para no introducir CLS).
+
+### Verificación
+
+`pnpm typecheck` ✅ · `pnpm lint`: 8 warnings preexistentes, 0 errores ✅ · `pnpm build` ✅ · medición de contraste: 23 pares, 2 fallos corregidos, 21 OK ✅. Sin verificación contra base real (no hay Supabase local): quedan para la Fase 8 el resultado en Postgres de `select_delivery_payment(o, null, null, 'ON_DELIVERY')` y el render con pedidos legacy.
+
+### Fase 8 — QA: apuntar la suite al contrato nuevo (no alcanza con "actualizar asserts")
+
+Se reescribieron los casos afectados de `scripts/e2e-delivery-offer.mjs` y de los tres `verify-*.mjs` en términos del contrato nuevo. El ejercicio dejó tres criterios y un hallazgo:
+
+- **Los casos que ya no existen se reemplazan, no se relajan.** "Entregar sin declarar el cobro → 400" no pasó a esperar 200: se sustituyó por "finalizar sin cuerpo → DELIVERED + `collected_at`", que es la capacidad nueva. Convertir un 400 en 200 escondería que el camino cambió de intención (S2).
+- **La compatibilidad se prueba en las DOS direcciones.** `{ method: 'CASH' }` ⇒ ON_DELIVERY; `{ method: 'YAPE', timing: 'ON_DELIVERY' }` ⇒ manda el timing y el método queda NULL; `{ collected, collected_method }` ⇒ se ignoran y la entrega se cierra igual. Sin estos casos, "aceptamos el cuerpo viejo" es una afirmación sin evidencia.
+- **Los overrides de soporte también se afirman:** el camino del ADMIN avanza por un UPDATE plano, así que **no** puede dejar `collected_at` — es exactamente lo que reporta la vista `integrity` de `/admin/pagos`, y ahora hay un test que lo fija.
+
+**Hallazgo al escribir las pruebas: `method: 'PLIN'` había dejado de rechazarse.** La derivación `requestedTiming ?? (rawMethod === 'CASH' ? 'ON_DELIVERY' : 'UPFRONT')` convertía CUALQUIER método desconocido en "por adelantado": el error del cliente se disfrazaba de default (y el usuario veía "No encontramos tu comprobante" en vez de "Elige cómo quieres pagar"). Se volvió a validar el `method` legacy con `paymentMethodSchema` **solo si viene**.
+
+**Lección: una compatibilidad que acepta cualquier valor no es compatibilidad, es un default silencioso.** Lo detectó un test que ya existía ("método inválido PLIN → 400"): la suite vieja pagó el cambio de API.
+
+### Fase 9 — despliegue: lo que falta y por qué el orden no es negociable
+
+El push ya se ejecutó (ver "Ejecución real: push, hotfixes y corridas en verde" al final); quedan el deploy y el QA en celular. Lo que se verificó por código, antes de mover el contract:
+
+- **Ningún archivo de `app/`, `lib/`, `components/` o `hooks/` lee `cash_collected_at`** (grep): la columna se puede borrar sin tocar la app. La única lectura de un medio de cobro es `toPaymentMethod(delivery.collected_method)` en el detalle del repartidor, y apunta a `collected_method`, que NO se borra (es el registro histórico del medio declarado en las entregas viejas).
+- **Los `scripts/*.mjs` SÍ la seleccionan** (`e2e-delivery-offer.mjs` y los tres `verify-*.mjs`): el contract y esos `select` tienen que salir en el MISMO cambio, o la suite falla con "column does not exist". Quedó anotado en el checklist del doc de contract.
+- **El archivo del contract no se puede mover con su nombre actual.** `20261002100600` ordena ANTES de `20261003100000`, así que movido tal cual el próximo `db push` aplicaría el DROP de la columna y de la firma **antes** de la migración que lo hace posible. Al moverlo hay que renombrarlo con un timestamp posterior (p. ej. `20261003110000`) y pushear recién después del deploy del código.
+
+### Ejecución real: push, hotfixes y corridas en verde (2026-10-02)
+
+Con la base real sí, el día de la verdad dejó cuatro lecciones que el plan no podía anticipar:
+
+- **PGRST203: un overload PostgREST necesita TODAS las variantes resolubles.** Al reescribir `select_delivery_payment` con `p_method` sin `default`, el frontend desplegado que llama con argumentos por nombre (`{ p_order_id, p_timing }`) dejó de resolver la función: PostgREST no encontró una firma que case y respondió `PGRST203` antes de tocar la base. El hotfix `20261003100100` agregó `default null` a `p_method` y un probe verificó que TODAS las formas conviven ({order,timing}, {order,method}, {order,method,voucher}, {order}, el envoltorio legacy). **Lección: al tocar la firma de una RPC expuesta, la compatibilidad no termina en el SQL: termina en el cache de schema de PostgREST, y el default es parte de la firma.**
+- **Lógica trivalente en CHECKs: `TRUE AND NULL = NULL`, y `NULL` pasa el CHECK.** El CHECK `deliveries_timing_method_check` escrito en dos ramas (`(timing='ON_DELIVERY' and method is null and …) or (timing='UPFRONT' and method='YAPE')`) dejaba pasar la combinación `(UPFRONT, method='YAPE')` FORZADA por UPDATE cuando la fila venía de otro estado: `FALSE OR NULL = NULL` → fila aceptada. El hotfix `20261003100200` cierra el agujero con `is not distinct from` y una rama exhaustiva por timing. **Lección: en Postgres un CHECK solo rechaza FALSE; NULL atraviesa. Toda condición sobre columnas nullable debe terminar en `is not distinct from` o `coalesce`, no en `=`.**
+- **Un fixture que se autocontamina necesita auto-sanación, no corrección manual.** El paso "Fase 7 por la API" del E2E apaga `accepts_pay_on_delivery` del repartidor E2E y solo lo restauraba si el paso terminaba bien: una corrida fallida dejaba el flag apagado y contaminaba TODAS las corridas siguientes (409 en cascada, "Este repartidor solo acepta pago por adelantado"). El fixture ahora se auto-sanea al arrancar (enciende el flag si está apagado) y lo restaura en la limpieza final. **Lección: el estado global que un test muta debe restaurarse en `finally`, no al final del happy path — si no, el fallo de un test se convierte en fallo de la suite entera.**
+- **`profiles.id` NO coincide con `auth.users.id`.** El janitor que limpia el estado E2E fallaba en silencio al resolver repartidores por su id de auth: la fila de `profiles` tiene otro id. Resolver perfiles por **email** (fuente única estable) y hacer el join de dos pasos en JS (los filtros embebidos `.in('orders.status', …)` de PostgREST resultaron poco fiables). **Lección: nunca asumir que dos tablas comparten clave primaria aunque conceptualmente "sean lo mismo"; resolver por un atributo de negocio (email) y verificar.**
+
+**Resultado:** E2E principal 72 PASS / 0 FAIL; `verify-timing-phase1`, `verify-delivery-payment-phase1` y `verify-payment-api-phase2` 0 FAIL; `verify-payment-incidents-phase8` 24/0. Migración list local=remote ✅. Quedan: deploy (9.2, falta definir destino) y QA con celular real (8.2).

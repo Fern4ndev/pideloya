@@ -290,12 +290,7 @@ export async function fetchPendingApprovalCounts(
  * usan las otras tablas admin) para reutilizar `AdminTableShell`,
  * `StatusFilterSelect` y el export CSV sin inventar un eje nuevo.
  */
-export const PAYMENT_REVIEW_FILTERS = [
-  'open',
-  'unpaid',
-  'mismatch',
-  'integrity',
-] as const
+export const PAYMENT_REVIEW_FILTERS = ['open', 'unpaid', 'integrity'] as const
 export type PaymentReviewFilter = (typeof PAYMENT_REVIEW_FILTERS)[number]
 
 /** Filtros de conciliación (todo menos la bandeja de incidencias). */
@@ -305,7 +300,6 @@ export type PaymentReconciliationFilter = Exclude<PaymentReviewFilter, 'open'>
 export const PAYMENT_REVIEW_LABELS: Record<PaymentReviewFilter, string> = {
   open: 'Incidencias abiertas',
   unpaid: 'Entregados sin constancia de pago',
-  mismatch: 'Cobro distinto a lo anunciado',
   integrity: 'ON_DELIVERY sin cobro registrado',
 }
 
@@ -380,13 +374,17 @@ export type PaymentReconciliationRow = {
 }
 
 /**
- * Filas de conciliación (los tres filtros que NO son la bandeja de
- * incidencias).
+ * Filas de conciliación (los filtros que NO son la bandeja de incidencias).
  *
- * `mismatch` se termina de filtrar en memoria: PostgREST no sabe comparar dos
- * columnas entre sí (`collected_method <> payment_method`) y un RPC solo para
- * esto no se justifica. Por eso la vista usa paginación en memoria — el volumen
- * de la cola es bajo por diseño (ver PAYMENT_REVIEW_LIMIT).
+ * La vista `mismatch` ("cobro distinto a lo anunciado") SE ELIMINÓ con el pago
+ * al recibir sin método: ya no hay "anunciado vs cobrado" que comparar, porque
+ * el medio del cobro dejó de preguntarse (migración 20261003100000). Una alerta
+ * que siempre va a estar vacía no se deja en la UI "por si acaso": enseña a
+ * ignorar la pantalla.
+ *
+ * Desde entonces cada filtro es UNA consulta con su propio `where` (PostgREST
+ * filtra todo), así que la paginación en memoria que existe en la página es solo
+ * por comodidad de la tabla, no porque haya filas descartadas en JS.
  */
 export async function fetchPaymentReconciliationRows(
   client: DbClient,
@@ -415,6 +413,9 @@ export async function fetchPaymentReconciliationRows(
     }))
   }
 
+  // `integrity`: la única alerta que NO puede estar vacía por diseño — una
+  // entrega ON_DELIVERY sin `collected_at` significa que algo se saltó
+  // complete_delivery.
   if (filter === 'integrity') {
     const { data, error } = await client
       .from('deliveries')
@@ -439,27 +440,10 @@ export async function fetchPaymentReconciliationRows(
     }))
   }
 
-  // mismatch
-  const { data, error } = await client
-    .from('deliveries')
-    .select(
-      'id, order_id, created_at, payment_method, collected_method, orders!inner(status, total, customer_name)'
-    )
-    .not('payment_method', 'is', null)
-    .not('collected_method', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(PAYMENT_REVIEW_LIMIT)
-
-  if (error) throw new Error(error.message)
-
-  return (data ?? [])
-    .filter((row) => row.payment_method !== row.collected_method)
-    .map((row) => ({
-      id: row.id,
-      orderId: row.order_id,
-      issue: `Anunciado ${row.payment_method} · cobrado ${row.collected_method}`,
-      amount: row.orders?.total ?? null,
-      driverName: null,
-      createdAt: row.created_at,
-    }))
+  // Sin rama final: la whitelist de filtros solo tiene 'open', 'unpaid' e
+  // 'integrity', y 'open' no llega hasta acá. Si mañana se agrega un filtro sin
+  // su consulta, conviene que esto no compile antes que devolver filas de otro
+  // filtro en silencio.
+  const exhaustive: never = filter
+  throw new Error(`Filtro de conciliación sin consulta: ${String(exhaustive)}`)
 }

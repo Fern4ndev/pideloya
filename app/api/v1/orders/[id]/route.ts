@@ -6,7 +6,10 @@ import {
 } from '@/lib/api/response'
 import { authenticateRequest, adminClient, userClient, NotFoundError } from '@/lib/api/auth'
 import { paymentVoucherPath } from '@/lib/constants/payment-voucher'
-import { paymentSelectionSchema } from '@/lib/validations/payment-method'
+import {
+  paymentMethodSchema,
+  paymentSelectionSchema,
+} from '@/lib/validations/payment-method'
 import { removeUnconfirmedVoucher } from '@/lib/storage/payment-vouchers'
 import type { OrderStatus } from '@/types/order'
 
@@ -164,12 +167,16 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       return errorResponse('Solo el cliente puede confirmar el pago del envío', 403)
     }
 
-    // El método es OPCIONAL y su default es 'YAPE' + 'UPFRONT': las
-    // integraciones que ya llamaban esta acción sin cuerpo siguen funcionando
-    // igual. Con método y sin timing, el timing se DERIVA en la función (YAPE ->
-    // UPFRONT, CASH -> ON_DELIVERY): también compatibilidad.
+    // Compatibilidad con las integraciones desplegadas: el método dejó de
+    // formar parte de la elección, pero se sigue ACEPTANDO en el cuerpo.
+    //   { timing: 'UPFRONT' } | { timing: 'ON_DELIVERY' }  ← forma nueva
+    //   { method: 'CASH' }   ⇒ ON_DELIVERY
+    //   { method: 'YAPE' } | sin cuerpo ⇒ UPFRONT
+    // La DERIVACIÓN vive en la función SQL (un `timing` explícito manda; sin
+    // él, 'CASH' significa "al recibir" y todo lo demás "ahora"), así que acá
+    // solo se reenvía el método si llegó.
     //
-    // Con YAPE+UPFRONT el ORDEN ES OBLIGATORIO: primero subir el comprobante a
+    // Con UPFRONT el ORDEN ES OBLIGATORIO: primero subir el comprobante a
     // `payment-vouchers/{order_id}/voucher.jpg` con el MISMO token Bearer (la
     // RLS que lo autoriza es la del usuario; no hay camino privilegiado que
     // saltarse), y recién después llamar esta acción. Si no lo hizo, la función
@@ -188,33 +195,52 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
     // pedido sea del usuario que llama usando auth.uid(), que no existe en un
     // cliente con service role. Con adminClient esto fallaría con 'No
     // autenticado' — comportamiento buscado, no un bug de la ruta.
-    const rawMethod = body.method ?? 'YAPE'
+    const rawMethod = body.method
+    const requestedTiming = body.timing
+    // El medio dejó de ser parte de la elección, pero un `method` que llegue en
+    // el cuerpo se sigue VALIDANDO: derivar "sin método conocido ⇒ Yape" de
+    // cualquier cadena convertiría un error del cliente en una confirmación por
+    // adelantado. Solo entran los dos valores legacy; el resto responde 400 con
+    // el mismo mensaje mostrable de siempre.
+    if (rawMethod != null) {
+      const legacy = paymentMethodSchema.safeParse(rawMethod)
+      if (!legacy.success) {
+        return errorResponse(
+          legacy.error.issues[0]?.message ?? 'Elección de pago inválida',
+          400
+        )
+      }
+    }
     const parsed = paymentSelectionSchema.safeParse({
-      method: rawMethod,
-      // Sin timing explícito se DERIVA del método (YAPE -> UPFRONT, CASH ->
-      // ON_DELIVERY): es exactamente la semántica que tenía cada método antes
-      // de que existiera el eje, así que las integraciones viejas producen lo
-      // mismo que ayer. Solo un timing EXPLÍCITO puede cambiarla.
-      timing: body.timing ?? (rawMethod === 'YAPE' ? 'UPFRONT' : 'ON_DELIVERY'),
+      timing:
+        requestedTiming ?? (rawMethod === 'CASH' ? 'ON_DELIVERY' : 'UPFRONT'),
     })
     if (!parsed.success) {
       return errorResponse(parsed.error.issues[0]?.message ?? 'Elección de pago inválida', 400)
     }
-    const { method, timing } = parsed.data
+    const timing = parsed.data.timing
 
     const { error } = await userClient(request).rpc('select_delivery_payment', {
       p_order_id: id,
-      p_method: method,
       p_timing: timing,
-      // La ruta viaja SOLO con Yape por adelantado: con `undefined` la clave no
+      // Con pago por adelantado el único método posible es Yape (lo exige el
+      // CHECK deliveries_timing_method_check); con ON_DELIVERY se omite y la
+      // función lo guarda NULL, aunque el cuerpo haya traído un método legacy.
+      p_method: timing === 'UPFRONT' ? 'YAPE' : undefined,
+      // La ruta viaja SOLO con pago por adelantado: con `undefined` la clave no
       // se envía y la función aplica su DEFAULT null, que es lo que exige el
-      // CHECK deliveries_voucher_requires_upfront_yape_check.
-      p_voucher_path:
-        method === 'YAPE' && timing === 'UPFRONT' ? paymentVoucherPath(id) : undefined,
+      // CHECK deliveries_voucher_requires_upfront_check.
+      p_voucher_path: timing === 'UPFRONT' ? paymentVoucherPath(id) : undefined,
     })
     if (error) return rpcErrorResponse(error)
 
-    return successResponse({ status: 'ASSIGNED', payment_method: method, payment_timing: timing })
+    // La respuesta reporta lo GUARDADO (no lo pedido): con ON_DELIVERY el
+    // método es null aunque el cuerpo haya mandado uno legacy.
+    return successResponse({
+      status: 'ASSIGNED',
+      payment_method: timing === 'UPFRONT' ? 'YAPE' : null,
+      payment_timing: timing,
+    })
   }
 
   if (action === 'advance') {
@@ -251,20 +277,14 @@ export const PUT = withApi(async (request: Request, ctx: RouteCtx) => {
       }
 
       // Último paso por el camino del repartidor: lo hace complete_delivery(),
-      // atómica y con la guarda del cobro declarado (D4: un pedido que se paga
-      // al recibir no se cierra sin declarar el medio real; D8: "no pude
-      // cobrar" no es este camino, es una incidencia). El alias cash_collected
-      // del ciclo anterior se retiró con la Fase 12. El camino del ADMIN sigue
-      // más abajo sin exigirla: es un override de soporte explícito.
+      // atómica y con la constancia del cobro en `collected_at` (D8: "no pude
+      // cobrar" no es este camino, es una incidencia). Un `collected` o
+      // `collected_method` que llegue en el cuerpo se IGNORA: el medio del cobro
+      // ya no se pregunta (migración 20261003100000). El camino del ADMIN sigue
+      // más abajo sin pasar por acá: es un override de soporte explícito.
       if (order.status === 'ON_THE_WAY') {
-        const collectedMethod =
-          body.collected_method === 'YAPE' || body.collected_method === 'CASH'
-            ? body.collected_method
-            : undefined
-        const collected = body.collected === true
         const { error } = await userClient(request).rpc('complete_delivery', {
           p_order_id: id,
-          p_collected_method: collected ? (collectedMethod ?? 'CASH') : null,
         })
         if (error) return rpcErrorResponse(error)
         return successResponse({ status: 'DELIVERED' })

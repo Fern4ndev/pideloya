@@ -22,10 +22,11 @@ export type PaymentReviewTableRow = {
 }
 
 /**
- * Vista de conciliación (Fase 8.3): los tres hallazgos que no son incidencias
- * reportadas por una parte — entregas sin constancia de pago al restaurante,
- * cobros distintos a lo anunciado y pedidos entregados con ON_DELIVERY sin
- * cobro registrado (alerta de integridad).
+ * Vista de conciliación: los hallazgos que no son incidencias reportadas por una
+ * parte — entregas sin constancia de pago al restaurante y pedidos entregados
+ * con ON_DELIVERY sin cobro registrado (alerta de integridad). El hallazgo
+ * "cobro distinto a lo anunciado" desapareció con el pago al recibir sin método
+ * (migración 20261003100000): no hay dos datos que comparar.
  *
  * Server Component y sin acciones a propósito: acá NO se mueve dinero ni se
  * cambia el estado de nada. Es una cola de revisión; lo que se resuelve por

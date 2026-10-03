@@ -639,7 +639,10 @@ export type Database = {
     }
     Functions: {
       complete_delivery: {
-        Args: { p_order_id: string; p_cash_collected?: boolean; p_collected_method?: string }
+        // Fase 2: la app manda solo `p_order_id`. La firma vigente de la base
+        // sigue siendo (uuid, boolean, text) hasta la migración contract; los
+        // parámetros de cobro se aceptan y se IGNORAN (ya no se declara medio).
+        Args: { p_order_id: string }
         Returns: undefined
       }
       confirm_delivery_payment: {
@@ -685,7 +688,14 @@ export type Database = {
         Returns: undefined
       }
       select_delivery_payment: {
-        Args: { p_order_id: string; p_method: string; p_voucher_path?: string; p_timing?: string }
+        // `p_method` pasa a ser OPCIONAL (compatibilidad legacy): con
+        // ON_DELIVERY el método no se envía y la función lo guarda NULL.
+        Args: {
+          p_order_id: string
+          p_method?: string
+          p_voucher_path?: string
+          p_timing?: string
+        }
         Returns: undefined
       }
     }

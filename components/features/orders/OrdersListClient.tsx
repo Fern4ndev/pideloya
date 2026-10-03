@@ -228,21 +228,18 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
           className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm transition-colors hover:bg-amber-100/80"
         >
           {/* amber-700 y no amber-600: sobre el fondo del banner el 600 da
-              3.11:1 y este subtítulo es `text-xs` (texto chico normal →
-              necesita 4.5:1). El 700 da 4.89:1 sobre el banner y 4.52:1 sobre
-              el hover, y el mismo cambio aplica al ícono, que sobre el chip
-              amber-100 pasaba de 2.87:1 a 4.52:1. */}
+              3.11:1, por debajo del 4.5:1 que necesita el texto. El 700 da
+              4.89:1 sobre el banner y 4.52:1 sobre el hover, y el mismo cambio
+              aplica al ícono, que sobre el chip amber-100 pasaba de 2.87:1 a
+              4.52:1. */}
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
             <QrCodeIcon className="h-4 w-4" />
           </span>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-amber-800">
-              Tu repartidor ya está listo — elige cómo pagar el envío
-            </p>
-            <p className="text-xs text-amber-700">
-              Toca aquí para elegir cómo pagar
-            </p>
-          </div>
+          {/* Una sola línea: el subtítulo ("Toca aquí para elegir cómo pagar")
+              repetía palabra por palabra lo que ya dice el título. */}
+          <p className="min-w-0 text-sm font-medium text-amber-800">
+            Tu repartidor ya está listo — elige cómo pagar el envío
+          </p>
         </Link>
       )}
 
@@ -250,10 +247,10 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm">
           {/* Mismo reloj con "tic" que la carta cerrada y el carrito con el
               negocio cerrado: un solo lenguaje visual para "esperando". */}
-          {/* Mismo ajuste que el banner de arriba: el subtítulo estaba en
-              amber-600 (3.11:1 sobre este fondo) teniendo el mismo problema de
-              contraste. Se corrige acá también para que los dos banners, que se
-              ven juntos, no queden con tonos distintos. */}
+          {/* Mismo ajuste de contraste que el banner de arriba: este subtítulo
+              estaba en amber-600 (3.11:1 sobre este fondo) y necesita 4.5:1.
+              Se corrige acá también para que los dos banners, que se ven
+              juntos, no queden con tonos distintos. */}
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
             <ClockIcon className="h-4 w-4 animate-clock-tick" />
           </span>
