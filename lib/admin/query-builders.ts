@@ -240,44 +240,24 @@ export function applyDeliveryFilters<
  * Pendientes de aprobación de restaurantes y repartidores, para los
  * badges del sidebar.
  *
- * Usa los MISMOS appliers que las listas (`status: 'pending'`) en lugar de
- * repetir el `eq(...)` a mano: así el badge no puede divergir del filtro
- * "Pendientes de aprobar" al que enlaza. Si mañana cambia la definición
- * de "pendiente", el badge cambia con ella.
+ * UNA consulta vía admin_counts() (migración 20261003120600, SECURITY
+ * INVOKER — la RLS sigue aplicando): los tres badges + las 6 tarjetas del
+ * dashboard salen del mismo conteo, sin repetir filtros a mano. La
+ * definición de "pendiente" vive en SQL y no puede divergir de las listas.
  *
- * Son dos `count` con `head: true` (Postgres cuenta, no se traen filas) y
- * salen en paralelo. Quien llama decide qué hacer si esto falla — el
- * layout lo trata como best-effort, porque un adorno no puede tumbar todo
- * el panel.
+ * Quien llama decide qué hacer si esto falla — el layout lo trata como
+ * best-effort, porque un adorno no puede tumbar todo el panel.
  */
 export async function fetchPendingApprovalCounts(
   client: DbClient
 ): Promise<{ restaurants: number; deliveries: number; paymentIncidents: number }> {
-  const [restaurants, deliveries, paymentIncidents] = await Promise.all([
-    applyRestaurantFilters(
-      client.from('restaurants').select('id', { count: 'exact', head: true }),
-      { query: '', status: 'pending' }
-    ),
-    applyDeliveryFilters(
-      client
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'DELIVERY'),
-      { query: '', status: 'pending', onRouteIds: null }
-    ),
-    // Incidencias de pago ABIERTAS (Fase 8 del plan "Pagar al recibir"):
-    // `resolved_at is null` es exactamente la definición de "abierta" que usa
-    // el índice parcial de la tabla y el filtro por defecto de /admin/pagos.
-    client
-      .from('payment_incidents')
-      .select('id', { count: 'exact', head: true })
-      .is('resolved_at', null),
-  ])
+  const { data, error } = await client.rpc('admin_counts')
+  if (error) throw error
 
   return {
-    restaurants: restaurants.count ?? 0,
-    deliveries: deliveries.count ?? 0,
-    paymentIncidents: paymentIncidents.count ?? 0,
+    restaurants: Number(data?.restaurants_pending ?? 0),
+    deliveries: Number(data?.deliveries_pending ?? 0),
+    paymentIncidents: Number(data?.payment_incidents_open ?? 0),
   }
 }
 

@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/db/server'
+import { revalidatePublicRestaurants } from '@/lib/db/public'
+import { getMyRestaurantIdOrNull } from '@/lib/auth/session'
 import { categorySchema, type CategoryInput } from '@/lib/validations/category'
 
 function toFriendlyMessage(err: unknown): string {
@@ -13,28 +15,13 @@ function toFriendlyMessage(err: unknown): string {
   return 'Algo salió mal'
 }
 
+// La cadena de identidad (getUser + profiles) vive en lib/auth/session.ts
+// con cache() de React: 1 vez por request en vez de 2 consultas por action.
 async function getMyRestaurantId() {
+  const restaurantId = await getMyRestaurantIdOrNull()
+  if (!restaurantId) throw new Error('No administras ningún restaurante')
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-  if (!profile) throw new Error('Perfil no encontrado')
-
-  const { data: member } = await supabase
-    .from('restaurant_members')
-    .select('restaurant_id')
-    .eq('user_id', profile.id)
-    .single()
-  if (!member) throw new Error('No administras ningún restaurante')
-
-  return { supabase, restaurantId: member.restaurant_id }
+  return { supabase, restaurantId }
 }
 
 export async function createCategory(input: CategoryInput) {
@@ -54,6 +41,7 @@ export async function createCategory(input: CategoryInput) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/categorias')
   return { success: true }
 }
@@ -75,6 +63,7 @@ export async function updateCategory(categoryId: string, input: CategoryInput) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/categorias')
   return { success: true }
 }
@@ -92,6 +81,7 @@ export async function deleteCategory(categoryId: string) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/categorias')
   revalidatePath('/restaurante/productos')
   return { success: true }

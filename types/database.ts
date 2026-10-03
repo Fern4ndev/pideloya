@@ -633,11 +633,62 @@ export type Database = {
         }
         Relationships: []
       }
+      // Fase 0/C4 del plan de optimización: rate limit de registro público.
+      // Firmas manuales — regenerar con `supabase gen types` cuando haya
+      // access token disponible.
+      registration_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      // Fase 3 del plan de optimización: RPCs agregadas (1 consulta por
+      // pantalla). Firmas manuales — regenerar con `supabase gen types`
+      // cuando haya access token disponible.
+      admin_counts: {
+        Args: never
+        Returns: {
+          total_users: number
+          restaurants_pending: number
+          restaurants_active: number
+          deliveries_pending: number
+          deliveries_active: number
+          orders_today: number
+          payment_incidents_open: number
+        }
+      }
+      admin_dashboard: {
+        Args: { p_days?: number }
+        Returns: {
+          generated_at: string
+          restaurants: { id: string; name: string }[]
+          delivery_persons: { id: string; full_name: string }[]
+          sales_daily: { day: string; n: number }[]
+          sales_by_restaurant: { day: string; restaurant_id: string; n: number }[]
+          delivered_by_person: { day: string; delivery_person_id: string; n: number }[]
+        }
+      }
+      cancel_order: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       complete_delivery: {
         // Fase 2: la app manda solo `p_order_id`. La firma vigente de la base
         // sigue siendo (uuid, boolean, text) hasta la migración contract; los
@@ -649,12 +700,40 @@ export type Database = {
         Args: { p_order_id: string; p_voucher_path: string }
         Returns: undefined
       }
+      create_order: {
+        Args: {
+          p_address_id: string
+          // El DEFAULT de la función es null; el navegador SIEMPRE manda el
+          // client_request_id, los consumidores de la API pueden omitirlo.
+          p_notes?: string | null
+          p_items: { product_id: string; quantity: number }[]
+          p_client_request_id?: string | null
+        }
+        Returns: string
+      }
       current_customer_order_ids: { Args: never; Returns: string[] }
       current_delivery_address_ids: { Args: never; Returns: string[] }
       current_delivery_order_ids: { Args: never; Returns: string[] }
       current_profile_id: { Args: never; Returns: string }
       current_restaurant_ids: { Args: never; Returns: string[] }
       current_role: { Args: never; Returns: string }
+      delivery_chart_rows: {
+        Args: { p_days?: number }
+        Returns: {
+          delivered_at: string | null
+          delivery_fee: number | null
+          status: string | null
+        }[]
+      }
+      delivery_stats: {
+        Args: never
+        Returns: {
+          available_orders: number
+          active_deliveries: number
+          delivered_today: number
+          delivered_total: number
+        }[]
+      }
       expire_stale_delivery_offers: {
         Args: { p_max_age?: string }
         Returns: number
@@ -670,6 +749,16 @@ export type Database = {
           payment_voucher_path: string | null
         }[]
       }
+      my_order_counts: {
+        Args: never
+        Returns: {
+          all_orders: number
+          active: number
+          delivered: number
+          cancelled: number
+          pending: number
+        }[]
+      }
       offer_delivery: {
         Args: { p_order_id: string; p_delivery_fee: number }
         Returns: undefined
@@ -682,6 +771,25 @@ export type Database = {
       report_payment_incident: {
         Args: { p_order_id: string; p_kind: string; p_note?: string }
         Returns: string
+      }
+      restaurant_chart_items: {
+        Args: { p_days?: number }
+        Returns: {
+          order_id: string
+          product_name: string | null
+          quantity: number
+          unit_price: number
+          created_at: string
+        }[]
+      }
+      restaurant_stats: {
+        Args: never
+        Returns: {
+          total_products: number
+          available_products: number
+          total_categories: number
+          orders_this_week: number
+        }[]
       }
       retract_delivery_offer: {
         Args: { p_order_id: string }
@@ -696,6 +804,10 @@ export type Database = {
           p_voucher_path?: string
           p_timing?: string
         }
+        Returns: undefined
+      }
+      start_route: {
+        Args: { p_order_id: string }
         Returns: undefined
       }
     }

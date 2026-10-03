@@ -2,29 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
+import { getMyProfileId } from '@/lib/auth/session'
 import { addressSchema, type AddressInput } from '@/lib/validations/address'
 
-async function getMyProfileId() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile) throw new Error('Perfil no encontrado')
-
-  return { supabase, profileId: profile.id as string }
-}
+// La cadena de identidad (getUser + profiles) vive en lib/auth/session.ts
+// con cache() de React: 1 vez por request en vez de 2 consultas por action.
 
 export async function createAddress(input: AddressInput) {
   const data = addressSchema.parse(input)
-  const { supabase, profileId } = await getMyProfileId()
+  const profileId = await getMyProfileId()
+  const supabase = await createClient()
 
   // Regla de negocio: un cliente solo puede tener UNA dirección guardada.
   // Este chequeo evita el viaje redondo cuando ya sabemos que existe una;

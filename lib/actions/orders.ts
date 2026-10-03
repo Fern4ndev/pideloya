@@ -19,84 +19,49 @@ function toFriendlyMessage(err: unknown): string {
 }
 
 /**
- * Cancela un pedido. El cliente solo puede hacerlo mientras el pago del envío
- * no esté confirmado — PENDING o AWAITING_PAYMENT (RLS
- * "orders_update_own_customer_cancel" lo exige a nivel de base de datos, no
- * solo aquí). El admin puede cancelar en cualquier momento vía su propia
- * policy "orders_all_admin".
+ * Cancela un pedido. Delega en la RPC SECURITY DEFINER cancel_order(uuid)
+ * (migración 20261003120100), que valida en UNA transacción que el pedido sea
+ * del cliente que llama, que siga cancelable (PENDING o AWAITING_PAYMENT, el
+ * criterio de la antigua policy "orders_update_own_customer_cancel") y borra
+ * la oferta sin confirmar. Ya no puede quedar el pedido CANCELLED con la
+ * oferta viva, ni fallar a medias entre el update y la limpieza.
+ *
+ * La policy de UPDATE directa desaparece con la migración contract
+ * (20261003121500): esta RPC es la única puerta de cancelación del cliente
+ * (el admin sigue por service_role, que no pasa por aquí).
  */
 export async function cancelOrder(orderId: string) {
   const supabase = await createClient()
 
-  // IMPORTANTE: encadenamos select().single() a propósito. Si RLS
-  // bloquea el update (porque el pedido ya no está cancelable, o no es
-  // del cliente que llama), Supabase actualiza 0 filas SIN devolver
-  // un error — solo .single() lo detecta, al no encontrar ninguna
-  // fila para devolver.
-  const { data, error } = await supabase
-    .from('orders')
-    .update({ status: 'CANCELLED' })
-    .eq('id', orderId)
-    .select('id')
-    .single()
+  const { error } = await supabase.rpc('cancel_order', {
+    p_order_id: orderId,
+  })
 
-  if (error || !data) {
+  if (error) {
+    // 22000: el pedido ya no está cancelable (p. ej., un repartidor ya lo
+    // aceptó justo antes). Los demás códigos (42501 pedido ajeno, P0002
+    // inexistente) ya viajan con mensajes mostrables desde la función SQL.
     throw new Error(
-      'No se pudo cancelar. Es posible que un repartidor ya haya aceptado este pedido.'
+      error.code === '22000'
+        ? 'No se pudo cancelar. Es posible que un repartidor ya haya aceptado este pedido.'
+        : error.message
     )
   }
 
-  // Si el pedido estaba en AWAITING_PAYMENT, la oferta de envío queda
-  // huérfana. La cancelación ya está hecha y es lo que el cliente pidió, así
-  // que la limpieza es best-effort: si falla, queda una fila inerte en
-  // `deliveries` (el pedido ya es CANCELLED y nadie la lee), no un error para
-  // el usuario.
-  const admin = createServiceRoleClient()
-
-  // El comprobante se borra ANTES de la oferta, no por casualidad: la guarda de
-  // `removeUnconfirmedVoucher` lee `payment_confirmed_at` de la fila de
-  // `deliveries`, y `releaseUnconfirmedOffer` la borra. Al revés, la guarda
-  // leería siempre un `null` y dejaría de proteger nada.
-  //
-  // Cubre el único huérfano que puede quedar en el flujo: el cliente alcanzó a
-  // subir su comprobante y la confirmación falló (red, o el repartidor retiró
-  // su oferta en ese instante).
-  await removeUnconfirmedVoucher(admin, orderId)
-  await releaseUnconfirmedOffer(admin, orderId)
+  // El comprobante huérfano (el cliente alcanzó a subirlo y la confirmación
+  // falló por red) se limpia best-effort DESPUÉS de la RPC. La fila de
+  // `deliveries` ya no existe (la RPC la borró con su guarda
+  // `payment_confirmed_at is null`), así que `removeUnconfirmedVoucher` borra
+  // el archivo sin riesgo de tocar un pago confirmado: sin fila no hay pago
+  // confirmado posible. Un fallo de Storage deja un archivo sin referencias,
+  // no un error para el usuario.
+  await removeUnconfirmedVoucher(createServiceRoleClient(), orderId)
 
   revalidatePath('/cliente/pedidos')
   revalidatePath(`/cliente/pedidos/${orderId}`)
   revalidatePath('/repartidor/disponibles')
   revalidatePath('/repartidor/pedidos')
   return { success: true }
-}
-
-/**
- * Borra la oferta de envío sin confirmar de un pedido. Recibe el cliente con
- * service role ya creado (lo comparte con la limpieza del comprobante, que
- * necesita el mismo privilegio) porque el cliente NO tiene (ni debe tener) policy de DELETE
- * sobre `deliveries`: era una tabla en la que solo el repartidor dueño podía
- * escribir su propia fila, y la cancelación es del cliente. En vez de abrir
- * una policy de DELETE para el cliente (que le daría permiso de borrar
- * entregas ajenas si algún día se escribe mal el `using`), se resuelve con una
- * operación privilegiada, puntual y con guarda explícita.
- *
- * El filtro `payment_confirmed_at is null` es la guarda dura: una entrega con
- * el pago ya confirmado es historial de dinero cobrado y no se toca nunca.
- */
-async function releaseUnconfirmedOffer(
-  admin: ReturnType<typeof createServiceRoleClient>,
-  orderId: string
-) {
-  const { error } = await admin
-    .from('deliveries')
-    .delete()
-    .eq('order_id', orderId)
-    .is('payment_confirmed_at', null)
-
-  if (error) {
-    console.error('[orders] no se pudo borrar la oferta huérfana:', error.message)
-  }
 }
 
 /**
@@ -191,6 +156,21 @@ export async function getRestaurantCheckoutState(restaurantId: string) {
   return { isOpenNow: isRestaurantOpenNow(restaurant.is_open, hours ?? []) }
 }
 
+/**
+ * Crea el pedido vía la RPC SECURITY DEFINER create_order(uuid, text, jsonb,
+ * uuid) (migración 20261003120700): pedido + ítems en UNA transacción, total
+ * SIEMPRE recalculado en servidor, dirección propia validada, un solo
+ * restaurante por pedido, tope de 3 pedidos activos y —lo nuevo— IDEMPOTENCIA:
+ * `client_request_id` (uuid que genera el navegador al confirmar) hace que un
+ * doble clic o un reintento de red devuelva el MISMO pedido en vez de crear
+ * dos.
+ *
+ * La RPC no valida HORARIO (decisión documentada en la migración; portarla a
+ * SQL es Fase 5), así que el guard de atención se queda en TypeScript: se
+ * deriva del restaurante REAL de los productos pedidos, nunca de un
+ * restaurantId que viaje desde el navegador, y conserva el mensaje en español
+ * que la UI muestra.
+ */
 export async function createOrder(input: CreateOrderInput) {
   let data: CreateOrderInput
   try {
@@ -201,48 +181,27 @@ export async function createOrder(input: CreateOrderInput) {
 
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('No autenticado')
-
-  // El snapshot (customer_name/customer_phone) se congela AQUÍ, al crear
-  // el pedido: es el nombre del cliente "al momento del pedido", igual
-  // que product_name en order_items. Si el cliente se elimina después
-  // (customer_id → null), el historial conserva quién hizo el pedido.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, full_name, phone')
-    .eq('auth_id', user.id)
-    .single()
-  if (!profile) throw new Error('Perfil no encontrado')
-
-  // Trae los productos reales de la base para RECALCULAR el total en
-  // servidor. Nunca confiamos en el precio que manda el navegador —
-  // pudo haber sido manipulado antes de llegar aquí.
+  // Guard de horario. También mantiene los mensajes de productos/restaurante
+  // en español ANTES de llegar a la RPC (que rechazaría igual, pero con
+  // errores genéricos de base de datos).
   const productIds = data.items.map((i) => i.productId)
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id, name, price, available, restaurant_id, image_url, restaurants(name)')
+    .select('restaurant_id')
     .in('id', productIds)
 
   if (productsError) throw new Error(productsError.message)
   if (!products || products.length !== productIds.length) {
     throw new Error('Alguno de los productos ya no está disponible')
   }
-  if (products.some((p) => !p.available)) {
-    throw new Error('Alguno de los productos ya no está disponible')
-  }
 
-  // Regla del carrito de un solo restaurante por pedido — se valida
-  // también en servidor, no solo en el store del cliente.
+  // Regla del carrito de un solo restaurante por pedido — la RPC la valida
+  // también; aquí se corta antes con el mismo mensaje.
   const restaurantIds = new Set(products.map((p) => p.restaurant_id))
   if (restaurantIds.size > 1) {
     throw new Error('No puedes pedir de más de un restaurante a la vez')
   }
 
-  // El restaurante debe estar aprobado, activo y atendiendo (is_open + dentro
-  // del horario). Este es el "source of truth": la UI solo deshabilita botones.
   const restaurantId = Array.from(restaurantIds)[0]
   const { data: restaurant, error: restaurantError } = await supabase
     .from('restaurants')
@@ -267,57 +226,16 @@ export async function createOrder(input: CreateOrderInput) {
     )
   }
 
-  const total = data.items.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId)!
-    return sum + Number(product.price) * item.quantity
-  }, 0)
-
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      customer_id: profile.id,
-      customer_name: profile.full_name,
-      customer_phone: profile.phone,
-      address_id: data.addressId,
-      status: 'PENDING',
-      total,
-      notes: data.notes || null,
-    })
-    .select('id')
-    .single()
-
-  if (orderError || !order) {
-    throw new Error(orderError?.message ?? 'No se pudo crear el pedido')
-  }
-
-  const orderItems = data.items.map((item) => {
-    const product = products.find((p) => p.id === item.productId)!
-    return {
-      order_id: order.id,
-      product_id: item.productId,
-      product_name: product.name,
-      image_url: product.image_url,
-      restaurant_id: product.restaurant_id,
-      restaurant_name:
-        (product.restaurants as unknown as { name: string } | { name: string }[] | null) instanceof Array
-          ? (product.restaurants as unknown as { name: string }[])[0]?.name ?? null
-          : (product.restaurants as unknown as { name: string } | null)?.name ?? null,
-      quantity: item.quantity,
-      unit_price: product.price,
-    }
+  const { data: orderId, error } = await supabase.rpc('create_order', {
+    p_address_id: data.addressId,
+    p_notes: data.notes || null,
+    p_items: data.items.map((i) => ({ product_id: i.productId, quantity: i.quantity })),
+    p_client_request_id: data.clientRequestId,
   })
 
-  const { error: itemsError } = await supabase
-    .from('order_items')
-    .insert(orderItems)
-
-  if (itemsError) {
-    // El pedido quedó creado sin ítems — lo eliminamos para no dejar
-    // un registro a medias.
-    await supabase.from('orders').delete().eq('id', order.id)
-    throw new Error(itemsError.message)
-  }
+  if (error) throw new Error(error.message)
+  if (!orderId) throw new Error('No se pudo crear el pedido')
 
   revalidatePath('/cliente/pedidos')
-  return { success: true, orderId: order.id as string }
+  return { success: true, orderId: orderId as string }
 }
