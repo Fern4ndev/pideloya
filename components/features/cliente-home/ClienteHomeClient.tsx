@@ -10,7 +10,13 @@ import { useSearchStore } from '@/lib/hooks/use-search'
 import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from '@/components/ui/carousel'
 
 // Fase 4: el loop animado (requestAnimationFrame constante) se carga SOLO si
 // la sección llega a entrar en viewport — ssr:false saca su JS del HTML
@@ -202,14 +208,11 @@ export function ClienteHomeClient({
             <FlameIcon className="h-4 w-4 text-brand-500" />
             <h2 className="text-lg font-semibold tracking-tight">Platos populares</h2>
           </div>
-          {/* El mask insinúa que hay más platos a la derecha sin agregar
-              flechas: el gesto nativo de swipe sigue siendo el control.
-              Embla (Carousel de shadcn) captura el arrastre sin scrollbar
-              nativo, así que el borde inferior queda limpio. */}
-          <Carousel
-            opts={{ align: 'start' }}
-            className="w-full [mask-image:linear-gradient(to_right,black_86%,transparent_100%)]"
-          >
+          {/* Flechas superpuestas en los extremos: caben dentro del px-4 del
+              layout (sin cortar en móvil) y quedan sobre la primera/última
+              tarjeta. Embla sigue capturando el arrastre sin scrollbar nativo,
+              así que el borde inferior queda limpio. */}
+          <Carousel opts={{ align: 'start' }} className="w-full">
             <CarouselContent className="-ml-4 select-none">
               {popularProducts.map((product) => (
                 <CarouselItem key={product.id} className="basis-auto pl-4">
@@ -220,6 +223,8 @@ export function ClienteHomeClient({
                 </CarouselItem>
               ))}
             </CarouselContent>
+            <CarouselPrevious className="left-1 z-10 rounded-full bg-background/95 shadow-md backdrop-blur" />
+            <CarouselNext className="right-1 z-10 rounded-full bg-background/95 shadow-md backdrop-blur" />
           </Carousel>
         </section>
       )}
