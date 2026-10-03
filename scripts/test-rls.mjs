@@ -97,6 +97,13 @@ async function step(name, fn) {
     return true
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    // error.skip = condición de ENTORNO (cuota de email de Supabase, 504 del
+    // gateway), no de código: se reporta SKIP para no enmascarar regresiones.
+    if (err && err.skip) {
+      results.push({ group: currentGroup, name, status: 'SKIP', detail: message })
+      console.log(`  [SKIP] ${name} — ${message}`)
+      return true
+    }
     results.push({ group: currentGroup, name, status: 'FAIL', detail: message })
     console.log(`  [FAIL] ${name} — ${message}`)
     return false
@@ -426,6 +433,34 @@ async function main() {
 
   // -------------------------------------------------------------------------
   group('Escalación de rol en el registro (C3 / 20261003120200)')
+  await step("createUser service_role con app_metadata role=RESTAURANT → perfil RESTAURANT", async () => {
+    // GoTrue escribe raw_app_meta_data en un UPDATE POSTERIOR al INSERT de
+    // auth.users: handle_new_user solo con AFTER INSERT dejaba el perfil en
+    // CUSTOMER y el registro de dueños/repartidores salía roto (fix 121400).
+    const email = `c3-appmeta-${Date.now()}@pideloya.test`
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password: PASSWORD,
+      email_confirm: true,
+      app_metadata: { role: 'RESTAURANT' },
+    })
+    expect(!error, `createUser falló: ${error?.message}`)
+    cleanupFns.push(async () => {
+      await admin.auth.admin.deleteUser(data.user.id)
+    })
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .select('role, is_active')
+      .eq('auth_id', data.user.id)
+      .single()
+    expect(!profileError, `perfil no creado: ${profileError?.message}`)
+    expect(
+      profile.role === 'RESTAURANT' && profile.is_active === false,
+      `role=${profile.role} is_active=${profile.is_active} — falta 20261003121400_sync_role_from_app_metadata`
+    )
+    return `role=${profile.role}, is_active=${profile.is_active}`
+  })
+
   await step("signUp con data.role='ADMIN' crea perfil CUSTOMER", async () => {
     const email = `rls-escalate-${Date.now()}@pideloya.test`
     const { data, error } = await anon.auth.signUp({
@@ -433,7 +468,12 @@ async function main() {
       password: PASSWORD,
       options: { data: { role: 'ADMIN', full_name: 'RLS Escalada' } },
     })
-    expect(!error, `signUp falló: ${error.message}`)
+    if (error && /rate limit|upstream request timeout/i.test(error.message)) {
+      const envErr = new Error(`entorno: ${error.message} — repetir cuando Supabase libere la cuota`)
+      envErr.skip = true
+      throw envErr
+    }
+    expect(!error, `signUp falló: ${error?.message}`)
     expect(data.user, 'signUp no devolvió usuario')
     cleanupFns.push(async () => {
       await admin.auth.admin.deleteUser(data.user.id)
