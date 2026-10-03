@@ -1,0 +1,25 @@
+-- ============================================================================
+-- PideloYa — Visibilidad pública del catálogo (H1 del plan de optimización)
+-- ============================================================================
+-- Motivo:
+--   `products_select_public` (vigente desde 20260912000000) es
+--   `auth.role() = 'anon' and available = true` — SIN el filtro de restaurante
+--   aprobado y activo: un visitante anon ve productos de restaurantes no
+--   aprobados o desactivados (verificado estáticamente; hoy no hay productos
+--   en restaurantes no aprobados, así que la filtración no se reproduce —
+--   el fix es fail-closed).
+--
+--   `products_select_customer` (20260927000100) ya cubre a anon con la regla
+--   completa: `(auth.role() = 'anon' or public.current_role() in
+--   ('CUSTOMER','ADMIN')) and available = true and restaurant_id in
+--   (select id from restaurants where is_approved and is_active)`.
+--
+--   Nota: `categories_select_public` se conserva — ya está correctamente
+--   filtrada por restaurante aprobado/activo desde 20260912000000.
+--
+-- Rollback (comentado, verbatim del estado anterior):
+--   create policy "products_select_public"
+--   on public.products for select
+--   using (auth.role() = 'anon' and available = true);
+-- ============================================================================
+drop policy if exists "products_select_public" on public.products;
