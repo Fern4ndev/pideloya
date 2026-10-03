@@ -89,7 +89,6 @@ export interface PublicRestaurantMenu {
     description: string | null
     logo_url: string | null
     address_text: string | null
-    whatsapp: string | null
     food_type: string | null
     is_open: boolean
   }
@@ -122,7 +121,7 @@ export const getPublicRestaurantMenu = unstable_cache(
     const { data: restaurant } = await supabase
       .from('restaurants')
       .select(
-        'id, name, description, logo_url, address_text, whatsapp, food_type, is_open',
+        'id, name, description, logo_url, address_text, food_type, is_open',
       )
       .eq('slug', slug)
       .eq('is_approved', true)
