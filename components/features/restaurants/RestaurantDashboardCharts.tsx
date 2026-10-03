@@ -1,16 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { DailySalesChart } from './DailySalesChart'
 import { TopProductsChart } from './TopProductsChart'
 import { DashboardRangeFilterBar } from '@/components/features/dashboard/DashboardRangeFilterBar'
-import {
-  aggregateOrders,
-  filterByRange,
-  validateDateRange,
-  type Granularity,
-} from '@/lib/dashboard/chart-utils'
-import { addDays } from '@/lib/dates'
+import { aggregateOrders, filterByRange } from '@/lib/dashboard/chart-utils'
+import { useDashboardRange } from '@/lib/dashboard/use-dashboard-range'
 
 /** Línea de `order_items`: unidad de trabajo de los dos gráficos de este panel. */
 export type DashboardOrderItem = {
@@ -35,11 +30,8 @@ export function RestaurantDashboardCharts({
   orderItems: DashboardOrderItem[]
   todayKey: string
 }) {
-  const [granularity, setGranularity] = useState<Granularity>('day')
-  const [dateFrom, setDateFrom] = useState(() => addDays(todayKey, -29))
-  const [dateTo, setDateTo] = useState(todayKey)
-
-  const rangeError = useMemo(() => validateDateRange(dateFrom, dateTo), [dateFrom, dateTo])
+  const { granularity, setGranularity, dateFrom, setDateFrom, dateTo, setDateTo, rangeError } =
+    useDashboardRange(todayKey)
 
   const spanItems = useMemo(
     () => (rangeError ? [] : filterByRange(orderItems, dateFrom, dateTo)),

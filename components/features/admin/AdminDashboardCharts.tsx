@@ -17,13 +17,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BarChart3Icon, TruckIcon } from 'lucide-react'
-import { addDays } from '@/lib/dates'
 import {
   aggregateOrders,
   filterByRange,
-  validateDateRange,
-  type Granularity,
 } from '@/lib/dashboard/chart-utils'
+import { useDashboardRange } from '@/lib/dashboard/use-dashboard-range'
 import { DashboardRangeFilterBar } from '@/components/features/dashboard/DashboardRangeFilterBar'
 
 type AdminChartOrder = { id: string; status: string; total: number; created_at: string }
@@ -57,13 +55,10 @@ export function AdminDashboardCharts({
   deliveryPersons,
   todayKey,
 }: AdminDashboardChartsProps) {
-  const [granularity, setGranularity] = useState<Granularity>('day')
-  const [dateFrom, setDateFrom] = useState(() => addDays(todayKey, -29))
-  const [dateTo, setDateTo] = useState(todayKey)
+  const { granularity, setGranularity, dateFrom, setDateFrom, dateTo, setDateTo, rangeError } =
+    useDashboardRange(todayKey)
   const [restaurantId, setRestaurantId] = useState('all')
   const [deliveryPersonId, setDeliveryPersonId] = useState('all')
-
-  const rangeError = useMemo(() => validateDateRange(dateFrom, dateTo), [dateFrom, dateTo])
 
   const spanOrders = useMemo(() => {
     if (rangeError) return []

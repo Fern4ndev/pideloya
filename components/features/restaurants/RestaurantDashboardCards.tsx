@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/server'
+import { limaDayKey, weekStartKey } from '@/lib/dates'
 import { StatCardGrid, type StatCardData } from '@/components/features/dashboard/StatCard'
 import { PackageIcon, TagsIcon, ShoppingBagIcon, ClockIcon } from 'lucide-react'
 
@@ -55,7 +56,7 @@ export async function RestaurantDashboardCards() {
       .from('order_items')
       .select('order_id', { count: 'exact', head: true })
       .eq('restaurant_id', restaurantId)
-      .gte('created_at', getWeekStart()),
+      .gte('created_at', weekStartIso()),
   ])
 
   const availabilityRate = totalProducts
@@ -94,10 +95,10 @@ export async function RestaurantDashboardCards() {
   return <StatCardGrid cards={cards} />
 }
 
-function getWeekStart(): string {
-  const now = new Date()
-  const day = now.getDay()
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-  const monday = new Date(now.setDate(diff))
-  return monday.toISOString().split('T')[0]
+// Inicio de la semana en curso (lunes) a medianoche de Lima, como timestamp
+// ISO. Antes era `getDay()` + `toISOString()` en la timezone del SERVIDOR, así
+// que según dónde corriera Next el lunes empezaba un día tarde (o temprano).
+function weekStartIso(): string {
+  const monday = weekStartKey(limaDayKey(new Date()))
+  return new Date(`${monday}T00:00:00-05:00`).toISOString()
 }

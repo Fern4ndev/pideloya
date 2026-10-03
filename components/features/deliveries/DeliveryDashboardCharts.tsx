@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ChartContainer,
@@ -14,11 +14,9 @@ import { DashboardRangeFilterBar } from '@/components/features/dashboard/Dashboa
 import {
   aggregateOrders,
   filterByRange,
-  validateDateRange,
   type Bucket,
-  type Granularity,
 } from '@/lib/dashboard/chart-utils'
-import { addDays } from '@/lib/dates'
+import { useDashboardRange } from '@/lib/dashboard/use-dashboard-range'
 
 /**
  * Fila de `deliveries` con el pedido embebido: unidad de trabajo de los dos
@@ -70,11 +68,8 @@ export function DeliveryDashboardCharts({
   deliveries: DashboardDelivery[]
   todayKey: string
 }) {
-  const [granularity, setGranularity] = useState<Granularity>('day')
-  const [dateFrom, setDateFrom] = useState(() => addDays(todayKey, -29))
-  const [dateTo, setDateTo] = useState(todayKey)
-
-  const rangeError = useMemo(() => validateDateRange(dateFrom, dateTo), [dateFrom, dateTo])
+  const { granularity, setGranularity, dateFrom, setDateFrom, dateTo, setDateTo, rangeError } =
+    useDashboardRange(todayKey)
 
   // Bucket por `delivered_at` (cuándo se completó la entrega) y no por el
   // `created_at` del pedido: para el repartidor el hecho relevante es la
