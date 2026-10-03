@@ -46,7 +46,14 @@ export function OrderStatusSection({
     // página (Fase 2.1). Asumir que es el primer bloque de la página rompía
     // el espaciado cuando la página lo reordenaba.
     <div className="rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
-      <OrderStatusTimeline status={status} />
+      {/* Título con el mismo estilo del h2 "Entrega": en desktop esta tarjeta
+          vive en la columna principal junto a otras tituladas, y sin encabezado
+          quedaba como una lista suelta sin ancla en el esquema de la página
+          (h1 → h2 de cada tarjeta). */}
+      <h2 className="text-sm font-medium text-muted-foreground">Estado del pedido</h2>
+      <div className="mt-3">
+        <OrderStatusTimeline status={status} />
+      </div>
       {/* Cancelable mientras el cliente NO haya cerrado su elección de pago
           (PENDING o AWAITING_PAYMENT): en ese punto todavía no se movió nada de
           manos — sin pago confirmado no hay repartidor en camino ni voucher

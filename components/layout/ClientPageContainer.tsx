@@ -4,12 +4,14 @@ const MAX_WIDTHS = {
   /** Formularios y detalle enfocado en una sola columna (perfil, dirección). */
   narrow: 'max-w-lg',
   /**
-   * Una sola columna de tarjetas en cualquier ancho (detalle de pedido desde
-   * la Fase 3 del plan del método de pago).
+   * Una sola columna de tarjetas en cualquier ancho. Hoy sin usuarios: el
+   * detalle de pedido —su último caso— pasó a `wide` con un grid de dos
+   * columnas explícitas (principal + lateral de metadata), porque estirar
+   * cada tarjeta a ~672 px para dibujar una línea era el desperdicio que el
+   * detalle venía arrastrando.
    *
-   * ≈672 px: dentro de la medida cómoda de lectura (~65-75 caracteres, la regla
-   * de "line length" de ui-ux-pro-max) y sin las tarjetas estiradas a 900 px
-   * que dejaba el tamaño `wide` cuando solo había una columna de contenido.
+   * ≈672 px: dentro de la medida cómoda de lectura (~65-75 caracteres, la
+   * regla de "line length" de ui-ux-pro-max).
    */
   medium: 'max-w-2xl',
   /** Contenido con posible layout de 2 columnas en desktop. */
