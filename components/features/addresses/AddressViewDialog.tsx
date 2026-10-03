@@ -38,7 +38,7 @@ export function AddressViewDialog({ address }: { address: AddressViewData }) {
             </span>
             <div className="min-w-0">
               {address.label && (
-                <p className="mb-0.5 flex items-center gap-1 text-xs font-medium text-brand-600">
+                <p className="mb-0.5 flex items-center gap-1 text-xs font-medium text-brand-700">
                   <TagIcon className="h-3 w-3" />
                   {address.label}
                 </p>

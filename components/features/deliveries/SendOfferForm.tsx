@@ -1,0 +1,85 @@
+'use client'
+
+import { useId, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { sendDeliveryOffer } from '@/lib/actions/deliveries'
+import { DEFAULT_DELIVERY_FEE } from '@/lib/validations/delivery-offer'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { useToast } from '@/components/ui/toast'
+
+/**
+ * Oferta de envío: el repartidor ve la dirección de entrega (en la tarjeta
+ * del pedido, arriba de este formulario) y propone libremente cuánto cobra
+ * por llevarlo — sin ninguna sugerencia automática. El input arranca en
+ * DEFAULT_DELIVERY_FEE (S/ 5) como punto de partida neutral, no como
+ * recomendación: el repartidor lo cambia con dos toques según su propio
+ * criterio (tráfico, hora, cuán conocida es la zona, etc.).
+ *
+ * `acceptsPayOnDelivery` ya no se recibe: su única consecuencia en esta
+ * pantalla era la línea de ayuda, que se movió al pie de la tarjeta del pedido.
+ *
+ * La línea que explica el adelanto NO vive acá: "Comida S/ X · si te pagan al
+ * recibir, la adelantas tú" es una sola en `AvailableOrdersClient`, arriba de
+ * este formulario, porque describe el pedido y no la oferta — y en este
+ * formulario se repetía en cada tarjeta junto al mismo número.
+ */
+export function SendOfferForm({ orderId }: { orderId: string }) {
+  const inputId = useId()
+  const router = useRouter()
+  const [fee, setFee] = useState(String(DEFAULT_DELIVERY_FEE))
+  const [isPending, startTransition] = useTransition()
+  const { error, success } = useToast()
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    startTransition(async () => {
+      try {
+        await sendDeliveryOffer(orderId, { deliveryFee: Number(fee) })
+        success('Oferta enviada', 'Te avisaremos cuando el cliente confirme el pago.')
+        // Navegar (y no solo refrescar) es intencional: el pedido sale de
+        // "Disponibles" en cuanto queda en AWAITING_PAYMENT, así que el
+        // repartidor tiene que poder verlo donde ahora vive — "Mi entrega",
+        // con su badge de espera y la opción de retirar la oferta. Mismo
+        // criterio que el antiguo botón "Aceptar".
+        router.push('/repartidor/pedidos')
+      } catch (err) {
+        error('No se pudo enviar la oferta', err instanceof Error ? err.message : undefined)
+      }
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
+      <label htmlFor={inputId} className="text-sm text-muted-foreground">
+        Tarifa de envío
+      </label>
+      <div className="relative w-24">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+        >
+          S/
+        </span>
+        <Input
+          id={inputId}
+          type="number"
+          inputMode="decimal"
+          step="0.5"
+          min="1"
+          max="30"
+          required
+          value={fee}
+          onChange={(event) => setFee(event.target.value)}
+          className="pl-7 tabular-nums"
+        />
+      </div>
+      {/* Tamaño default (h-8) y no `sm`: así el botón coincide en alto con el
+          input de al lado. Un input y un botón pegados con alturas distintas
+          es el detalle que más se nota en un formulario de una sola línea. */}
+      <Button type="submit" variant="lime" disabled={isPending}>
+        {isPending ? 'Enviando…' : 'Enviar oferta'}
+      </Button>
+    </form>
+  )
+}

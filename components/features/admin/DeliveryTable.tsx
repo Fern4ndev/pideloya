@@ -17,6 +17,7 @@ import type { AdminTableShellPagination } from './AdminTableShell'
 import { SortableTableHead } from './SortableTableHead'
 import { BulkApproveBar } from './BulkApproveBar'
 import { DeliveryRowActions } from './DeliveryRowActions'
+import { DeliveryAvatar } from './DeliveryAvatar'
 
 export type DeliveryRow = {
   id: string
@@ -25,6 +26,8 @@ export type DeliveryRow = {
   document_type: string | null
   document_number: string | null
   vehicle_type: string | null
+  /** Foto de perfil que sube el repartidor desde su propio perfil. */
+  avatar_url: string | null
   is_active: boolean
   created_at: string
   /** Server-side flag: la cuenta fue anonimizada (badge + acciones reducidas). */
@@ -178,6 +181,7 @@ export function DeliveryTable({
                   </TableCell>
                   <TableCell className="max-w-48 font-medium">
                     <span className="flex items-center gap-2">
+                      <DeliveryAvatar url={d.avatar_url} name={d.full_name} />
                       <span className="truncate" title={d.full_name ?? ''}>
                         {d.full_name}
                       </span>
@@ -223,6 +227,7 @@ export function DeliveryTable({
                         document_type: d.document_type,
                         document_number: d.document_number,
                         vehicle_type: d.vehicle_type,
+                        avatar_url: d.avatar_url,
                       }}
                     />
                   </TableCell>

@@ -1,19 +1,23 @@
 'use client'
 
 import { useMemo } from 'react'
-import { FlameIcon, ClockIcon } from 'lucide-react'
+import { FlameIcon, ClockIcon, SearchIcon } from 'lucide-react'
 import { RestaurantCard, type RestaurantCardData } from '@/components/features/restaurants/RestaurantCard'
 import { FeaturedProductCard, type FeaturedProduct } from '@/components/features/products/FeaturedProductCard'
 import { LogoLoop, type LogoItem } from '@/components/LogoLoop'
 import { useSearchStore } from '@/lib/hooks/use-search'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
 import { useState } from 'react'
 
 export function ClienteHomeClient({
+  greeting,
   restaurants,
   popularProducts,
   closedRestaurantIds,
 }: {
+  greeting: string
   restaurants: RestaurantCardData[]
   popularProducts: FeaturedProduct[]
   closedRestaurantIds?: string[]
@@ -54,7 +58,7 @@ export function ClienteHomeClient({
           <a
             href={`/cliente/restaurantes/${r.slug}`}
             title={r.name}
-            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform hover:scale-105 dark:bg-neutral-900 dark:ring-white/10"
+            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white shadow-client-card ring-1 ring-black/5 transition-transform duration-150 hover:scale-105 dark:bg-neutral-900 dark:ring-white/10"
           >
             {
               r.logo_url ? (
@@ -95,10 +99,11 @@ export function ClienteHomeClient({
           </span>
 
           <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
-            ¿Qué se te antoja hoy?
+            {greeting}
           </h1>
           <p className="mt-1.5 max-w-md text-sm text-white/85 sm:text-base">
-            Pide en tus negocios favoritos y recíbelo directo en tu puerta.
+            ¿Qué se te antoja hoy? Pide en tus negocios favoritos y recíbelo
+            directo en tu puerta.
           </p>
         </div>
       </section>
@@ -125,9 +130,9 @@ export function ClienteHomeClient({
             onClick={() => setActiveType(null)}
             aria-pressed={activeType === null}
             className={cn(
-              'shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium backdrop-blur transition-colors',
+              'shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur transition-all duration-150 active:scale-95',
               activeType === null
-                ? 'border-brand-500 bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                ? 'border-brand-500 bg-brand-500 text-white shadow-client-card'
                 : 'border-black/5 bg-white/70 text-muted-foreground hover:border-brand-300 hover:text-foreground dark:border-white/10 dark:bg-white/5'
             )}
           >
@@ -140,9 +145,9 @@ export function ClienteHomeClient({
               onClick={() => setActiveType(type)}
               aria-pressed={activeType === type}
               className={cn(
-                'shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium backdrop-blur transition-colors',
+                'shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur transition-all duration-150 active:scale-95',
                 activeType === type
-                  ? 'border-brand-500 bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                  ? 'border-brand-500 bg-brand-500 text-white shadow-client-card'
                   : 'border-black/5 bg-white/70 text-muted-foreground hover:border-brand-300 hover:text-foreground dark:border-white/10 dark:bg-white/5'
               )}
             >
@@ -159,15 +164,25 @@ export function ClienteHomeClient({
             <FlameIcon className="h-4 w-4 text-brand-500" />
             <h2 className="text-lg font-semibold tracking-tight">Platos populares</h2>
           </div>
-          <div className="flex snap-x gap-4 overflow-x-auto pb-2">
-            {popularProducts.map((product) => (
-              <FeaturedProductCard
-                key={product.id}
-                product={product}
-                disabled={closedRestaurantIds?.includes(product.restaurant.id)}
-              />
-            ))}
-          </div>
+          {/* El mask insinúa que hay más platos a la derecha sin agregar
+              flechas: el gesto nativo de swipe sigue siendo el control.
+              Embla (Carousel de shadcn) captura el arrastre sin scrollbar
+              nativo, así que el borde inferior queda limpio. */}
+          <Carousel
+            opts={{ align: 'start' }}
+            className="w-full [mask-image:linear-gradient(to_right,black_86%,transparent_100%)]"
+          >
+            <CarouselContent className="-ml-4 select-none">
+              {popularProducts.map((product) => (
+                <CarouselItem key={product.id} className="basis-auto pl-4">
+                  <FeaturedProductCard
+                    product={product}
+                    disabled={closedRestaurantIds?.includes(product.restaurant.id)}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
         </section>
       )}
 
@@ -188,12 +203,12 @@ export function ClienteHomeClient({
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center rounded-3xl border border-dashed px-6 py-14 text-center">
-            <p className="font-medium">No encontramos negocios para tu búsqueda</p>
-            <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-              Prueba con otro nombre o quita los filtros.
-            </p>
-          </div>
+          <EmptyState
+            icon={SearchIcon}
+            title="No encontramos negocios para tu búsqueda"
+            description="Prueba con otro nombre o quita los filtros."
+            className="rounded-3xl"
+          />
         )}
       </section>
     </div>

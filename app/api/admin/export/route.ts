@@ -6,16 +6,24 @@ import {
   applyRestaurantFilters,
   fetchCustomerIdsWithOrders,
   fetchDeliveryPersonIdsOnRoute,
+  fetchOpenPaymentIncidents,
+  fetchPaymentReconciliationRows,
   parseStatusFilter,
   RESTAURANT_STATUS_FILTERS,
   CUSTOMER_STATUS_FILTERS,
   DELIVERY_STATUS_FILTERS,
+  PAYMENT_REVIEW_FILTERS,
 } from '@/lib/admin/query-builders'
+import {
+  PAYMENT_INCIDENT_KIND_COPY,
+  PAYMENT_INCIDENT_REPORTER_COPY,
+  type PaymentIncidentKind,
+} from '@/lib/constants/payment-incident'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/admin/export?entity=restaurants|customers|deliveries[&q=&status=]
+ * GET /api/admin/export?entity=restaurants|customers|deliveries|payments[&q=&status=]
  *
  * Exportación CSV de las tablas admin (Fase 7) reutilizando EXACTAMENTE
  * los mismos appliers de filtros que las páginas — así el CSV refleja
@@ -60,12 +68,13 @@ function toCsv(headers: string[], rows: unknown[][]): string {
   return '\uFEFF' + lines.join('\r\n')
 }
 
-type ExportEntity = 'restaurants' | 'customers' | 'deliveries'
+type ExportEntity = 'restaurants' | 'customers' | 'deliveries' | 'payments'
 
 function parseEntity(value: string | null): ExportEntity | undefined {
   return value === 'restaurants' ||
     value === 'customers' ||
-    value === 'deliveries'
+    value === 'deliveries' ||
+    value === 'payments'
     ? value
     : undefined
 }
@@ -75,6 +84,7 @@ function filenameFor(entity: ExportEntity): string {
     restaurants: 'restaurantes',
     customers: 'clientes',
     deliveries: 'repartidores',
+    payments: 'pagos',
   }
   return `${names[entity]}-${new Date().toISOString().slice(0, 10)}.csv`
 }
@@ -105,7 +115,7 @@ export async function GET(request: Request) {
   const entity = parseEntity(url.searchParams.get('entity'))
   if (!entity) {
     return NextResponse.json(
-      { error: 'entity debe ser restaurants, customers o deliveries' },
+      { error: 'entity debe ser restaurants, customers, deliveries o payments' },
       { status: 400 }
     )
   }
@@ -188,7 +198,7 @@ export async function GET(request: Request) {
         new Date(r.created_at).toISOString(),
       ])
     )
-  } else {
+  } else if (entity === 'deliveries') {
     const statusFilter = parseStatusFilter(DELIVERY_STATUS_FILTERS, status)
     const onRouteIds =
       statusFilter === 'on_route'
@@ -225,6 +235,47 @@ export async function GET(request: Request) {
         new Date(r.created_at).toISOString(),
       ])
     )
+  } else {
+    // Pagos (Fase 8): el export refleja la MISMA vista que `/admin/pagos` con
+    // su filtro activo (`?status=`), usando los fetch compartidos — el CSV no
+    // puede divergir de lo que el admin está viendo.
+    //
+    // OJO con el cliente: acá se usa el de SESIÓN (`supabase`, ya validado como
+    // ADMIN arriba) y no el service role. Las policies de admin cubren las
+    // cuatro tablas que lee esta vista (payment_incidents, orders, deliveries y
+    // profiles), así que el service role no aporta nada y sí ampliaría la
+    // superficie de un endpoint que un admin puede abrir en otra pestaña.
+    const reviewFilter = parseStatusFilter(PAYMENT_REVIEW_FILTERS, status) ?? 'open'
+
+    if (reviewFilter === 'open') {
+      const incidents = await fetchOpenPaymentIncidents(supabase)
+      // PII: el nombre del reportante sale solo hacia un ADMIN (gate de arriba).
+      csv = toCsv(
+        ['ID', 'Pedido', 'Tipo', 'Reportante', 'Rol', 'Nota', 'Creada'],
+        incidents.map((incident) => [
+          incident.id,
+          incident.orderId,
+          PAYMENT_INCIDENT_KIND_COPY[incident.kind as PaymentIncidentKind] ?? incident.kind,
+          incident.reporterName ?? '',
+          PAYMENT_INCIDENT_REPORTER_COPY[incident.reporterRole] ?? incident.reporterRole,
+          incident.note ?? '',
+          new Date(incident.createdAt).toISOString(),
+        ])
+      )
+    } else {
+      const rows = await fetchPaymentReconciliationRows(supabase, reviewFilter)
+      csv = toCsv(
+        ['ID', 'Pedido', 'Hallazgo', 'Monto', 'Repartidor', 'Fecha'],
+        rows.map((row) => [
+          row.id,
+          row.orderId,
+          row.issue,
+          row.amount === null ? '' : Number(row.amount).toFixed(2),
+          row.driverName ?? '',
+          new Date(row.createdAt).toISOString(),
+        ])
+      )
+    }
   }
 
   return new NextResponse(csv, {

@@ -1,10 +1,9 @@
 /**
- * Tarjeta de pedido usada tanto en "Disponibles" (con botón Aceptar)
- * como en "Mis entregas" (con badge de estado + botón para avanzar).
- * Antes cada página tenía su propia copia casi idéntica de este bloque
- * — ahora solo cambian los props que le pasa cada página.
+ * Tarjeta de pedido usada tanto en "Disponibles" (con el formulario de
+ * oferta en el pie) como en el detalle de la entrega (con badge de estado +
+ * botón para avanzar). Antes cada página tenía su propia copia casi idéntica
+ * de este bloque — ahora solo cambian los props que le pasa cada página.
  */
-import Link from 'next/link'
 
 export function DeliveryOrderCard({
   restaurantName,
@@ -15,7 +14,7 @@ export function DeliveryOrderCard({
   total,
   badge,
   action,
-  detailHref,
+  footer,
 }: {
   restaurantName: string
   pickupAddress?: string | null
@@ -24,28 +23,19 @@ export function DeliveryOrderCard({
   deliveryReference?: string | null
   total: number
   /** Si se pasa (ej. OrderStatusBadge), el precio y la acción bajan a
-   * una fila inferior separada por un borde — así se ve "Mis entregas". */
+   * una fila inferior separada por un borde — así se ve el detalle. */
   badge?: React.ReactNode
   action?: React.ReactNode
-  /** Si se pasa, el nombre del restaurante enlaza al detalle del pedido
-   * (solo donde el pedido ya está aceptado y RLS permite verlo). */
-  detailHref?: string
+  /** Bloque a lo ancho de la tarjeta, en su propia fila al pie. Para acciones
+   * que necesitan más espacio que un botón (ej. el formulario de oferta de
+   * envío, con su input de tarifa). */
+  footer?: React.ReactNode
 }) {
-  const name = detailHref ? (
-    <Link
-      href={detailHref}
-      className="text-sm font-medium underline-offset-4 hover:underline"
-    >
-      {restaurantName}
-    </Link>
-  ) : (
-    <p className="text-sm font-medium">{restaurantName}</p>
-  )
   return (
     <div className="rounded-xl border p-4 transition-colors hover:border-muted-foreground/30">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {name}
+          <p className="text-sm font-medium">{restaurantName}</p>
           {pickupAddress && (
             <p className="text-xs text-muted-foreground">
               Recoger en: {pickupAddress}
@@ -84,6 +74,8 @@ export function DeliveryOrderCard({
           {action}
         </div>
       )}
+
+      {footer && <div className="mt-3 border-t pt-3">{footer}</div>}
     </div>
   )
 }

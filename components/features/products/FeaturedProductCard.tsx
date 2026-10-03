@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { PlusIcon, UtensilsCrossedIcon } from 'lucide-react'
 import { useCartStore } from '@/lib/hooks/use-cart'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export interface FeaturedProduct {
   id: string
@@ -60,18 +61,35 @@ export function FeaturedProductCard({
           size="icon-sm"
           onClick={handleAdd}
           disabled={disabled}
-          className="absolute bottom-2 right-2 rounded-full bg-brand-500 text-white shadow-md hover:bg-brand-600"
+          className={cn(
+            'absolute bottom-2 right-2 rounded-full bg-brand-500 text-white shadow-md transition-transform duration-150 hover:bg-brand-600',
+            justAdded && 'animate-add-pulse'
+          )}
           aria-label={`Agregar ${product.name} al carrito`}
         >
           <PlusIcon className="h-4 w-4" />
         </Button>
+
+        {/* Confirmación flotante sobre la foto en vez de reemplazar el precio:
+            el precio es el dato que el usuario estaba mirando y no debe
+            desaparecer 1.2s. La región `aria-live` existe siempre en el DOM
+            (si se montara junto con su texto, los lectores de pantalla no
+            anunciarían el cambio). */}
+        <span
+          aria-live="polite"
+          className={cn(
+            'pointer-events-none absolute left-2 top-2 rounded-full bg-lime px-2.5 py-1 text-[11px] font-bold text-[#0C0C0E] shadow-sm transition-opacity duration-150',
+            justAdded ? 'animate-stat-in opacity-100' : 'opacity-0'
+          )}
+        >
+          {justAdded ? 'Agregado ✓' : ''}
+        </span>
       </div>
       <div className="mt-2">
         <p className="truncate text-sm font-medium">{product.name}</p>
         <p className="truncate text-xs text-muted-foreground">{product.restaurant.name}</p>
         <div className="mt-0.5 flex items-center justify-between">
           <span className="text-sm font-semibold">S/ {product.price.toFixed(2)}</span>
-          {justAdded && <span className="text-xs font-medium text-green-600">Agregado ✓</span>}
         </div>
       </div>
     </div>

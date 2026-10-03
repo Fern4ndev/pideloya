@@ -12,7 +12,7 @@ import {
 const DELIVERY_LINKS = [
   { href: '/repartidor', label: 'Dashboard', icon: LayoutDashboardIcon },
   { href: '/repartidor/disponibles', label: 'Disponibles', icon: MapPinIcon },
-  { href: '/repartidor/pedidos', label: 'Mis entregas', icon: PackageIcon },
+  { href: '/repartidor/pedidos', label: 'Mi entrega', icon: PackageIcon },
   { href: '/repartidor/historial', label: 'Historial', icon: HistoryIcon },
   { href: '/repartidor/perfil', label: 'Perfil', icon: UserIcon },
 ]

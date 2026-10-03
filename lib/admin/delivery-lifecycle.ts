@@ -9,7 +9,15 @@ export type ActiveDelivery = {
 
 // Estados en los que el pedido sigue "vivo" para el repartidor.
 // Fuera de ellos (DELIVERED/CANCELLED) la entrega es solo historial.
+//
+// AWAITING_PAYMENT cuenta como activo: un repartidor esperando que el cliente
+// confirme el pago de SU envío está igual de comprometido que uno en camino,
+// y si no contara acá podría repartir ofertas en diez pedidos a la vez
+// mientras espera. De esta constante dependen, en cascada: la regla de
+// "una entrega activa" en offer_delivery/acceptOrder, la guarda de
+// deactivateUser() y la liberación defensiva de deleteUser().
 export const ACTIVE_DELIVERY_STATUSES = [
+  'AWAITING_PAYMENT',
   'ASSIGNED',
   'PICKED_UP',
   'ON_THE_WAY',

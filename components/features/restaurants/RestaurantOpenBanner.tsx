@@ -16,8 +16,8 @@ export function RestaurantOpenBanner({
   if (isOpenNow) return null
 
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-      <ClockIcon className="h-4 w-4 shrink-0" />
+    <div className="flex items-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+      <ClockIcon className="h-4 w-4 shrink-0 animate-clock-tick" />
       <span>
         Cerrado &mdash; no hay atención en este momento, no se pueden registrar
         pedidos.

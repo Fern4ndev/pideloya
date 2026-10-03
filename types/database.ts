@@ -128,29 +128,59 @@ export type Database = {
       deliveries: {
         Row: {
           accepted_at: string | null
+          allows_pay_on_delivery: boolean
+          cash_collected_at: string | null
+          collected_at: string | null
+          collected_method: string | null
           created_at: string
           delivered_at: string | null
+          delivery_fee: number | null
           delivery_person_id: string | null
           id: string
+          offered_at: string | null
           order_id: string
+          payment_confirmed_at: string | null
+          payment_method: string | null
+          payment_timing: string | null
+          payment_voucher_path: string | null
           picked_up_at: string | null
         }
         Insert: {
           accepted_at?: string | null
+          allows_pay_on_delivery?: boolean
+          cash_collected_at?: string | null
+          collected_at?: string | null
+          collected_method?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_fee?: number | null
           delivery_person_id?: string | null
           id?: string
+          offered_at?: string | null
           order_id: string
+          payment_confirmed_at?: string | null
+          payment_method?: string | null
+          payment_timing?: string | null
+          payment_voucher_path?: string | null
           picked_up_at?: string | null
         }
         Update: {
           accepted_at?: string | null
+          allows_pay_on_delivery?: boolean
+          cash_collected_at?: string | null
+          collected_at?: string | null
+          collected_method?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_fee?: number | null
           delivery_person_id?: string | null
           id?: string
+          offered_at?: string | null
           order_id?: string
+          payment_confirmed_at?: string | null
+          payment_method?: string | null
+          payment_timing?: string | null
+          payment_voucher_path?: string | null
           picked_up_at?: string | null
         }
         Relationships: [
@@ -238,8 +268,12 @@ export type Database = {
           customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
+          delivery_fee: number | null
           id: string
           notes: string | null
+          payment_method: string | null
+          payment_timing: string | null
+          restaurant_paid_at: string | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at: string
@@ -250,8 +284,12 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          delivery_fee?: number | null
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_timing?: string | null
+          restaurant_paid_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at?: string
@@ -262,8 +300,12 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          delivery_fee?: number | null
           id?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_timing?: string | null
+          restaurant_paid_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           updated_at?: string
@@ -279,6 +321,64 @@ export type Database = {
           {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_incidents: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          order_id: string
+          reported_by: string | null
+          reporter_role: Database["public"]["Enums"]["user_role"]
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          note?: string | null
+          order_id: string
+          reported_by?: string | null
+          reporter_role: Database["public"]["Enums"]["user_role"]
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          order_id?: string
+          reported_by?: string | null
+          reporter_role?: Database["public"]["Enums"]["user_role"]
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_incidents_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_incidents_resolved_by_fkey"
+            columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -344,8 +444,11 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accepts_pay_on_delivery: boolean
           anonymized_at: string | null
           auth_id: string
+          avatar_file_id: string | null
+          avatar_url: string | null
           created_at: string
           document_number: string | null
           document_type: string | null
@@ -357,9 +460,14 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           vehicle_type: string | null
+          yape_qr_file_id: string | null
+          yape_qr_url: string | null
         }
         Insert: {
+          accepts_pay_on_delivery?: boolean
           anonymized_at?: string | null
+          avatar_file_id?: string | null
+          avatar_url?: string | null
           auth_id: string
           created_at?: string
           document_number?: string | null
@@ -372,9 +480,14 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           vehicle_type?: string | null
+          yape_qr_file_id?: string | null
+          yape_qr_url?: string | null
         }
         Update: {
+          accepts_pay_on_delivery?: boolean
           anonymized_at?: string | null
+          avatar_file_id?: string | null
+          avatar_url?: string | null
           auth_id?: string
           created_at?: string
           document_number?: string | null
@@ -387,6 +500,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           vehicle_type?: string | null
+          yape_qr_file_id?: string | null
+          yape_qr_url?: string | null
         }
         Relationships: []
       }
@@ -523,16 +638,71 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_delivery: {
+        // Fase 2: la app manda solo `p_order_id`. La firma vigente de la base
+        // sigue siendo (uuid, boolean, text) hasta la migración contract; los
+        // parámetros de cobro se aceptan y se IGNORAN (ya no se declara medio).
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
+      confirm_delivery_payment: {
+        Args: { p_order_id: string; p_voucher_path: string }
+        Returns: undefined
+      }
       current_customer_order_ids: { Args: never; Returns: string[] }
       current_delivery_address_ids: { Args: never; Returns: string[] }
       current_delivery_order_ids: { Args: never; Returns: string[] }
       current_profile_id: { Args: never; Returns: string }
       current_restaurant_ids: { Args: never; Returns: string[] }
       current_role: { Args: never; Returns: string }
+      expire_stale_delivery_offers: {
+        Args: { p_max_age?: string }
+        Returns: number
+      }
+      get_delivery_offer_details: {
+        Args: { p_order_id: string }
+        Returns: {
+          full_name: string
+          avatar_url: string | null
+          yape_qr_url: string | null
+          phone: string | null
+          delivery_fee: number | null
+          payment_voucher_path: string | null
+        }[]
+      }
+      offer_delivery: {
+        Args: { p_order_id: string; p_delivery_fee: number }
+        Returns: undefined
+      }
+      pickup_delivery: {
+        Args: { p_order_id: string; p_restaurant_paid?: boolean }
+        Returns: undefined
+      }
+      pending_order_address_ids: { Args: never; Returns: string[] }
+      report_payment_incident: {
+        Args: { p_order_id: string; p_kind: string; p_note?: string }
+        Returns: string
+      }
+      retract_delivery_offer: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
+      select_delivery_payment: {
+        // `p_method` pasa a ser OPCIONAL (compatibilidad legacy): con
+        // ON_DELIVERY el método no se envía y la función lo guarda NULL.
+        Args: {
+          p_order_id: string
+          p_method?: string
+          p_voucher_path?: string
+          p_timing?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       order_status:
         | "PENDING"
+        | "AWAITING_PAYMENT"
         | "ASSIGNED"
         | "PICKED_UP"
         | "ON_THE_WAY"
@@ -668,6 +838,7 @@ export const Constants = {
     Enums: {
       order_status: [
         "PENDING",
+        "AWAITING_PAYMENT",
         "ASSIGNED",
         "PICKED_UP",
         "ON_THE_WAY",

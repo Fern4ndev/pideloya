@@ -6,7 +6,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { OrderDetailsDialog, type OrderDetail } from '@/components/features/orders/OrderDetailsDialog'
+import {
+  OrderDetailsDialog,
+  RestaurantPaymentText,
+  type OrderDetail,
+} from '@/components/features/orders/OrderDetailsDialog'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 
 export function RestaurantOrdersTable({
@@ -31,6 +35,7 @@ export function RestaurantOrdersTable({
           <TableHead className="w-12">N°</TableHead>
           <TableHead>Items</TableHead>
           <TableHead>Estado</TableHead>
+          <TableHead>Pago</TableHead>
           <TableHead className="text-right">Total</TableHead>
           <TableHead className="text-right">Fecha</TableHead>
           <TableHead className="text-center">Acciones</TableHead>
@@ -53,6 +58,15 @@ export function RestaurantOrdersTable({
               </TableCell>
               <TableCell>
                 <OrderStatusBadge status={order.status} />
+              </TableCell>
+              {/* Fase 6: la columna "Pago" — el restaurante ve SI y CUÁNDO el
+                  repartidor registró haberle pagado la comida. Texto y no solo
+                  color: es la constancia con la que concilia. */}
+              <TableCell className="text-sm">
+                <RestaurantPaymentText
+                  status={order.status}
+                  restaurantPaidAt={order.restaurantPaidAt ?? null}
+                />
               </TableCell>
               <TableCell className="text-right font-medium">
                 S/ {order.total.toFixed(2)}

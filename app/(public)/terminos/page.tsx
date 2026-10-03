@@ -6,7 +6,12 @@ export const metadata: Metadata = {
   description: 'Términos y condiciones de uso de la plataforma PideloYa.',
 }
 
-const UPDATED_AT = '12 de septiembre de 2026'
+// NOTA INTERNA (D10): estos textos cubren el flujo de pago al repartidor de
+// forma funcional, pero no sustituyen una revisión legal. Antes de un
+// lanzamiento comercial deben revisarse con un abogado, especialmente la
+// sección 6 (pago del pedido y del envío) y el tratamiento de la relación con
+// los repartidores independientes.
+const UPDATED_AT = '1 de octubre de 2026'
 
 export default function TerminosPage() {
   return (
@@ -48,7 +53,8 @@ export default function TerminosPage() {
         <p>
           <strong className="text-foreground">Clientes:</strong> brindar una
           dirección de entrega correcta, estar disponibles para recibir el pedido y
-          pagar el monto acordado.
+          pagar el monto acordado, que puede incluir el precio de los productos y el
+          costo del envío.
         </p>
         <p>
           <strong className="text-foreground">Restaurantes:</strong> mantener su
@@ -60,7 +66,9 @@ export default function TerminosPage() {
           <strong className="text-foreground">Repartidores:</strong> contar con
           mayoría de edad, un medio de transporte adecuado y la documentación
           vigente que corresponda, y realizar la entrega de forma diligente y en el
-          menor tiempo razonable.
+          menor tiempo razonable. El repartidor es responsable de cobrar el monto
+          que la plataforma le muestra y de reportar de inmediato cualquier
+          problema con el pago.
         </p>
       </LegalSection>
 
@@ -75,7 +83,47 @@ export default function TerminosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="6. Propiedad intelectual">
+      <LegalSection title="6. Pago del pedido y del envío">
+        <p>
+          El pago de los productos y el pago del servicio de envío son dos cosas
+          distintas: el precio de los productos se paga al restaurante y el monto
+          del envío se paga al repartidor. La plataforma muestra, antes de
+          confirmar el pedido, cuánto corresponde a cada uno. Para pagarle al
+          repartidor eliges entre <strong>pagar ahora</strong> —por Yape, adjuntando
+          el comprobante de tu transferencia— o <strong>pagar al recibir</strong>
+          —cuando te entregue el pedido, con su código QR de Yape o en efectivo—.
+          Si el repartidor adelanta el pago de la comida en el restaurante y
+          elegiste pagarle al recibir, el monto que le entregas incluye ese
+          adelanto además del envío, tal como se muestra en el detalle del pedido.
+          El repartidor puede configurar en su perfil que no acepta pedidos con pago
+          al recibir, en cuyo caso la plataforma no le ofrecerá esos pedidos.
+        </p>
+        <p>
+          PideloYa no procesa ni custodia el dinero del pedido ni del envío en
+          ninguna modalidad, no actúa como entidad de pagos, no verifica las
+          transferencias ni los pagos en efectivo entre las partes y no es
+          responsable del pago entre ellas: quienes entregan y reciben el dinero
+          son el cliente y el repartidor. El
+          comprobante que adjuntes y las constancias que registres (por ejemplo,
+          que pagaste o que finalizaste la entrega habiendo cobrado) tienen valor
+          de declaración de las partes y sirven como evidencia del cobro dentro de
+          la plataforma; no constituyen verificación bancaria ni confirmación de
+          una entidad financiera.
+        </p>
+        <p>
+          Si alguna de las partes no puede cobrar o no puede acreditar el pago,
+          puede reportar una incidencia desde la plataforma. PideloYa revisa el
+          caso con la información registrada del pedido (momento del pago, monto,
+          constancias y comprobantes adjuntos) y puede contactar a las partes para
+          conciliar. No pagar el monto acordado, declarar un cobro falso o no
+          reportar un problema de pago puede suspender temporal o definitivamente
+          la cuenta. Los reclamos y disputas de pago se atienden por el canal de
+          soporte indicado en la sección 11, y se revisan con la información
+          registrada del pedido.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="7. Propiedad intelectual">
         <p>
           El nombre PideloYa, su logotipo, diseño e interfaz son propiedad de
           PideloYa. El contenido que restaurantes y usuarios suban (fotos, nombres de
@@ -84,7 +132,7 @@ export default function TerminosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="7. Limitación de responsabilidad">
+      <LegalSection title="8. Limitación de responsabilidad">
         <p>
           PideloYa facilita la conexión entre las partes, pero no garantiza la
           calidad, inocuidad o exactitud de los productos ofrecidos por cada
@@ -93,7 +141,7 @@ export default function TerminosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="8. Modificaciones">
+      <LegalSection title="9. Modificaciones">
         <p>
           PideloYa puede actualizar estos términos en cualquier momento. Los cambios
           entran en vigencia desde su publicación en esta página, indicando la fecha
@@ -101,7 +149,7 @@ export default function TerminosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="9. Ley aplicable">
+      <LegalSection title="10. Ley aplicable">
         <p>
           Estos términos se rigen por las leyes de la República del Perú. Cualquier
           controversia se resolverá ante los jueces y tribunales competentes de
@@ -110,7 +158,7 @@ export default function TerminosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="10. Contacto">
+      <LegalSection title="11. Contacto">
         <p>
           Si tienes dudas sobre estos términos, escríbenos a{' '}
           <a href="mailto:hola@pideloya.pe" className="text-brand-600 font-medium hover:underline">

@@ -1,5 +1,6 @@
 import { successResponse, errorResponse, withApi } from '@/lib/api/response'
 import { authenticateRequest, adminClient, NotFoundError } from '@/lib/api/auth'
+import { ACTIVE_DELIVERY_STATUSES } from '@/lib/admin/delivery-lifecycle'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,12 @@ export const POST = withApi(async (request: Request, ctx: RouteCtx) => {
   const { orderId } = await ctx.params
   const context = await authenticateRequest(request)
 
-  if (context.role !== 'DELIVERY' && context.role !== 'ADMIN') {
+  // Solo DELIVERY. El ADMIN aceptar "como él mismo" creaba una entrega sin
+  // repartidor real (su propio profile no es un repartidor) y saltaba el pago
+  // del envío — el mismo bypass que el advance PENDING → ASSIGNED (Hallazgo 1
+  // de la Fase 8). Si el flujo de aceptación directa vuelve algún día, vuelve
+  // cerrado a DELIVERY y pasando por el pago.
+  if (context.role !== 'DELIVERY') {
     return errorResponse('Solo repartidores pueden aceptar pedidos', 403)
   }
 
@@ -26,7 +32,7 @@ export const POST = withApi(async (request: Request, ctx: RouteCtx) => {
       .from('deliveries')
       .select('id, orders!inner(status)')
       .eq('delivery_person_id', context.profileId)
-      .in('orders.status', ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
+      .in('orders.status', [...ACTIVE_DELIVERY_STATUSES])
       .limit(1)
     if (active && active.length > 0) {
       return errorResponse(

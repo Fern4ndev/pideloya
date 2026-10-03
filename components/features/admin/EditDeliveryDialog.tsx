@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DeliveryAvatar } from './DeliveryAvatar'
 
 type DeliveryPerson = {
   id: string
@@ -21,6 +22,7 @@ type DeliveryPerson = {
   document_type: string | null
   document_number: string | null
   vehicle_type: string | null
+  avatar_url: string | null
 }
 
 export function EditDeliveryDialog({
@@ -71,6 +73,21 @@ export function EditDeliveryDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Foto de perfil: solo lectura. La sube el repartidor desde su
+           * propio perfil (y el QR de Yape no se muestra aquí: es una
+           * credencial de cobro y el admin no la necesita para validar
+           * la identidad de quien reparte). */}
+          <div className="flex items-center gap-3">
+            <DeliveryAvatar
+              url={deliveryPerson.avatar_url}
+              name={fullName}
+              size="lg"
+            />
+            <p className="text-xs text-muted-foreground">
+              La foto la administra el repartidor desde su perfil.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="full_name">Nombre completo</Label>
             <Input

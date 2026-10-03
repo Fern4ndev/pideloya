@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/db/server'
 import { AddressFormDialog } from '@/components/features/addresses/AddressFormDialog'
 import { AddressCard } from '@/components/features/addresses/AddressCard'
+import { ClientPageContainer } from '@/components/layout/ClientPageContainer'
+import { EmptyState } from '@/components/ui/empty-state'
 import { MapPinIcon } from 'lucide-react'
 
 export default async function AddressesPage() {
@@ -17,7 +19,7 @@ export default async function AddressesPage() {
   const address = addresses?.[0] ?? null
 
   return (
-    <div>
+    <ClientPageContainer size="narrow">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tu dirección</h1>
@@ -41,19 +43,14 @@ export default async function AddressesPage() {
       )}
 
       {!error && !address && (
-        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-14 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white">
-            <MapPinIcon className="h-6 w-6" />
-          </span>
-          <p className="mt-4 font-medium">Todavía no tienes una dirección guardada</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Agrégala para poder pedir en tus negocios favoritos.
-          </p>
-          <div className="mt-5">
-            <AddressFormDialog mode="create" />
-          </div>
-        </div>
+        <EmptyState
+          icon={MapPinIcon}
+          title="Todavía no tienes una dirección guardada"
+          description="Agrégala para poder pedir en tus negocios favoritos."
+          className="mt-10 rounded-3xl border-black/10 bg-black/[0.02] py-14 dark:border-white/10 dark:bg-white/[0.02]"
+          action={<AddressFormDialog mode="create" />}
+        />
       )}
-    </div>
+    </ClientPageContainer>
   )
 }

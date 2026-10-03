@@ -1,10 +1,15 @@
 'use client'
 
 import { useState, useTransition, type SubmitEvent } from 'react'
-import { updateProfile, changePassword } from '@/lib/actions/profile'
+import { updateProfile } from '@/lib/actions/profile'
+import { PasswordChangeForm } from './PasswordChangeForm'
+import { PasswordChangeDialog } from './PasswordChangeDialog'
+import { useOptionalProfileDraft } from './ProfileDraftProvider'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useToast } from '@/components/ui/toast'
 
 export interface ProfileFormData {
   fullName: string
@@ -19,33 +24,81 @@ export function ProfileForm({
   initialData,
   showDeliveryFields = false,
   showPasswordChange = false,
+  showAccountAvatar = false,
+  showPasswordModal = false,
 }: {
   email: string
   initialData: ProfileFormData
   showDeliveryFields?: boolean
   showPasswordChange?: boolean
+  showAccountAvatar?: boolean
+  showPasswordModal?: boolean
 }) {
   const [form, setForm] = useState(initialData)
+  const initial = form.fullName.trim().charAt(0).toUpperCase() || '?'
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const { success: toastSuccess, error: toastError } = useToast()
+  // Solo existe dentro del perfil del repartidor (provider del draft de
+  // fotos/QR); en el resto de paneles es null y no cambia nada.
+  const draft = useOptionalProfileDraft()
+
+  // `form` empieza como copia exacta de `initialData` y solo cambia por
+  // escritura del usuario, así que JSON.stringify basta para detectar si
+  // hay algo pendiente. Sin cambios no se invoca la Server Action: cada
+  // llamada re-renderiza la ruta (revalidatePath), y un click que no
+  // cambia nada no debería refrescar la página.
+  const fieldsDirty = JSON.stringify(form) !== JSON.stringify(initialData)
+  const isDirty = fieldsDirty || (draft?.hasMediaChanges ?? false)
 
   function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!isDirty) return
     setError(null)
-    setSuccess(false)
     startTransition(async () => {
-      try {
-        await updateProfile(form)
-        setSuccess(true)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Algo salió mal')
+      if (fieldsDirty) {
+        try {
+          await updateProfile(form)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Algo salió mal')
+          return
+        }
       }
+
+      if (draft?.hasMediaChanges) {
+        try {
+          await draft.commitMedia()
+        } catch (err) {
+          toastError(
+            'No se pudieron guardar las imágenes',
+            err instanceof Error ? err.message : undefined
+          )
+          return
+        }
+      }
+
+      toastSuccess('Cambios guardados')
     })
   }
 
   return (
     <div className="max-w-md space-y-8">
+      {showAccountAvatar && (
+        <div className="flex items-center gap-3">
+          <Avatar size="lg" className="h-12 w-12">
+            <AvatarFallback className="bg-gradient-to-br from-brand-400 to-brand-600 text-base font-semibold text-white">
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {form.fullName || 'Tu cuenta'}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1">
           <Label>Correo</Label>
@@ -101,81 +154,24 @@ export function ProfileForm({
         )}
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-green-600">Guardado.</p>}
 
-        <Button type="submit" variant="lime" disabled={isPending}>
-          {isPending ? 'Guardando…' : 'Guardar cambios'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 justify-center">
+          <Button
+            type="submit"
+            variant="lime"
+            disabled={isPending || !isDirty}
+          >
+            {isPending ? 'Guardando…' : 'Guardar cambios'}
+          </Button>
+          {showPasswordModal && <PasswordChangeDialog />}
+        </div>
       </form>
 
-      {showPasswordChange && <PasswordChangeForm />}
-    </div>
-  )
-}
-
-function PasswordChangeForm() {
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [isPending, startTransition] = useTransition()
-
-  function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setSuccess(false)
-
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres')
-      return
-    }
-    if (password !== confirm) {
-      setError('Las contraseñas no coinciden')
-      return
-    }
-
-    startTransition(async () => {
-      try {
-        await changePassword(password)
-        setPassword('')
-        setConfirm('')
-        setSuccess(true)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Algo salió mal')
-      }
-    })
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3 border-t pt-6">
-      <h2 className="text-sm font-medium">Cambiar contraseña</h2>
-      <div className="space-y-1">
-        <Label htmlFor="newPassword">Nueva contraseña</Label>
-        <Input
-          id="newPassword"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-        <Input
-          id="confirmPassword"
-          type="password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-      </div>
-
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {success && (
-        <p className="text-sm text-green-600">Contraseña actualizada.</p>
+      {showPasswordChange && (
+        <div className="border-t pt-6">
+          <PasswordChangeForm />
+        </div>
       )}
-
-      <Button type="submit" variant="outline" disabled={isPending}>
-        {isPending ? 'Guardando…' : 'Actualizar contraseña'}
-      </Button>
-    </form>
+    </div>
   )
 }

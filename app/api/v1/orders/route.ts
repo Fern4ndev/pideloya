@@ -1,6 +1,10 @@
 import { withApi, successResponse, errorResponse } from '@/lib/api/response'
 import { authenticateRequest, adminClient } from '@/lib/api/auth'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
+import {
+  ORDER_STATUS_GROUPS,
+  type OrderStatusFilter,
+} from '@/lib/constants/order-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,28 +53,87 @@ export const GET = withApi(async (request: Request) => {
     return successResponse(data)
   }
 
-  // CUSTOMER: solo sus propios pedidos.
+  // CUSTOMER: solo sus propios pedidos, paginados para el scroll infinito de
+  // /cliente/pedidos. `meta.counts` son conteos globales (sin paginar) que
+  // alimentan los chips y banners: con páginas parciales ya no se pueden
+  // calcular en el cliente a partir del array.
   if (context.role === 'CUSTOMER') {
-    const { data, error } = await client
+    const url = new URL(request.url)
+    const offsetRaw = Number(url.searchParams.get('offset'))
+    const limitRaw = Number(url.searchParams.get('limit'))
+    const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.floor(offsetRaw) : 0
+    const limit =
+      Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 50) : 15
+
+    // `status` invalido se ignora (devuelve todo) en vez de fallar: el front
+    // solo manda valores validados contra ORDER_STATUS_GROUPS.
+    const statusRaw = url.searchParams.get('status')
+    const statusGroup =
+      statusRaw && statusRaw in ORDER_STATUS_GROUPS
+        ? ORDER_STATUS_GROUPS[statusRaw as OrderStatusFilter]
+        : null
+
+    const countOrders = async (
+      statuses?: readonly (typeof ORDER_STATUS_GROUPS)[OrderStatusFilter][number][]
+    ) => {
+      let q = client
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('customer_id', context.profileId)
+      if (statuses) q = q.in('status', statuses)
+      const { count, error } = await q
+      if (error) throw error
+      return count ?? 0
+    }
+
+    let query = client
       .from('orders')
       .select('*, order_items(*), addresses(*)')
       .eq('customer_id', context.profileId)
-      .order('created_at', { ascending: false })
-    if (error) throw error
-    return successResponse(data)
+    if (statusGroup) query = query.in('status', [...statusGroup])
+
+    const [page, all, active, delivered, cancelled, pending] = await Promise.all([
+      query
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false }) // desempate para offsets estables
+        .range(offset, offset + limit - 1),
+      countOrders(),
+      countOrders(ORDER_STATUS_GROUPS.active),
+      countOrders(ORDER_STATUS_GROUPS.delivered),
+      countOrders(ORDER_STATUS_GROUPS.cancelled),
+      countOrders(['PENDING']),
+    ])
+    if (page.error) throw page.error
+
+    return successResponse(page.data, 200, {
+      counts: { all, active, delivered, cancelled, pending },
+      limit,
+      offset,
+    })
   }
 
   // DELIVERY: asignados a él o disponibles (PENDING).
   // restaurants se expande para pickupAddress (dirección de recojo) —
   // adminClient salta RLS, así funciona aunque el restaurante esté
   // desactivado. El nombre de la tarjeta usa el snapshot restaurant_name.
+  // AWAITING_PAYMENT va en la lista para que el repartidor vea su oferta
+  // esperando el pago en "Mis entregas" (y pueda retirarla).
   if (context.role === 'DELIVERY') {
     const { data, error } = await client
       .from('orders')
       .select(
+        // latitude/longitude del restaurante ya NO viajan: el repartidor fija
+        // su propio precio sin ayuda de ningún cálculo de distancia (Fase 1 de
+        // plan-tarifa-libre-repartidor-y-pulido-panel-cliente.md).
         '*, order_items(*, restaurants(name, address_text)), addresses(*), deliveries(*)'
       )
-      .in('status', ['PENDING', 'ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
+      .in('status', [
+        'PENDING',
+        'AWAITING_PAYMENT',
+        'ASSIGNED',
+        'PICKED_UP',
+        'ON_THE_WAY',
+      ])
       .order('created_at', { ascending: false })
     if (error) throw error
     const filtered = (data ?? []).filter(

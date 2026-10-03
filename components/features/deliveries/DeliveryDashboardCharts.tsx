@@ -20,10 +20,18 @@ import {
 } from '@/lib/dashboard/chart-utils'
 import { addDays } from '@/lib/dates'
 
-/** Fila de `deliveries` con el pedido embebido: unidad de trabajo de los dos gráficos. */
+/**
+ * Fila de `deliveries` con el pedido embebido: unidad de trabajo de los dos
+ * gráficos.
+ *
+ * `delivery_fee` (lo que el repartidor cobró por el envío) y NO `orders.total`
+ * (el precio de la comida, dinero del restaurante). Es la diferencia entre
+ * "mis ingresos" y "lo que gastó el cliente".
+ */
 export type DashboardDelivery = {
   delivered_at: string | null
-  orders: { status: string; total: number } | null
+  delivery_fee: number | null
+  orders: { status: string } | null
 }
 
 const deliveriesConfig = {
@@ -31,7 +39,7 @@ const deliveriesConfig = {
 } satisfies ChartConfig
 
 const revenueConfig = {
-  total: { label: 'Ingresos', color: 'var(--color-lime)' },
+  total: { label: 'Ingresos por envío', color: 'var(--color-lime)' },
 } satisfies ChartConfig
 
 /**
@@ -42,8 +50,18 @@ const revenueConfig = {
  *
  * Los dos gráficos salen de los MISMOS buckets (`{ count, total }`):
  * "Entregas completadas" grafica `count` en violeta (el color que Admin usa
- * para entregas) e "Ingresos generados" grafica `total` en lime (el color del
+ * para entregas) e "Ingresos por envío" grafica `total` en lime (el color del
  * dinero). Así ambos quedan siempre consistentes entre sí.
+ *
+ * IMPORTANTE — qué es `total` acá: la suma de `deliveries.delivery_fee`, la
+ * tarifa de envío que el repartidor cobró por cada entrega. Antes este gráfico
+ * sumaba `orders.total` (el precio de la comida), que es dinero que el
+ * repartidor nunca recibió: el número era del restaurante mostrado como
+ * ingreso del repartidor. Las entregas anteriores al cobro de envío tienen
+ * `delivery_fee` en NULL y por eso cuentan S/ 0 — es correcto y honesto (no se
+ * puede inventar retroactivamente una tarifa que nunca se cobró), y por eso el
+ * estado vacío de ESTE gráfico explica el motivo en vez de decir "no hay
+ * entregas" cuando sí las hay.
  */
 export function DeliveryDashboardCharts({
   deliveries,
@@ -69,7 +87,7 @@ export function DeliveryDashboardCharts({
       .filter((delivery) => delivery.delivered_at && delivery.orders?.status === 'DELIVERED')
       .map((delivery) => ({
         created_at: delivery.delivered_at as string,
-        total: Number(delivery.orders?.total ?? 0),
+        total: Number(delivery.delivery_fee ?? 0),
       }))
 
     return aggregateOrders(filterByRange(completed, dateFrom, dateTo), granularity)
@@ -81,6 +99,16 @@ export function DeliveryDashboardCharts({
   const emptyMessage = rangeError
     ? 'Corrige el rango de fechas para ver los gráficos.'
     : 'No hay entregas en el período seleccionado.'
+
+  // El gráfico de ingresos puede estar vacío por un motivo que NO es "no hay
+  // entregas": las completadas antes de que existiera el cobro de envío se
+  // quedaron sin tarifa registrada. Decirlo evita que un repartidor con
+  // historial lea S/ 0 como si el sistema le hubiera perdido el dinero.
+  const revenueEmptyMessage = rangeError
+    ? emptyMessage
+    : hasDeliveries
+      ? 'Tus entregas de este período son anteriores al cobro por envío, así que no tienen tarifa registrada.'
+      : emptyMessage
 
   return (
     <div className="space-y-4">
@@ -146,7 +174,7 @@ export function DeliveryDashboardCharts({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <span className="h-2 w-2 rounded-full bg-lime" aria-hidden />
-              Ingresos generados
+              Ingresos por envío
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -178,7 +206,10 @@ export function DeliveryDashboardCharts({
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        formatter={(value) => [`S/ ${Number(value).toFixed(2)}`, 'Ingresos']}
+                        formatter={(value) => [
+                          `S/ ${Number(value).toFixed(2)}`,
+                          'Ingresos por envío',
+                        ]}
                         labelFormatter={(label, payload) => {
                           const bucket = payload?.[0]?.payload as Bucket | undefined
                           const count = bucket?.count ?? 0
@@ -195,7 +226,7 @@ export function DeliveryDashboardCharts({
             ) : (
               <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                 <BarChart3Icon className="h-8 w-8 text-muted-foreground/40" aria-hidden />
-                <p className="max-w-52">{emptyMessage}</p>
+                <p className="max-w-52">{revenueEmptyMessage}</p>
               </div>
             )}
           </CardContent>

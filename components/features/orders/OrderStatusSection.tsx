@@ -1,54 +1,72 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/db/client'
 import { OrderStatusTimeline } from './OrderStatusTimeline'
 import { CancelOrderButton } from './CancelOrderButton'
 import type { OrderStatus } from '@/lib/constants/order-status'
 
+/**
+ * Estado del pedido: puro render de la prop `status`, sin estado propio.
+ *
+ * ANTES esta sección tenía su propio `useState(initialStatus)` + su propio
+ * canal de Postgres Changes. Dos consecuencias, ambas malas:
+ *
+ * 1. Era un "estado derivado copiado a estado local": al llegar
+ *    `router.refresh()` la prop cambiaba, pero el `useState` no se
+ *    reinicializa nunca — el timeline podía quedar desincronizado del resto
+ *    de la página.
+ * 2. El estado vivía DENTRO de este componente, así que el servidor (que
+ *    decide qué tarjetas dibuja) nunca se enteraba de la oferta del
+ *    repartidor: el timeline avanzaba solo y la tarjeta de pago no aparecía
+ *    hasta recargar a mano.
+ *
+ * Ahora una sola fuente de verdad: el servidor renderiza el estado real y
+ * `RealtimeRefresh` (en la página) le avisa cuándo volver a preguntar.
+ *
+ * Desde la Fase 5 del plan "pagar al recibir", esta tarjeta NO repite el
+ * recordatorio de pago: la nota vive en `OrderSummaryCard`, junto al monto que
+ * explica, y acá solo quedaba duplicada (y con el medio —"por Yape" o "en
+ * efectivo"— que el sistema dejó de preguntar).
+ */
 export function OrderStatusSection({
   orderId,
-  initialStatus,
+  status,
 }: {
   orderId: string
-  initialStatus: OrderStatus
+  status: OrderStatus
 }) {
-  const [status, setStatus] = useState<OrderStatus>(initialStatus)
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`,
-        },
-        (payload) => {
-          if (payload.new.status) {
-            setStatus(payload.new.status as OrderStatus)
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [orderId])
+  // Entregado: la card de estados ya no aporta nada — el pedido terminó su
+  // ciclo. Se oculta completa (wrapper incluido) para que el resto del detalle
+  // suba sin un bloque vacío. Como `status` llega del servidor, aplica tanto
+  // al abrir un pedido ya entregado como a la transición en vivo mientras el
+  // cliente está en la página.
+  if (status === 'DELIVERED') return null
 
   return (
-    <>
-      <OrderStatusTimeline status={status} />
-      {status === 'PENDING' && (
+    // Sin margen propio: el espaciado lo controla el grid del layout de la
+    // página (Fase 2.1). Asumir que es el primer bloque de la página rompía
+    // el espaciado cuando la página lo reordenaba.
+    <div className="rounded-3xl border border-black/5 bg-white/70 p-5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+      {/* Título con el mismo estilo del h2 "Entrega": en desktop esta tarjeta
+          vive en la columna principal junto a otras tituladas, y sin encabezado
+          quedaba como una lista suelta sin ancla en el esquema de la página
+          (h1 → h2 de cada tarjeta). */}
+      <h2 className="text-sm font-medium text-muted-foreground">Estado del pedido</h2>
+      <div className="mt-3">
+        <OrderStatusTimeline status={status} />
+      </div>
+      {/* Cancelable mientras el cliente NO haya cerrado su elección de pago
+          (PENDING o AWAITING_PAYMENT): en ese punto todavía no se movió nada de
+          manos — sin pago confirmado no hay repartidor en camino ni voucher
+          subido que borrar, y ninguna de las dos partes arriesgó nada. El corte
+          lo marca `payment_confirmed_at`, que solo se escribe al elegir (también
+          con pago al recibir, donde el dinero recién se cobra en la puerta).
+          Mismo criterio que la policy orders_update_own_customer_cancel, que es
+          la que decide de verdad. */}
+      {(status === 'PENDING' || status === 'AWAITING_PAYMENT') && (
         <div className="mt-6">
           <CancelOrderButton orderId={orderId} />
         </div>
       )}
-    </>
+    </div>
   )
 }

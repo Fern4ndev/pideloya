@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/server'
 import { CartClient } from '@/components/features/cart/CartClient'
+import { ClientPageContainer } from '@/components/layout/ClientPageContainer'
 
 export default async function CartPage() {
   const supabase = await createClient()
@@ -11,7 +12,7 @@ export default async function CartPage() {
     .limit(1)
 
   return (
-    <div>
+    <ClientPageContainer size="wide">
       <h1 className="text-2xl font-semibold tracking-tight">Tu carrito</h1>
       <p className="mt-1 text-sm text-muted-foreground">Revisa tu pedido antes de confirmarlo.</p>
 
@@ -24,6 +25,6 @@ export default async function CartPage() {
           }))}
         />
       </div>
-    </div>
+    </ClientPageContainer>
   )
 }

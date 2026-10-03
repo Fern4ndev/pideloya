@@ -2,8 +2,8 @@
 
 import useSWR from 'swr'
 import { createClient } from '@/lib/db/client'
-import { AcceptOrderButton } from '@/components/features/deliveries/AcceptOrderButton'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
+import { SendOfferForm } from '@/components/features/deliveries/SendOfferForm'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
 import type { ApiOrder } from '@/types/order'
@@ -22,7 +22,13 @@ async function fetchAvailableOrders(url: string): Promise<{ success: true; data:
   return res.json()
 }
 
-export function AvailableOrdersClient() {
+export function AvailableOrdersClient({
+  acceptsPayOnDelivery,
+}: {
+  /** `profiles.accepts_pay_on_delivery` del repartidor: la página lo lee una vez
+   * (Server Component) y lo baja para no repetir la consulta por tarjeta. */
+  acceptsPayOnDelivery: boolean
+}) {
   const { data, error, isLoading, mutate } = useSWR<{ success: true; data: ApiOrder[] }>(
     '/api/v1/orders',
     fetchAvailableOrders,
@@ -36,6 +42,8 @@ export function AvailableOrdersClient() {
     () => mutate()
   )
 
+  // Solo PENDING: un pedido en AWAITING_PAYMENT ya tiene un repartidor
+  // ofertando (no necesariamente éste), así que no se ofrece en "Disponibles".
   const orders = (data?.data ?? []).filter((o) => o.status === 'PENDING')
 
   if (isLoading) {
@@ -73,7 +81,22 @@ export function AvailableOrdersClient() {
                 itemsSummary={itemsSummary}
                 deliveryAddress={order.addresses?.address_text}
                 total={Number(order.total)}
-                action={<AcceptOrderButton orderId={order.id} />}
+                footer={
+                  <div className="space-y-2">
+                    {/* La comida como LÍNEA propia, no sumergida en el total.
+                        Si el cliente termina pagando al recibir, ESTA es la
+                        plata que el repartidor adelanta al recoger — tiene que
+                        verla ANTES de ofertar, porque después solo queda
+                        retirar. */}
+                    <p className="text-xs text-muted-foreground">
+                      Comida: S/ {Number(order.total).toFixed(2)}
+                      {acceptsPayOnDelivery
+                        ? ' · si te pagan al recibir, la adelantas tú'
+                        : ' · este pedido solo admite pago por adelantado'}
+                    </p>
+                    <SendOfferForm orderId={order.id} />
+                  </div>
+                }
               />
             )
           })}

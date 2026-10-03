@@ -16,11 +16,10 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { EmptyState } from '@/components/ui/empty-state'
-import { RealtimeRefresh } from '@/components/ui/realtime-refresh'
 import { BikeIcon, SearchXIcon } from 'lucide-react'
 
 const DELIVERY_COLUMNS =
-  'id, full_name, phone, document_type, document_number, vehicle_type, is_active, anonymized_at, created_at'
+  'id, full_name, phone, document_type, document_number, vehicle_type, avatar_url, is_active, anonymized_at, created_at'
 
 // Whitelists y appliers de filtros viven en lib/admin/query-builders
 // (compartidos con el export CSV).
@@ -162,16 +161,10 @@ export default async function AdminDeliveryPage({
 
   return (
     <PageContainer size="full">
-      {/* Fase 10: un repartidor nuevo registrado desde /registro aparece
-       * sin refrescar. INSERT + filtro server-side role=DELIVERY: los
-       * INSERT de perfiles de clientes (la mayoría) no disparan refresh. */}
-      <RealtimeRefresh
-        channelName="admin-repartidores"
-        table="profiles"
-        event="INSERT"
-        filter="role=eq.DELIVERY"
-      />
-
+      {/* El refresco en vivo de esta lista (un repartidor nuevo aparece sin
+       * recargar) lo aporta el canal realtime montado en
+       * app/admin/layout.tsx — el mismo que actualiza el badge del sidebar.
+       * Vivía aquí, pero al subirlo al layout dejó de duplicarse. */}
       <PageHeader
         title="Repartidores"
         description="Revisa y administra a los repartidores que se registraron desde la página principal."

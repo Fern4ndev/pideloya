@@ -30,16 +30,34 @@ export function ImageUploader({
   currentUrl,
   folder,
   onUploaded,
+  onStaged,
+  staged = false,
   onRemove,
   helpText = 'JPG, PNG o WEBP · máx. 3MB',
   size = 'md',
   align = 'left',
+  shape = 'square',
+  fit = 'cover',
+  disabled = false,
 }: {
   label: string
   currentUrl: string | null
   /** Carpeta dentro de ImageKit, solo para organización — ej. "/restaurants/abc123/logo" */
   folder: string
-  onUploaded: (image: UploadedImage) => void
+  /** Se ejecuta tras subir exitosamente a ImageKit (modo inmediato). */
+  onUploaded?: (image: UploadedImage) => void
+  /**
+   * Modo diferido (`staged`): en vez de subir a ImageKit, el archivo se
+   * queda en memoria y se notifica aquí. La subida real ocurre después,
+   * cuando la UI lo decida (ej. al pulsar "Guardar cambios").
+   */
+  onStaged?: (file: File) => void
+  /**
+   * Activa el modo diferido: validar + preview local, sin tocar ImageKit.
+   * Solo lo usan los uploaders del perfil de repartidor; logo/producto
+   * siguen en modo inmediato (default).
+   */
+  staged?: boolean
   /** Si se define, muestra un botón para quitar la foto sin subir una nueva */
   onRemove?: () => void
   helpText?: string
@@ -48,6 +66,20 @@ export function ImageUploader({
    * pensado para formularios donde la foto es el elemento principal
    * (ej. producto). "left" (default) los pone lado a lado. */
   align?: 'left' | 'center'
+  /** Forma del recuadro de vista previa. "circle" para la foto de una
+   * persona (avatar del repartidor): un círculo comunica "esto eres tú"
+   * y separa visualmente el avatar de los logos/QR. "square" (default)
+   * para logo y QR, donde recortar las esquinas perjudica la lectura. */
+  shape?: 'square' | 'circle'
+  /** Cómo encaja la imagen en el recuadro. "cover" (default) la recorta
+   * para llenarlo — correcto para un logo o una foto de perfil. "contain"
+   * la muestra completa con fondo alrededor — imprescindible para un QR:
+   * una foto rectangular recortada a cuadrado puede cortar el propio
+   * código y dejarlo imposible de escanear. */
+  fit?: 'cover' | 'contain'
+  /** Bloquea la selección mientras la UI principal está en proceso
+   * (ej. "Guardando…" con uploads diferidos pendientes). */
+  disabled?: boolean
 }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -57,7 +89,20 @@ export function ImageUploader({
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // El preview local (objectURL) y `currentUrl` del servidor conviven: si
+  // la URL del servidor cambia (la Server Action revalidó tras guardar),
+  // el preview pasa a ser esa URL — que es la fuente de verdad. Sin esto,
+  // un preview local quedaría mostrando el archivo viejo tras revalidar.
+  // Patrón "ajustar estado durante el render" (react.dev) en vez de un
+  // effect con setState, que este repo prohíbe en lint.
+  const [prevCurrentUrl, setPrevCurrentUrl] = useState(currentUrl)
+  if (currentUrl !== prevCurrentUrl) {
+    setPrevCurrentUrl(currentUrl)
+    setPreview(currentUrl)
+  }
+
   async function processFile(file: File) {
+    if (disabled) return
     if (!file.type.startsWith('image/')) {
       setError('El archivo debe ser una imagen')
       return
@@ -71,6 +116,16 @@ export function ImageUploader({
     // Vista previa inmediata con el archivo local, mientras sube de
     // verdad — así no se siente lento aunque la red esté lenta.
     setPreview(URL.createObjectURL(file))
+
+    // Modo diferido: la validación y el preview ya están; el archivo se
+    // guarda en el draft y NADA viaja a ImageKit hasta que la UI lo
+    // decida (p. ej. "Guardar cambios").
+    if (staged) {
+      onStaged?.(file)
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
+
     setIsUploading(true)
     setProgress(0)
 
@@ -91,7 +146,7 @@ export function ImageUploader({
         throw new Error('ImageKit no devolvió la URL esperada')
       }
 
-      onUploaded({ url: result.url, fileId: result.fileId })
+      onUploaded?.({ url: result.url, fileId: result.fileId })
       setPreview(result.url)
     } catch (err) {
       setError(
@@ -111,13 +166,13 @@ export function ImageUploader({
 
   function handleDragOver(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault()
-    if (!isUploading) setIsDragging(true)
+    if (!isUploading && !disabled) setIsDragging(true)
   }
 
   function handleDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault()
     setIsDragging(false)
-    if (isUploading) return
+    if (isUploading || disabled) return
     const file = e.dataTransfer.files?.[0]
     if (file) processFile(file)
   }
@@ -151,8 +206,9 @@ export function ImageUploader({
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           className={cn(
-            'group/uploader relative flex shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 bg-muted/40 transition-colors',
+            'group/uploader relative flex shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden border-2 bg-muted/40 transition-colors',
             SIZE_CLASSES[size],
+            shape === 'circle' ? 'rounded-full' : 'rounded-2xl',
             preview ? 'border-solid border-transparent' : 'border-dashed',
             !preview &&
               (isDragging
@@ -166,7 +222,10 @@ export function ImageUploader({
               <img
                 src={preview}
                 alt={label}
-                className="h-full w-full object-cover"
+                className={cn(
+                  'h-full w-full',
+                  fit === 'contain' ? 'object-contain' : 'object-cover'
+                )}
               />
 
               {/* Overlay "Cambiar" al pasar el mouse */}
@@ -178,11 +237,29 @@ export function ImageUploader({
               </div>
 
               {/* Botón "Quitar" */}
-              {onRemove && !isUploading && (
+              {onRemove && !isUploading && !disabled && (
                 <button
                   type="button"
                   onClick={handleRemove}
-                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover/uploader:opacity-100"
+                  className={cn(
+                    'absolute flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-opacity hover:bg-black/80 focus-visible:opacity-100',
+                    shape === 'circle'
+                      ? // En un círculo, `right-1.5 top-1.5` cae fuera de la
+                        // circunferencia: la esquina superior derecha es
+                        // justo lo que el `rounded-full` elimina, y el
+                        // `overflow-hidden` del recuadro recortaría el
+                        // botón hasta dejarlo invisible. Anclado abajo al
+                        // centro entra completo en cualquier tamaño.
+                        // Además, en un dispositivo táctil no existe
+                        // `:hover` (los repartidores usan el celular):
+                        // mostrarlo siempre donde no hay puntero fino, o
+                        // si recibe foco por teclado. El avatar es el
+                        // único que necesita esto; logo/QR conservan el
+                        // comportamiento de siempre (aparece al pasar el
+                        // mouse) para no alterar su UI ya validada.
+                        'bottom-1.5 left-1/2 -translate-x-1/2 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/uploader:opacity-100'
+                      : 'right-1.5 top-1.5 opacity-0 group-hover/uploader:opacity-100'
+                  )}
                   aria-label="Quitar foto"
                 >
                   <XIcon className="h-3.5 w-3.5" />
@@ -212,7 +289,7 @@ export function ImageUploader({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={handleFileChange}
-            disabled={isUploading}
+            disabled={isUploading || disabled}
             className="sr-only"
           />
         </label>

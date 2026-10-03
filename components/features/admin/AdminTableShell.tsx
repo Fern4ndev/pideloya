@@ -38,10 +38,12 @@ export function AdminTableShell({
   pagination,
   children,
 }: {
-  searchPlaceholder: string
+  /** Omitir en tablas SIN búsqueda (p. ej. /admin/pagos): la caja se renderiza
+   * solo cuando existe, para no ofrecer un filtro que no filtra nada. */
+  searchPlaceholder?: string
   statusOptions?: StatusFilterOption[]
-  /** Clave de entidad para el export CSV (restaurants|customers|deliveries|orders). */
-  exportEntity: 'restaurants' | 'customers' | 'deliveries' | 'orders'
+  /** Clave de entidad para el export CSV (restaurants|customers|deliveries|orders|payments). */
+  exportEntity: 'restaurants' | 'customers' | 'deliveries' | 'orders' | 'payments'
   /** Estado de paginación calculado por el server component. */
   pagination: AdminTableShellPagination
   children: React.ReactNode
@@ -101,16 +103,18 @@ export function AdminTableShell({
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <form onSubmit={submitSearch} className="relative max-w-sm flex-1">
-          <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-            aria-label={searchPlaceholder}
-          />
-        </form>
+        {searchPlaceholder && (
+          <form onSubmit={submitSearch} className="relative max-w-sm flex-1">
+            <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+              aria-label={searchPlaceholder}
+            />
+          </form>
+        )}
 
         {statusOptions && (
           <StatusFilterSelect

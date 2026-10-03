@@ -248,10 +248,10 @@ pideloyaa/
 | `AdvanceStatusButton.tsx` | Botón avanzar estado |
 | `AvailableOrdersClient.tsx` | Lista de pedidos disponibles |
 | `DeliveryDashboardCards.tsx` | Tarjetas dashboard repartidor |
+| `DeliveryDetail.tsx` | Detalle completo de la entrega activa |
 | `DeliveryDetailsDialog.tsx` | Diálogo de detalles de entrega |
 | `DeliveryHistoryTable.tsx` | Tabla de historial de entregas |
 | `DeliveryOrderCard.tsx` | Tarjeta de pedido para repartidor |
-| `DeliveryOrdersClient.tsx` | Lista de pedidos asignados |
 
 #### home/ — Landing Page
 | Componente | Descripción |

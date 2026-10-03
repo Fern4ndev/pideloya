@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo } from 'react'
-import useSWR from 'swr'
+import { useEffect, useMemo, useRef } from 'react'
+import useSWRInfinite from 'swr/infinite'
 import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
@@ -11,11 +11,18 @@ import {
   ORDER_STATUS_GROUPS,
   type OrderStatusFilter,
 } from '@/lib/constants/order-status'
+import { addDays, dayParts, limaDayKey, MONTHS_FULL } from '@/lib/dates'
 import { cn } from '@/lib/utils'
-import { ChevronRightIcon, ReceiptIcon, SearchIcon } from 'lucide-react'
-import type { ApiOrder } from '@/types/order'
+import { Button } from '@/components/ui/button'
+import { ChevronRightIcon, ClockIcon, QrCodeIcon, ReceiptIcon } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
+import type { ApiOrder, ApiOrdersMeta } from '@/types/order'
 
-async function fetchOrders(url: string): Promise<{ success: true; data: ApiOrder[] }> {
+const PAGE_SIZE = 15
+
+type OrdersPage = { success: true; data: ApiOrder[]; meta?: ApiOrdersMeta }
+
+async function fetchOrders(url: string): Promise<OrdersPage> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -30,8 +37,8 @@ async function fetchOrders(url: string): Promise<{ success: true; data: ApiOrder
 }
 
 const FILTER_CHIPS = [
-  { key: null, label: 'Todos' },
   { key: 'active', label: 'Activos' },
+  { key: null, label: 'Todos' },
   { key: 'delivered', label: 'Entregados' },
   { key: 'cancelled', label: 'Cancelados' },
 ] as const satisfies readonly { key: OrderStatusFilter | null; label: string }[]
@@ -66,8 +73,25 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
   const router = useRouter()
   const activeFilter = status ?? null
 
-  const { data, error, isLoading, mutate } = useSWR<{ success: true; data: ApiOrder[] }>(
-    '/api/v1/orders',
+  const {
+    data,
+    error,
+    isLoading,
+    isValidating,
+    size,
+    setSize,
+    mutate,
+  } = useSWRInfinite<OrdersPage>(
+    (pageIndex, prevPage) => {
+      // Una página corta significa que no quedan más pedidos: corta la serie.
+      if (pageIndex > 0 && prevPage && prevPage.data.length < PAGE_SIZE) return null
+      const params = new URLSearchParams({
+        offset: String(pageIndex * PAGE_SIZE),
+        limit: String(PAGE_SIZE),
+      })
+      if (status) params.set('status', status)
+      return `/api/v1/orders?${params}`
+    },
     fetchOrders,
     { revalidateOnFocus: true }
   )
@@ -77,23 +101,46 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
     () => mutate()
   )
 
-  const orders = useMemo(() => data?.data ?? [], [data])
-  const pendingCount = orders.filter((o) => o.status === 'PENDING').length
-  const showChips = isLoading || orders.length > 0
+  const orders = useMemo(() => data?.flatMap((page) => page.data) ?? [], [data])
+  // La meta viene en la primera página (misma serie, mismo filtro).
+  const meta = data?.[0]?.meta
+  const counts = meta?.counts
+  const totalOrders = counts?.all ?? orders.length
+  // Fallback al array cargado mientras cambia el filtro (meta aún no llega).
+  const pendingCount =
+    counts?.pending ?? orders.filter((o) => o.status === 'PENDING').length
+  // El pedido que espera la confirmación del pago es el único que necesita una
+  // acción del cliente AHORA: por eso tiene su propio banner, más urgente que
+  // el de "buscando repartidor" (que es espera pasiva). Si hubiera más de uno
+  // —raro, pero posible con varios pedidos activos— se enlaza al primero: el
+  // resto se ve en la lista de abajo. La página 1 siempre está cargada y ese
+  // pedido es reciente, así que encontrarlo sobre lo acumulado alcanza.
+  const awaitingPaymentOrder = orders.find((o) => o.status === 'AWAITING_PAYMENT')
+  // `totalOrders` (global) y no `orders.length`: con un filtro sin resultados
+  // la página viene vacía y los chips deben seguir visibles para poder
+  // volver a "Todos".
+  const showChips = isLoading || totalOrders > 0
 
-  const counts = useMemo(() => {
-    const result: Record<OrderStatusFilter, number> = {
-      active: 0,
-      delivered: 0,
-      cancelled: 0,
-    }
-    for (const order of orders) {
-      for (const key of Object.keys(ORDER_STATUS_GROUPS) as OrderStatusFilter[]) {
-        if (matchesFilter(order.status, key)) result[key] += 1
-      }
-    }
-    return { all: orders.length, ...result }
-  }, [orders])
+  const isFetchingMore = isValidating && size > (data?.length ?? 0)
+  const lastPage = data?.[data.length - 1]
+  const hasMore = !!lastPage && lastPage.data.length === PAGE_SIZE
+
+  // Sentinel: precarga la siguiente página al acercarse al final. Se reconstruye
+  // al terminar cada carga (isValidating) para que, si sigue en pantalla, siga
+  // cargando; con el observer vivo mientras valida no se disparan pedidos dobles.
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMore || isValidating) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) setSize((s) => s + 1)
+      },
+      { rootMargin: '300px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, isValidating, setSize])
 
   const filteredOrders = useMemo(
     () =>
@@ -102,6 +149,30 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
         : orders,
     [orders, activeFilter]
   )
+
+  // Agrupa por día de Lima preservando el orden desc de la API. Corre solo con
+  // datos ya llegados (el SSR renderiza el skeleton), así que no hay riesgo de
+  // hydration mismatch por calcular "hoy" en el cliente.
+  const orderGroups = useMemo(() => {
+    const groups: { key: string; orders: ApiOrder[] }[] = []
+    for (const order of filteredOrders) {
+      const key = limaDayKey(new Date(order.created_at))
+      const last = groups[groups.length - 1]
+      if (last && last.key === key) last.orders.push(order)
+      else groups.push({ key, orders: [order] })
+    }
+    return groups
+  }, [filteredOrders])
+
+  const todayKey = limaDayKey(new Date())
+  const yesterdayKey = addDays(todayKey, -1)
+
+  function groupLabel(key: string) {
+    if (key === todayKey) return 'Hoy'
+    if (key === yesterdayKey) return 'Ayer'
+    const { day, month } = dayParts(key)
+    return `${day} de ${MONTHS_FULL[month - 1]} de ${key.slice(0, 4)}`
+  }
 
   function setFilter(next: OrderStatusFilter | null) {
     router.replace(
@@ -126,14 +197,14 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                 onClick={() => setFilter(chip.key)}
                 aria-pressed={isActive}
                 className={cn(
-                  'shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium backdrop-blur transition-colors',
+                  'shrink-0 rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur transition-all duration-150 active:scale-95',
                   isActive
-                    ? 'border-brand-500 bg-brand-500 text-white shadow-sm shadow-brand-500/30'
+                    ? 'border-brand-500 bg-brand-500 text-white shadow-client-card'
                     : 'border-black/5 bg-white/70 text-muted-foreground hover:border-brand-300 hover:text-foreground dark:border-white/10 dark:bg-white/5'
                 )}
               >
                 {chip.label}
-                {!isLoading && (
+                {!isLoading && counts && (
                   <span
                     className={cn(
                       'ml-1.5 inline-flex min-w-5 justify-center rounded-full px-1.5 py-px text-xs font-semibold tabular-nums',
@@ -151,17 +222,44 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
         </section>
       )}
 
+      {awaitingPaymentOrder && (!activeFilter || activeFilter === 'active') && (
+        <Link
+          href={`/cliente/pedidos/${awaitingPaymentOrder.id}`}
+          className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm transition-colors hover:bg-amber-100/80"
+        >
+          {/* amber-700 y no amber-600: sobre el fondo del banner el 600 da
+              3.11:1, por debajo del 4.5:1 que necesita el texto. El 700 da
+              4.89:1 sobre el banner y 4.52:1 sobre el hover, y el mismo cambio
+              aplica al ícono, que sobre el chip amber-100 pasaba de 2.87:1 a
+              4.52:1. */}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <QrCodeIcon className="h-4 w-4" />
+          </span>
+          {/* Una sola línea: el subtítulo ("Toca aquí para elegir cómo pagar")
+              repetía palabra por palabra lo que ya dice el título. */}
+          <p className="min-w-0 text-sm font-medium text-amber-800">
+            Tu repartidor ya está listo — elige cómo pagar el envío
+          </p>
+        </Link>
+      )}
+
       {pendingCount > 0 && (!activeFilter || activeFilter === 'active') && (
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-            <SearchIcon className="h-4 w-4" />
+          {/* Mismo reloj con "tic" que la carta cerrada y el carrito con el
+              negocio cerrado: un solo lenguaje visual para "esperando". */}
+          {/* Mismo ajuste de contraste que el banner de arriba: este subtítulo
+              estaba en amber-600 (3.11:1 sobre este fondo) y necesita 4.5:1.
+              Se corrige acá también para que los dos banners, que se ven
+              juntos, no queden con tonos distintos. */}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <ClockIcon className="h-4 w-4 animate-clock-tick" />
           </span>
           <div>
             <p className="text-sm font-medium text-amber-800">
               {pendingCount} {pendingCount === 1 ? 'pedido buscando' : 'pedidos buscando'} repartidor
             </p>
-            <p className="text-xs text-amber-600">
-              Te avisaremos cuando alguien lo acepte
+            <p className="text-xs text-amber-700">
+              Te avisaremos cuando un repartidor te ofrezca el envío
             </p>
           </div>
         </div>
@@ -181,97 +279,115 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
         </div>
       )}
 
-      {!error && !isLoading && filteredOrders.length > 0 && (
-        <div className="mt-6 space-y-3">
-          {filteredOrders.map((order) => {
-            const itemsSummary = order.order_items
-              ?.map((i) => `${i.quantity}x ${i.product_name}`)
-              .join(', ') ?? ''
-            const previewItems = (order.order_items ?? []).slice(0, 3)
-            return (
-              <Link
-                key={order.id}
-                href={`/cliente/pedidos/${order.id}`}
-                className="group block rounded-3xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 gap-3">
-                    {previewItems.length > 0 ? (
-                      <div className="mt-0.5 flex shrink-0 -space-x-2.5">
-                        {previewItems.map((item, i: number) => (
-                          <div
-                            key={i}
-                            className="h-10 w-10 overflow-hidden rounded-2xl bg-muted ring-2 ring-white dark:ring-neutral-900"
-                          >
-                            {item.image_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={item.image_url}
-                                alt={item.product_name ?? ''}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
-                                {item.product_name?.charAt(0) ?? '?'}
-                              </div>
-                            )}
+      {!error && !isLoading && orderGroups.length > 0 && (
+        <div className="mt-6 space-y-5">
+          {orderGroups.map((group) => (
+            <section key={group.key} aria-label={groupLabel(group.key)}>
+              <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+                {groupLabel(group.key)}
+              </h3>
+              <div className="space-y-3">
+                {group.orders.map((order) => {
+                  const itemsSummary = order.order_items
+                    ?.map((i) => `${i.quantity}x ${i.product_name}`)
+                    .join(', ') ?? ''
+                  const previewItems = (order.order_items ?? []).slice(0, 3)
+                  return (
+                    <Link
+                      key={order.id}
+                      href={`/cliente/pedidos/${order.id}`}
+                      className="group block rounded-3xl border border-black/5 bg-white/70 p-4 shadow-client-card backdrop-blur-xl transition-all duration-300 ease-client hover:-translate-y-0.5 hover:shadow-client-card-hover dark:border-white/10 dark:bg-white/5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 gap-3">
+                          {previewItems.length > 0 ? (
+                            <div className="mt-0.5 flex shrink-0 -space-x-2.5">
+                              {previewItems.map((item, i: number) => (
+                                <div
+                                  key={i}
+                                  className="h-10 w-10 overflow-hidden rounded-2xl bg-muted shadow-sm ring-2 ring-white dark:ring-neutral-900"
+                                >
+                                  {item.image_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={item.image_url}
+                                      alt={item.product_name ?? ''}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
+                                      {item.product_name?.charAt(0) ?? '?'}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600">
+                              <ReceiptIcon className="h-5 w-5" />
+                            </span>)}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{itemsSummary}</p>
+                            {/* Solo hora: la fecha ya está en el encabezado del grupo. */}
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {new Date(order.created_at).toLocaleTimeString('es-PE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
                           </div>
-                        ))}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <div className="text-right">
+                            <OrderStatusBadge status={order.status} />
+                            <p className="mt-1 text-sm font-semibold">
+                              S/ {Number(order.total).toFixed(2)}
+                            </p>
+                          </div>
+                          <ChevronRightIcon className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+                        </div>
                       </div>
-                    ) : (
-                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600">
-                        <ReceiptIcon className="h-5 w-5" />
-                      </span>)}
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{itemsSummary}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString('es-PE', {
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <div className="text-right">
-                      <OrderStatusBadge status={order.status} />
-                      <p className="mt-1 text-sm font-semibold">
-                        S/ {Number(order.total).toFixed(2)}
-                      </p>
-                    </div>
-                    <ChevronRightIcon className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </div>
-              </Link>
-            )
-          })}
+                    </Link>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
-      {!error && !isLoading && orders.length > 0 && filteredOrders.length === 0 && activeFilter && (
-        <div className="mt-6 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-12 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-            <ReceiptIcon className="h-6 w-6 text-muted-foreground" />
-          </span>
-          <p className="mt-4 font-medium">{EMPTY_STATE_BY_FILTER[activeFilter].title}</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            {EMPTY_STATE_BY_FILTER[activeFilter].description}
-          </p>
+      {hasMore && <div ref={sentinelRef} className="h-px" aria-hidden="true" />}
+
+      {!error && !isLoading && hasMore && (
+        <div className="mt-5 flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full px-6"
+            disabled={isFetchingMore}
+            onClick={() => setSize(size + 1)}
+          >
+            {isFetchingMore ? 'Cargando…' : 'Cargar más'}
+          </Button>
         </div>
       )}
 
-      {!error && !isLoading && orders.length === 0 && (
-        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-black/10 bg-black/[0.02] px-6 py-14 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white">
-            <ReceiptIcon className="h-6 w-6" />
-          </span>
-          <p className="mt-4 font-medium">Todavía no has hecho ningún pedido</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Ve a un negocio y arma tu primer pedido.
-          </p>
-        </div>
+      {!error && !isLoading && totalOrders > 0 && filteredOrders.length === 0 && activeFilter && (
+        <EmptyState
+          icon={ReceiptIcon}
+          title={EMPTY_STATE_BY_FILTER[activeFilter].title}
+          description={EMPTY_STATE_BY_FILTER[activeFilter].description}
+          className="mt-6 rounded-3xl border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+        />
+      )}
+
+      {!error && !isLoading && totalOrders === 0 && (
+        <EmptyState
+          icon={ReceiptIcon}
+          title="Todavía no has hecho ningún pedido"
+          description="Ve a un negocio y arma tu primer pedido."
+          className="mt-10 rounded-3xl border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+        />
       )}
     </>
   )

@@ -1,0 +1,154 @@
+-- ============================================================================
+-- 20260930100400_drop_legacy_offer_functions.sql
+-- Fase 9 — drop de funciones legacy de la oferta de envío.
+--
+-- Qué quita:
+--   1. confirm_delivery_payment(uuid)            (migración 20260928100200)
+--      Versión de 1 argumento SIN p_voucher_path: confirmaba el pago sin
+--      exigir comprobante. Sigue viva solo como sobrecarga de la nueva
+--      confirm_delivery_payment(uuid, text) (20260930100300), que es la que
+--      usan la Server Action y la API v1. Postgres resuelve por firma, así
+--      que el drop del (uuid) NO toca el (uuid, text).
+--   2. get_delivery_offer_profile(uuid)          (migración 20260928100200)
+--      Reemplazada por get_delivery_offer_details(uuid) (20260930100200),
+--      que además expone phone y payment_voucher_path para el flujo Yape.
+--
+-- Por qué es seguro ahora:
+--   - grep de la app: ningún archivo llama confirm_delivery_payment con un
+--     solo argumento ni get_delivery_offer_profile; todos los callers pasan
+--     p_voucher_path o usan get_delivery_offer_details.
+--   - La suite E2E (scripts/e2e-delivery-offer.mjs, 572 líneas, TODO VERDE)
+--     ejercita la nueva firma y get_delivery_offer_details contra la base
+--     real, así que el contrato nuevo ya está probado de punta a punta.
+--   - Dejarlas vivas es un riesgo: un caller accidental podría confirmar un
+--     pago SIN voucher y saltarse la validación de comprobante.
+--
+-- Orden de despliegue (plan, Fase 9 / paso 6): esta migración va AL FINAL —
+-- después de que la app que llama a las firmas nuevas esté desplegada. En
+-- este repo ya se cumplió (fases 1–8 aplicadas y verificadas antes de esto).
+-- ============================================================================
+
+-- 1) Sobrecarga legacy de un argumento. Drop con firma explícita: sin ella,
+--    drop function confirm_delivery_payment sería ambiguo con la sobrecarga
+--    (uuid, text) y Postgres fallaría con "function is not unique".
+drop function public.confirm_delivery_payment(uuid);
+
+-- 2) Función de perfil legacy (sin teléfono ni voucher).
+drop function public.get_delivery_offer_profile(uuid);
+
+-- ----------------------------------------------------------------------------
+-- ROLLBACK (solo si hay que revertir el despliegue a una versión de la app
+-- anterior a 20260930100200/20260930100300). Reproduce VERBATIM los cuerpos
+-- de la migración 20260928100200 para dejar la base exactamente como estaba.
+--
+-- begin;
+--
+-- -- a) confirm_delivery_payment(uuid) — tal como la creó 20260928100200.
+-- create or replace function public.confirm_delivery_payment(p_order_id uuid)
+-- returns void
+-- language plpgsql
+-- security definer
+-- set search_path = public
+-- as $$
+-- declare
+--   v_customer_id uuid;
+--   v_status public.order_status;
+--   v_delivery_id uuid;
+--   v_fee numeric(10,2);
+--   v_confirmed_at timestamptz;
+-- begin
+--   if public.current_profile_id() is null then
+--     raise exception 'No autenticado'
+--       using errcode = '42501';
+--   end if;
+--
+--   select o.customer_id, o.status, d.id, d.delivery_fee, d.payment_confirmed_at
+--     into v_customer_id, v_status, v_delivery_id, v_fee, v_confirmed_at
+--   from public.orders o
+--   left join public.deliveries d on d.order_id = o.id
+--   where o.id = p_order_id
+--   for update of o;
+--
+--   if not found then
+--     raise exception 'Pedido no encontrado'
+--       using errcode = 'P0002';
+--   end if;
+--
+--   if v_customer_id is distinct from public.current_profile_id() then
+--     raise exception 'No puedes confirmar el pago de un pedido que no es tuyo'
+--       using errcode = '42501';
+--   end if;
+--
+--   if v_confirmed_at is not null then
+--     raise exception 'El pago de este pedido ya fue confirmado'
+--       using errcode = '23505';
+--   end if;
+--
+--   if v_status is distinct from 'AWAITING_PAYMENT' then
+--     raise exception 'Este pedido no tiene una oferta de envío esperando confirmación'
+--       using errcode = '22000';
+--   end if;
+--
+--   if v_delivery_id is null then
+--     raise exception 'No hay repartidor asociado a este pedido'
+--       using errcode = '22000';
+--   end if;
+--
+--   if v_fee is null then
+--     raise exception 'El repartidor no definió una tarifa de envío'
+--       using errcode = '22000';
+--   end if;
+--
+--   update public.deliveries
+--   set payment_confirmed_at = now(),
+--       accepted_at = now()
+--   where id = v_delivery_id
+--     and payment_confirmed_at is null;
+--
+--   if not found then
+--     raise exception 'El pago de este pedido ya fue confirmado'
+--       using errcode = '23505';
+--   end if;
+--
+--   update public.orders
+--   set status = 'ASSIGNED',
+--       delivery_fee = v_fee
+--   where id = p_order_id
+--     and status = 'AWAITING_PAYMENT';
+--
+--   if not found then
+--     raise exception 'El pedido cambió de estado antes de poder confirmar el pago'
+--       using errcode = '40001';
+--   end if;
+-- end;
+-- $$;
+--
+-- revoke all on function public.confirm_delivery_payment(uuid) from public, anon;
+-- grant execute on function public.confirm_delivery_payment(uuid) to authenticated;
+--
+-- -- b) get_delivery_offer_profile(uuid) — tal como la creó 20260928100200.
+-- create or replace function public.get_delivery_offer_profile(p_order_id uuid)
+-- returns table (
+--   full_name text,
+--   avatar_url text,
+--   yape_qr_url text,
+--   delivery_fee numeric
+-- )
+-- language sql
+-- security definer
+-- set search_path = public
+-- stable
+-- as $$
+--   select p.full_name, p.avatar_url, p.yape_qr_url, d.delivery_fee
+--   from public.orders o
+--   join public.deliveries d on d.order_id = o.id
+--   join public.profiles p on p.id = d.delivery_person_id
+--   where o.id = p_order_id
+--     and o.customer_id = public.current_profile_id()
+-- $$;
+--
+-- revoke all on function public.get_delivery_offer_profile(uuid) from public, anon;
+-- grant execute on function public.get_delivery_offer_profile(uuid) to authenticated;
+--
+-- commit;
+-- ----------------------------------------------------------------------------

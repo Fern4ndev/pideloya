@@ -45,6 +45,61 @@ async function assertIsAdmin(): Promise<string> {
   return profile.id
 }
 
+/**
+ * Resuelve una incidencia de pago (Fase 8 del plan "Pagar al recibir").
+ *
+ * No mueve dinero ni cambia el estado del pedido: marca la incidencia como
+ * atendida y deja la nota interna del admin en la entrada de auditoría (la
+ * tabla `payment_incidents` no guarda la nota de resolución — el registro de
+ * gestión vive en `admin_audit_log.metadata.note`, que es donde se audita).
+ *
+ * `update ... is('resolved_at', null)` y no un update a ciegas: dos admins
+ * resolviendo a la vez no deben pisarse la firma. Si ya estaba resuelta se
+ * devuelve `success: false` sin escribir auditoría, para que el diálogo lo
+ * diga en vez de fingir un éxito.
+ */
+export async function resolvePaymentIncident(incidentId: string, note: string) {
+  const actorProfileId = await assertIsAdmin()
+  const adminClient = createServiceRoleClient()
+
+  const trimmedNote = (note ?? '').trim()
+  if (trimmedNote.length > 500) {
+    return {
+      success: false,
+      message: 'La nota no puede pasar de 500 caracteres.',
+    }
+  }
+
+  const { data: updated, error } = await adminClient
+    .from('payment_incidents')
+    .update({ resolved_at: new Date().toISOString(), resolved_by: actorProfileId })
+    .eq('id', incidentId)
+    .is('resolved_at', null)
+    .select('id, order_id, kind')
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+
+  if (!updated) {
+    return { success: false, message: 'Esa incidencia ya estaba resuelta.' }
+  }
+
+  await logAdminAction(adminClient, {
+    actorProfileId,
+    action: AUDIT_ACTIONS.resolvePaymentIncident,
+    targetTable: 'payment_incidents',
+    targetId: incidentId,
+    metadata: {
+      orderId: updated.order_id,
+      kind: updated.kind,
+      note: trimmedNote || null,
+    },
+  })
+
+  revalidatePath('/admin/pagos')
+  return { success: true, message: 'Incidencia resuelta' }
+}
+
 export async function approveRestaurant(restaurantId: string) {
   const actorProfileId = await assertIsAdmin()
   const adminClient = createServiceRoleClient()
@@ -265,7 +320,7 @@ export async function deactivateUser(profileId: string) {
     const activeDelivery = await getActiveDelivery(adminClient, profileId)
     if (activeDelivery) {
       throw new Error(
-        `Este repartidor tiene una entrega en curso (pedido #${activeDelivery.order_id.slice(0, 8)}). Complétala o reasígnala antes de desactivarlo.`
+        `Este repartidor tiene una entrega o una oferta de envío en curso (pedido #${activeDelivery.order_id.slice(0, 8)}). Complétala, retírala o reasígnala antes de desactivarlo.`
       )
     }
   }

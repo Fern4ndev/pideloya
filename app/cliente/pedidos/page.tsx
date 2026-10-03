@@ -1,4 +1,5 @@
 import { OrdersListClient } from '@/components/features/orders/OrdersListClient'
+import { ClientPageContainer } from '@/components/layout/ClientPageContainer'
 import type { OrderStatusFilter } from '@/lib/constants/order-status'
 
 type OrdersPageProps = {
@@ -14,12 +15,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     : undefined
 
   return (
-    <div>
+    <ClientPageContainer size="wide">
       <h1 className="text-2xl font-semibold tracking-tight">Mis pedidos</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         El historial y estado de todo lo que has pedido.
       </p>
       <OrdersListClient status={filter} />
-    </div>
+    </ClientPageContainer>
   )
 }

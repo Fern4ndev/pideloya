@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -39,6 +40,9 @@ type SidebarLink = {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
+  /** Contador a la derecha del label (ej. pendientes de aprobar).
+   * `count: 0` no dibuja nada. */
+  badge?: { count: number; label: string }
 }
 
 export function Sidebar({
@@ -149,6 +153,10 @@ export function Sidebar({
             pathname === link.href ||
             (link.href !== homeHref && pathname.startsWith(`${link.href}/`))
           const Icon = link.icon
+          const badge = link.badge
+          // En modo compacto no hay label ni espacio para el badge, pero el
+          // conteo no se pierde: viaja en el `title` del botón.
+          const showBadge = !compact && !!badge?.count
           return (
             <Button
               key={link.href}
@@ -156,11 +164,26 @@ export function Sidebar({
               nativeButton={false}
               variant={active ? 'lime' : 'ghost'}
               size="sm"
-              title={compact ? link.label : undefined}
+              title={
+                compact
+                  ? badge?.count
+                    ? `${link.label} (${badge.count})`
+                    : link.label
+                  : undefined
+              }
               className={cn('gap-2', compact ? 'justify-center px-0' : 'justify-start')}
             >
               <Icon className="h-4 w-4 shrink-0" />
               {!compact && link.label}
+              {showBadge && (
+                <Badge
+                  variant="secondary"
+                  className="ml-auto tabular-nums"
+                  aria-label={`${badge?.count} ${badge?.label}`}
+                >
+                  {badge?.count}
+                </Badge>
+              )}
             </Button>
           )
         })}

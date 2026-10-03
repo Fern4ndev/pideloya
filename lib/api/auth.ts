@@ -112,3 +112,23 @@ export function requireRole(context: AuthContext, allowedRoles: Role[]) {
 export function adminClient() {
   return createServiceRoleClient()
 }
+
+/**
+ * Cliente autenticado con el MISMO Bearer token de la petición: opera como
+ * `authenticated` y expone `auth.uid()` igual que el cliente del navegador.
+ *
+ * Es lo que necesitan las funciones RPC que resuelven identidad por dentro
+ * (offer_delivery, retract_delivery_offer, confirm_delivery_payment): con
+ * adminClient() no hay usuario, y esas funciones rechazan la llamada con
+ * 'No autenticado' a propósito. Usarlo es más simple que reimplementar sus
+ * validaciones acá.
+ *
+ * Llamar SIEMPRE después de `authenticateRequest(request)`: esta función no
+ * valida el token, solo lo reenvía.
+ */
+export function userClient(request: Request) {
+  const accessToken = (request.headers.get('authorization') ?? '')
+    .slice('Bearer '.length)
+    .trim()
+  return createBearerClient(accessToken)
+}

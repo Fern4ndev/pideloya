@@ -40,10 +40,15 @@ export default async function RepartidorHomePage() {
   // Solo entregas ya completadas dentro del rango: los gráficos son históricos.
   const since = new Date(`${addDays(todayKey, -RANGE_MAX_DAYS)}T00:00:00-05:00`).toISOString()
 
+  // `delivery_fee` es lo que el repartidor GANÓ por esa entrega; `orders.total`
+  // es el precio de la comida, que nunca fue suyo. El gráfico de ingresos se
+  // alimenta del primero: traer `total` era justo lo que producía el número
+  // equivocado (ver la corrección en DeliveryDashboardCharts). `orders(status)`
+  // se sigue necesitando para descartar entregas de pedidos no completados.
   const deliveries: DashboardDelivery[] = profileId
     ? ((await supabase
         .from('deliveries')
-        .select('delivered_at, orders(status, total)')
+        .select('delivered_at, delivery_fee, orders(status)')
         .eq('delivery_person_id', profileId)
         .gte('delivered_at', since)
         .order('delivered_at', { ascending: false })
@@ -56,7 +61,7 @@ export default async function RepartidorHomePage() {
     <PageContainer size="full">
       <PageHeader
         title="Panel de reparto"
-        description="Usa el menú de la izquierda para ir a Disponibles (aceptar pedidos) o Mis entregas (los que ya tienes asignados)."
+        description="Usa el menú de la izquierda para ir a Disponibles (ofertar por pedidos) o Mi entrega (la que tienes en curso)."
       />
 
       <div className="mt-6 space-y-6">

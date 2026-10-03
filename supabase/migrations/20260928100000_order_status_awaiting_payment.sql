@@ -1,0 +1,34 @@
+-- ============================================================================
+-- PideloYa — Nuevo estado de pedido: AWAITING_PAYMENT
+-- ============================================================================
+-- Se inserta entre PENDING y ASSIGNED: el repartidor ya propuso una tarifa
+-- de envío, pero el cliente todavía no confirma haber pagado por Yape.
+-- ASSIGNED sigue significando exactamente lo mismo que hoy ("repartidor en
+-- camino al negocio") — solo que ahora se llega ahí después de este paso,
+-- no directo desde PENDING.
+--
+-- ¿Por qué un archivo de migración propio? Dos motivos, y ninguno es
+-- cosmético:
+--   1. `ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma
+--      transacción en que lo agrega (limitación de Postgres). El Supabase CLI
+--      envuelve cada archivo de migración en su propia transacción, así que
+--      las policies/funciones que comparan contra 'AWAITING_PAYMENT' (ver
+--      20260928100200) tienen que vivir en un archivo distinto y posterior.
+--   2. Las migraciones ya aplicadas al proyecto remoto que comparan
+--      `status` contra literales (policies RLS, triggers) se evalúan en el
+--      momento de la query, no se "congelan" — agregar un valor al enum no
+--      las altera ni requiere recompilar nada. Un valor nuevo sin policies
+--      que lo permitan simplemente queda inalcanzable hasta la migración
+--      siguiente, que es exactamente el estado seguro intermedio que
+--      queremos.
+--
+-- Rollback: NO se revierte. Postgres no permite quitar un valor de un enum
+-- sin recrear el tipo entero (y con él, cada columna y policy que lo usa).
+-- Si este flujo se descarta, el valor queda en el enum sin usarse — es la
+-- única salida honesta y ya está documentada en el plan (Fase 9).
+--
+-- Sin backfill: ningún pedido existente está en este estado, y ninguno debe
+-- estarlo retroactivamente (nunca hubo una oferta de envío pendiente).
+-- ============================================================================
+
+alter type public.order_status add value if not exists 'AWAITING_PAYMENT' after 'PENDING';

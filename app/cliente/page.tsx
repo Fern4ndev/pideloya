@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
+import { StoreIcon } from 'lucide-react'
 import { ClienteHomeClient } from '@/components/features/cliente-home/ClienteHomeClient'
+import { EmptyState } from '@/components/ui/empty-state'
 import type { RestaurantCardData } from '@/components/features/restaurants/RestaurantCard'
 import type { FeaturedProduct } from '@/components/features/products/FeaturedProductCard'
 
@@ -78,10 +80,18 @@ export default async function ClienteHomePage() {
         </p>
       )}
 
-      {!error && restaurants && restaurants.length === 0 && <EmptyState />}
+      {!error && restaurants && restaurants.length === 0 && (
+        <EmptyState
+          icon={StoreIcon}
+          title="Todavía no hay negocios publicados"
+          description="En cuanto el administrador apruebe el primer negocio en Abancay, va a aparecer aquí."
+          className="mt-10 rounded-3xl"
+        />
+      )}
 
       {!error && restaurants && restaurants.length > 0 && (
         <ClienteHomeClient
+          greeting={limaGreeting()}
           restaurants={listedRestaurants}
           popularProducts={popularProducts}
           closedRestaurantIds={closedRestaurantIds}
@@ -91,14 +101,27 @@ export default async function ClienteHomePage() {
   )
 }
 
-function EmptyState() {
-  return (
-    <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
-      <p className="font-medium">Todavía no hay negocios publicados</p>
-      <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-        En cuanto el administrador apruebe el primer negocio en Abancay, va a
-        aparecer aquí.
-      </p>
-    </div>
+/**
+ * Saludo según la hora en Lima. Se calcula en el SERVIDOR (este page es un
+ * Server Component) y viaja como prop: si se calculara en el cliente, el HTML
+ * del snapshot y el primer render del browser podrían caer en franjas
+ * distintas y React marcaría hydration mismatch — mismo motivo por el que
+ * `limaDayKey`/`dayParts` viven en `lib/dates.ts` y se pasan como prop.
+ *
+ * Se formatea en `en-US` a propósito: `hour: 'numeric'` + `hour12: false`
+ * devuelve el número pelado ("14"), sin el sufijo que agregan otros locales y
+ * que rompería el `Number()`.
+ */
+function limaGreeting(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Lima',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date())
   )
+
+  if (hour < 12) return 'Buenos días'
+  if (hour < 19) return 'Buenas tardes'
+  return 'Buenas noches'
 }
