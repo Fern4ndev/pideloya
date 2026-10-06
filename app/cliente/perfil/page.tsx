@@ -22,7 +22,7 @@ export default async function ClienteProfilePage() {
     .maybeSingle()
 
   return (
-    <ClientPageContainer size="narrow">
+    <ClientPageContainer size="medium">
       <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Administra tus datos y la dirección donde recibes tus pedidos.

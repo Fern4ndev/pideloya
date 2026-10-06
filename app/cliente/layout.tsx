@@ -18,7 +18,7 @@ export default async function ClienteLayout({
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50/60 via-white to-white">
       <CustomerHeader fullName={fullName} />
-      <main className="mx-auto max-w-5xl px-4 py-6 pb-24">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-24">{children}</main>
       <CartBar />
     </div>
   )

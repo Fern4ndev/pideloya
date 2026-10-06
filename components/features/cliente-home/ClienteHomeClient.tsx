@@ -208,12 +208,11 @@ export function ClienteHomeClient({
             <FlameIcon className="h-4 w-4 text-brand-500" />
             <h2 className="text-lg font-semibold tracking-tight">Platos populares</h2>
           </div>
-          {/* Flechas superpuestas en los extremos: caben dentro del px-4 del
-              layout (sin cortar en móvil) y quedan sobre la primera/última
-              tarjeta. Embla sigue capturando el arrastre sin scrollbar nativo,
-              así que el borde inferior queda limpio. */}
-          <Carousel opts={{ align: 'start' }} className="w-full">
-            <CarouselContent className="-ml-4 select-none">
+          <Carousel
+            opts={{ align: 'start' }}
+            className="w-full"
+          >
+            <CarouselContent className="select-none">
               {popularProducts.map((product) => (
                 <CarouselItem key={product.id} className="basis-auto pl-4">
                   <FeaturedProductCard
@@ -223,8 +222,14 @@ export function ClienteHomeClient({
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious className="left-1 z-10 rounded-full bg-background/95 shadow-md backdrop-blur" />
-            <CarouselNext className="right-1 z-10 rounded-full bg-background/95 shadow-md backdrop-blur" />
+            <CarouselPrevious
+              size="icon"
+              className="hidden h-10 w-10 rounded-full bg-background shadow-sm xl:flex"
+            />
+            <CarouselNext
+              size="icon"
+              className="hidden h-10 w-10 rounded-full bg-background shadow-sm xl:flex"
+            />
           </Carousel>
         </section>
       )}
