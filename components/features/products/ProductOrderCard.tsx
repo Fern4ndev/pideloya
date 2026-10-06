@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import { useCartStore } from '@/lib/hooks/use-cart'
+import { useRequestFlyToCart } from '@/lib/hooks/use-fly-to-cart'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -35,6 +36,8 @@ export function ProductOrderCard({
 }) {
   const [quantity, setQuantity] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
+  const imageRef = useRef<HTMLDivElement>(null)
+  const requestFly = useRequestFlyToCart()
   // El conflicto de "otro negocio en el carrito" se pregunta con AlertDialog
   // (Fase 4, accesible) y no con confirm(): el estado guarda el ítem pendiente
   // y el diálogo lo confirma o descarta.
@@ -49,6 +52,13 @@ export function ProductOrderCard({
   function markAdded() {
     setQuantity(1)
     setJustAdded(true)
+    // El vuelo se dispara tras actualizar el store para que el pop del
+    // badge coincida con el aterrizaje; si hay reduced-motion o el destino
+    // no es medible, el hook no hace nada y queda el feedback existente.
+    requestFly(imageRef.current, {
+      imageUrl: product.imageUrl,
+      productName: product.name,
+    })
     setTimeout(() => setJustAdded(false), 1200)
   }
 
@@ -79,7 +89,10 @@ export function ProductOrderCard({
 
   return (
     <div className="group relative flex gap-4 rounded-3xl p-3.5 shadow-client-card">
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
+      <div
+        ref={imageRef}
+        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted"
+      >
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}

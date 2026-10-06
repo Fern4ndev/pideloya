@@ -2,12 +2,32 @@
 
 import Image from 'next/image'
 import { UtensilsCrossedIcon } from 'lucide-react'
+import { m } from 'motion/react'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProductOrderCard } from '@/components/features/products/ProductOrderCard'
 import { RestaurantOpenBanner } from '@/components/features/restaurants/RestaurantOpenBanner'
 import { useRestaurantOpen } from '@/lib/hooks/use-restaurant-open'
 import type { RestaurantHourInput } from '@/lib/restaurants/is-open'
+
+/**
+ * Entrada escalonada de la carta: solo los primeros N productos animan para
+ * no lanzar decenas de animaciones a la vez en cartas largas (ver plan de
+ * vuelo al carrito). El resto se renderiza estático.
+ */
+const STAGGER_LIMIT = 8
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] as const },
+  },
+}
 
 export interface RestaurantMenuData {
   id: string
@@ -122,22 +142,45 @@ export function RestaurantMenuView({
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   {category.name}
                 </h2>
-                <div className="mt-3 space-y-3">
-                  {categoryProducts.map((p) => (
-                    <ProductOrderCard
-                      key={p.id}
-                      product={{
-                        id: p.id,
-                        name: p.name,
-                        description: p.description,
-                        price: Number(p.price),
-                        imageUrl: p.image_url,
-                      }}
-                      restaurant={{ id: restaurant.id, name: restaurant.name }}
-                      disabled={!isOpenNow}
-                    />
-                  ))}
-                </div>
+                <m.div
+                  className="mt-3 space-y-3"
+                  variants={listVariants}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, margin: '-40px' }}
+                >
+                  {categoryProducts.map((p, i) =>
+                    i < STAGGER_LIMIT ? (
+                      <m.div key={p.id} variants={itemVariants}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </m.div>
+                    ) : (
+                      <div key={p.id}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </div>
+                    )
+                  )}
+                </m.div>
               </div>
             ))}
 
@@ -151,22 +194,45 @@ export function RestaurantMenuView({
                     </h2>
                   </>
                 )}
-                <div className="mt-3 space-y-3">
-                  {uncategorized.map((p) => (
-                    <ProductOrderCard
-                      key={p.id}
-                      product={{
-                        id: p.id,
-                        name: p.name,
-                        description: p.description,
-                        price: Number(p.price),
-                        imageUrl: p.image_url,
-                      }}
-                      restaurant={{ id: restaurant.id, name: restaurant.name }}
-                      disabled={!isOpenNow}
-                    />
-                  ))}
-                </div>
+                <m.div
+                  className="mt-3 space-y-3"
+                  variants={listVariants}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, margin: '-40px' }}
+                >
+                  {uncategorized.map((p, i) =>
+                    i < STAGGER_LIMIT ? (
+                      <m.div key={p.id} variants={itemVariants}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </m.div>
+                    ) : (
+                      <div key={p.id}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </div>
+                    )
+                  )}
+                </m.div>
               </div>
             )}
           </>

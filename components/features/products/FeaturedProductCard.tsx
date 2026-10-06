@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import { PlusIcon, UtensilsCrossedIcon } from 'lucide-react'
 import { useCartStore } from '@/lib/hooks/use-cart'
+import { useRequestFlyToCart } from '@/lib/hooks/use-fly-to-cart'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -33,6 +34,8 @@ export function FeaturedProductCard({
   disabled?: boolean
 }) {
   const [justAdded, setJustAdded] = useState(false)
+  const imageRef = useRef<HTMLDivElement>(null)
+  const requestFly = useRequestFlyToCart()
   // Conflicto de carrito con AlertDialog accesible (Fase 4) en vez de
   // confirm(): el estado guarda el ítem pendiente y el diálogo lo confirma
   // o descarta — mismo patrón que ProductOrderCard.
@@ -41,6 +44,15 @@ export function FeaturedProductCard({
   } | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const switchRestaurantAndAdd = useCartStore((state) => state.switchRestaurantAndAdd)
+
+  function notifyAdded() {
+    requestFly(imageRef.current, {
+      imageUrl: product.imageUrl,
+      productName: product.name,
+    })
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 1200)
+  }
 
   function handleAdd() {
     if (disabled) return
@@ -55,21 +67,22 @@ export function FeaturedProductCard({
       setConflictPending({ item })
       return
     }
-    setJustAdded(true)
-    setTimeout(() => setJustAdded(false), 1200)
+    notifyAdded()
   }
 
   function handleConfirmSwitch() {
     if (!conflictPending) return
     switchRestaurantAndAdd(product.restaurant, conflictPending.item, 1)
     setConflictPending(null)
-    setJustAdded(true)
-    setTimeout(() => setJustAdded(false), 1200)
+    notifyAdded()
   }
 
   return (
     <div className="w-40 shrink-0 snap-start sm:w-44">
-      <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-muted ring-1 ring-black/5 dark:ring-white/10">
+      <div
+        ref={imageRef}
+        className="relative aspect-square w-full overflow-hidden rounded-3xl bg-muted ring-1 ring-black/5 dark:ring-white/10"
+      >
         {product.imageUrl ? (
           <Image src={product.imageUrl} alt={product.name} fill sizes="176px" className="object-cover" />
         ) : (

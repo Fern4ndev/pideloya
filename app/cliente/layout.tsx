@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { CustomerHeader } from '@/components/layout/CustomerHeader'
 import { CartBar } from '@/components/features/cart/CartBar'
+import { FlyToCartProvider } from '@/components/features/cart/FlyToCartProvider'
 
 export default async function ClienteLayout({
   children,
@@ -17,9 +18,11 @@ export default async function ClienteLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50/60 via-white to-white">
-      <CustomerHeader fullName={fullName} />
-      <main className="mx-auto max-w-6xl px-4 py-6 pb-24">{children}</main>
-      <CartBar />
+      <FlyToCartProvider>
+        <CustomerHeader fullName={fullName} />
+        <main className="mx-auto max-w-6xl px-4 py-6 pb-24">{children}</main>
+        <CartBar />
+      </FlyToCartProvider>
     </div>
   )
 }

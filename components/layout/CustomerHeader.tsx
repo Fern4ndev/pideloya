@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { m } from 'motion/react'
 import { signOut } from '@/lib/actions/auth'
 import { useCartStore, cartItemCount } from '@/lib/hooks/use-cart'
 import { useSearchStore } from '@/lib/hooks/use-search'
@@ -170,6 +171,7 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
         <div className="flex items-center gap-2">
           <Link
             href="/cliente/carrito"
+            data-cart-target="header"
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors',
               pathname === '/cliente/carrito'
@@ -177,18 +179,24 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
                 : 'border-black/5 bg-black/[0.03] text-foreground hover:bg-black/5 dark:border-white/10 dark:bg-white/5'
             )}
           >
-            <ShoppingCartIcon className="h-4 w-4" />
+            <m.span whileTap={{ scale: 0.85 }} className="flex">
+              <ShoppingCartIcon className="h-4 w-4" />
+            </m.span>
             {itemCount > 0 && (
               // La `key` remonta el badge sólo cuando cambia el número: un
-              // re-mount dispara `animate-stat-in` de nuevo y el cliente ve
-              // que el producto entró al carrito, no un número que cambia
-              // en silencio.
-              <span
+              // re-mount dispara el spring de nuevo y el cliente ve que el
+              // producto entró al carrito. Es también el pulso de aterrizaje
+              // del vuelo (FlyToCartProvider): el store ya se actualizó al
+              // despegar, así que el pop coincide con la llegada.
+              <m.span
                 key={itemCount}
-                className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 animate-stat-in items-center justify-center rounded-full bg-coral px-1 text-[10px] font-bold text-white ring-2 ring-white"
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-coral px-1 text-[10px] font-bold text-white ring-2 ring-white"
               >
                 {itemCount}
-              </span>
+              </m.span>
             )}
           </Link>
 
