@@ -23,7 +23,6 @@ import {
   UserIcon,
   LogOutIcon,
   PackageIcon,
-  MapPinIcon,
   ShoppingCartIcon,
   SearchIcon,
 } from 'lucide-react'
@@ -31,7 +30,6 @@ import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
   { href: '/cliente/pedidos', label: 'Mis pedidos', icon: PackageIcon },
-  { href: '/cliente/direcciones', label: 'Dirección', icon: MapPinIcon },
 ]
 
 /**
@@ -217,7 +215,8 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem render={<Link href="/cliente/perfil" />}>
-                Mi perfil
+                <UserIcon className="h-4 w-4" />
+                <span>Mi perfil</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <form action={signOut}>
@@ -226,7 +225,8 @@ export function CustomerHeader({ fullName }: { fullName: string }) {
                   nativeButton={true}
                   variant="destructive"
                 >
-                  Cerrar sesión
+                  <LogOutIcon className="h-4 w-4" />
+                  <span>Cerrar sesión</span>
                 </DropdownMenuItem>
               </form>
             </DropdownMenuContent>
