@@ -136,3 +136,44 @@ export async function saveRestaurantLogo(image: { url: string; fileId: string })
   revalidatePath('/restaurantes')
   return { success: true }
 }
+
+/**
+ * Guarda la portada del negocio (foto principal de la tarjeta).
+ * Espejo de `saveRestaurantLogo()`: actualiza `cover_url/cover_file_id`,
+ * borra la imagen anterior de ImageKit y revalida las superficies que
+ * muestran la card (listados público/cliente y cartas por slug).
+ */
+export async function saveRestaurantCover(image: { url: string; fileId: string }) {
+  const { supabase, restaurantId } = await getMyRestaurantId()
+
+  const { data: current } = await supabase
+    .from('restaurants')
+    .select('cover_file_id')
+    .eq('id', restaurantId)
+    .single()
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ cover_url: image.url, cover_file_id: image.fileId })
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  await deleteImageKitFileSafe(current?.cover_file_id)
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('slug')
+    .eq('id', restaurantId)
+    .single()
+
+  revalidatePublicRestaurants()
+  revalidatePath('/restaurante/negocio')
+  revalidatePath('/restaurantes')
+  revalidatePath('/cliente')
+  if (restaurant) {
+    revalidatePath(`/restaurantes/${restaurant.slug}`)
+    revalidatePath(`/cliente/restaurantes/${restaurant.slug}`)
+  }
+  return { success: true }
+}

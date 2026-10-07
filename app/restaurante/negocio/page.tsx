@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/db/server'
 import { BusinessInfoForm } from '@/components/features/restaurants/BusinessInfoForm'
 import { BusinessStatusSwitch } from '@/components/features/restaurants/BusinessStatusSwitch'
+import { CoverUploader } from '@/components/features/restaurants/CoverUploader'
 import { LogoUploader } from '@/components/features/restaurants/LogoUploader'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -27,7 +28,7 @@ export default async function BusinessInfoPage() {
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select(
-      'name, description, address_text, whatsapp, food_type, is_open, logo_url'
+      'name, description, address_text, whatsapp, food_type, is_open, logo_url, cover_url'
     )
     .eq('id', member!.restaurant_id)
     .single()
@@ -44,10 +45,16 @@ export default async function BusinessInfoPage() {
 
       <Card className="mx-auto mt-6 max-w-3xl">
         <CardContent className="grid items-start gap-8 md:grid-cols-[auto_1fr]">
-          <LogoUploader
-            currentLogoUrl={restaurant?.logo_url ?? null}
-            restaurantId={member!.restaurant_id}
-          />
+          <div className="space-y-6">
+            <LogoUploader
+              currentLogoUrl={restaurant?.logo_url ?? null}
+              restaurantId={member!.restaurant_id}
+            />
+            <CoverUploader
+              currentCoverUrl={restaurant?.cover_url ?? null}
+              restaurantId={member!.restaurant_id}
+            />
+          </div>
 
           <BusinessInfoForm
             initialData={{

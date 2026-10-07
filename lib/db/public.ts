@@ -65,7 +65,7 @@ export const getPublicRestaurants = unstable_cache(
     const supabase = createPublicClient()
     const { data, error } = await supabase
       .from('restaurants')
-      .select('slug, name, description, logo_url, address_text, food_type, is_open')
+      .select('slug, name, description, logo_url, cover_url, address_text, food_type, is_open')
       .eq('is_approved', true)
       .eq('is_active', true)
       .order('name', { ascending: true })

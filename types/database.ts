@@ -579,6 +579,8 @@ export type Database = {
       restaurants: {
         Row: {
           address_text: string | null
+          cover_file_id: string | null
+          cover_url: string | null
           created_at: string
           description: string | null
           food_type: string | null
@@ -597,6 +599,8 @@ export type Database = {
         }
         Insert: {
           address_text?: string | null
+          cover_file_id?: string | null
+          cover_url?: string | null
           created_at?: string
           description?: string | null
           food_type?: string | null
@@ -615,6 +619,8 @@ export type Database = {
         }
         Update: {
           address_text?: string | null
+          cover_file_id?: string | null
+          cover_url?: string | null
           created_at?: string
           description?: string | null
           food_type?: string | null

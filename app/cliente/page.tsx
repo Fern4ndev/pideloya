@@ -14,7 +14,7 @@ export default async function ClienteHomePage() {
   const { data: restaurants, error } = await supabase
     .from('restaurants')
     .select(
-      'id, slug, name, description, logo_url, address_text, food_type, is_open'
+      'id, slug, name, description, logo_url, cover_url, address_text, food_type, is_open'
     )
     .order('name')
 
@@ -39,6 +39,7 @@ export default async function ClienteHomePage() {
     name: r.name,
     description: r.description,
     logo_url: r.logo_url,
+    cover_url: r.cover_url,
     address_text: r.address_text,
     food_type: r.food_type,
     isOpen: openByRestaurantId.get(r.id) ?? true,

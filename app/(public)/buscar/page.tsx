@@ -20,6 +20,7 @@ export default async function BuscarPage({
     name: string
     description: string | null
     logo_url: string | null
+    cover_url: string | null
     address_text: string | null
     food_type: string | null
     is_open: boolean
@@ -31,7 +32,7 @@ export default async function BuscarPage({
     searched = true
     const { data, error: err } = await supabase
       .from('restaurants')
-      .select('slug, name, description, logo_url, address_text, food_type, is_open')
+      .select('slug, name, description, logo_url, cover_url, address_text, food_type, is_open')
       .eq('is_approved', true)
       .eq('is_active', true)
       .or(`name.ilike.%${safe}%,food_type.ilike.%${safe}%,address_text.ilike.%${safe}%`)
@@ -80,6 +81,7 @@ export default async function BuscarPage({
                 name: r.name,
                 description: r.description,
                 logo_url: r.logo_url,
+                cover_url: r.cover_url,
                 address_text: r.address_text,
                 food_type: r.food_type,
                 isOpen: r.is_open,

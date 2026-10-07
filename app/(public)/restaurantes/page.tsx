@@ -32,6 +32,7 @@ export default async function RestaurantesPage() {
                 name: r.name,
                 description: r.description,
                 logo_url: r.logo_url,
+                cover_url: r.cover_url,
                 address_text: r.address_text,
                 food_type: r.food_type,
                 isOpen: r.is_open,

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { MapPinIcon, ChevronRightIcon, UtensilsCrossedIcon } from 'lucide-react'
+import { MapPinIcon, UtensilsCrossedIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -9,6 +9,7 @@ export interface RestaurantCardData {
   name: string
   description: string | null
   logo_url: string | null
+  cover_url?: string | null
   address_text: string | null
   food_type?: string | null
   isOpen?: boolean
@@ -25,17 +26,17 @@ export function RestaurantCard({
     <Link href={`${basePath}/${restaurant.slug}`} className="group block h-full">
       <Card className="h-full overflow-hidden border-0 bg-white/70 p-0 shadow-client-card ring-1 ring-black/5 backdrop-blur-xl transition-all duration-300 ease-client hover:-translate-y-1 hover:shadow-client-card-hover hover:ring-brand-300 dark:bg-white/5 dark:ring-white/10">
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
-          {restaurant.logo_url ? (
+          {restaurant.cover_url ? (
             <Image
-              src={restaurant.logo_url}
+              src={restaurant.cover_url}
               alt={restaurant.name}
               fill
               sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-50 text-brand-400">
-              <UtensilsCrossedIcon className="h-10 w-10" />
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-stone-200 via-stone-100 to-stone-200 dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800">
+              <UtensilsCrossedIcon className="h-10 w-10 text-muted-foreground/50" />
             </div>
           )}
           {/* Velo de "no disponible ahora": comunica el estado con la tarjeta
@@ -65,24 +66,44 @@ export function RestaurantCard({
           </span>
         </div>
 
-        <CardContent className="flex items-start justify-between gap-2 py-4">
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold group-hover:text-brand-700">
-              {restaurant.name}
-            </h3>
-            {restaurant.description && (
-              <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-                {restaurant.description}
+        <CardContent className="py-4">
+          <div className="flex items-start gap-3">
+            {/* Logo en cuadrado con bordes redondeados al costado del nombre */}
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-muted ring-1 ring-black/5 dark:ring-white/10">
+              {restaurant.logo_url ? (
+                <Image
+                  src={restaurant.logo_url}
+                  alt=""
+                  fill
+                  sizes="56px"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
+                  {restaurant.name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-base font-semibold group-hover:text-brand-700">
+                {restaurant.name}
+              </h3>
+              {/* Reserva de 2 líneas como en ProductOrderCard: las cards de
+                  una misma fila no se deforman haya o no descripción. */}
+              <p
+                aria-hidden={restaurant.description ? undefined : true}
+                className="mt-0.5 line-clamp-2 min-h-10 text-sm text-muted-foreground"
+              >
+                {restaurant.description ?? ''}
               </p>
-            )}
-            {restaurant.address_text && (
-              <p className="mt-1.5 flex items-center gap-1 truncate text-xs text-muted-foreground/80">
-                <MapPinIcon className="h-3 w-3 shrink-0" />
-                {restaurant.address_text}
-              </p>
-            )}
+              {restaurant.address_text && (
+                <p className="mt-1.5 flex items-center gap-1 truncate text-xs text-muted-foreground/80">
+                  <MapPinIcon className="h-3 w-3 shrink-0" />
+                  {restaurant.address_text}
+                </p>
+              )}
+            </div>
           </div>
-          <ChevronRightIcon className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
         </CardContent>
       </Card>
     </Link>
