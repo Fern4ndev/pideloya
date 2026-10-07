@@ -88,7 +88,7 @@ export function ProductOrderCard({
   }
 
   return (
-    <div className="group relative flex gap-4 rounded-3xl p-3.5 shadow-client-card">
+    <div className="group relative flex h-full gap-4 rounded-3xl p-3.5 shadow-client-card">
       <div
         ref={imageRef}
         className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted"
@@ -122,18 +122,24 @@ export function ProductOrderCard({
         </span>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-semibold">{product.name}</h3>
-        {product.description && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-            {product.description}
-          </p>
-        )}
-        <p className="mt-1 text-sm font-medium">
-          S/ {product.price.toFixed(2)}
+      <div className="flex min-w-0 flex-1 flex-col self-stretch">
+        <h3 className="truncate text-sm font-semibold">{product.name}</h3>
+        {/* La descripción siempre reserva 2 líneas (`min-h-10`): con o sin
+            texto el precio arranca a la misma altura y las cards del grid no
+            se deforman entre sí. */}
+        <p
+          aria-hidden={product.description ? undefined : true}
+          className="mt-0.5 line-clamp-2 min-h-10 text-sm text-muted-foreground"
+        >
+          {product.description ?? ''}
         </p>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-auto pt-2">
+          <p className="text-sm font-bold tabular-nums">
+            S/ {product.price.toFixed(2)}
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
           {/* Stepper unificado (un control con fondo propio en vez de dos
               botones sueltos con un número en medio). Los botones van a 40px
               para cumplir el objetivo táctil mínimo de 40×40. */}
@@ -171,6 +177,7 @@ export function ProductOrderCard({
           >
             Agregar
           </Button>
+          </div>
         </div>
       </div>
 
