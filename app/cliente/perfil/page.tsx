@@ -22,7 +22,9 @@ export default async function ClienteProfilePage() {
     .maybeSingle()
 
   return (
-    <ClientPageContainer size="medium">
+    // `wide`: con el layout en grid (datos + dirección lado a lado en
+    // desktop) el `medium` de una columna apretaba cada tarjeta.
+    <ClientPageContainer size="wide">
       <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Administra tus datos y la dirección donde recibes tus pedidos.
@@ -31,6 +33,7 @@ export default async function ClienteProfilePage() {
         <ProfileForm
           email={user!.email ?? ''}
           showAccountAvatar
+          layout="grid"
           initialData={{
             fullName: profile?.full_name ?? '',
             phone: profile?.phone ?? '',

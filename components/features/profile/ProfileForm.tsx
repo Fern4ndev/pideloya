@@ -29,6 +29,7 @@ export function ProfileForm({
   showAccountAvatar = false,
   showPasswordModal = false,
   address,
+  layout = 'stacked',
 }: {
   email: string
   initialData: ProfileFormData
@@ -44,6 +45,13 @@ export function ProfileForm({
     latitude: number | null
     longitude: number | null
   } | null
+  /**
+   * `stacked` (default): una columna a lo ancho, como siempre — lo usan todos
+   * los paneles. `grid`: datos personales y dirección en tarjetas compactas
+   * lado a lado en desktop (`lg:grid-cols-2` con `items-start`, cada una solo
+   * su alto), pila en móvil. Solo lo pide `/cliente/perfil`.
+   */
+  layout?: 'stacked' | 'grid'
 }) {
   const [form, setForm] = useState(initialData)
   const initial = form.fullName.trim().charAt(0).toUpperCase() || '?'
@@ -92,8 +100,134 @@ export function ProfileForm({
     })
   }
 
+  const isGrid = layout === 'grid'
+  // Envoltorio de cada sección: en `grid` son tarjetas compactas (borde +
+  // padding propio, sin separador superior porque el grid ya da el aire); en
+  // `stacked` se conserva el aspecto de siempre, al píxel.
+  const cardClassName = 'rounded-2xl border p-4 sm:p-5 space-y-4'
+  const personalClassName = isGrid ? cardClassName : 'space-y-5'
+  const addressClassName = isGrid ? cardClassName : 'space-y-4 border-t pt-6'
+
+  const personalCard = (
+    <form onSubmit={handleSubmit} className={personalClassName}>
+      <section className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold">Información personal</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Tus datos de contacto para tus pedidos.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="email">Correo electrónico</Label>
+          <Input id="email" type="email" value={email} disabled />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="fullName">Nombre completo</Label>
+          <Input
+            id="fullName"
+            value={form.fullName}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, fullName: e.target.value }))
+            }
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="phone">Celular</Label>
+          <Input
+            id="phone"
+            value={form.phone}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, phone: e.target.value }))
+            }
+            placeholder="987654321"
+          />
+        </div>
+
+        {showDeliveryFields && (
+          <div className="space-y-1.5">
+            <Label htmlFor="documentNumber">N° de documento</Label>
+            <Input
+              id="documentNumber"
+              value={form.documentNumber ?? ''}
+              disabled
+            />
+          </div>
+        )}
+      </div>
+      </section>
+
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="submit"
+          variant="lime"
+          disabled={isPending || !isDirty}
+        >
+          {isPending ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+        {showPasswordModal && <PasswordChangeDialog />}
+      </div>
+    </form>
+  )
+
+  const addressCard = address ? (
+    <section className={addressClassName}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <MapPinIcon className="h-4 w-4 text-brand-500" />
+            Dirección de entrega
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Dirección guardada para recibir tus pedidos.
+          </p>
+        </div>
+        <AddressFormDialog
+          mode="edit"
+          initialData={{
+            id: address.id,
+            label: address.label ?? '',
+            addressText: address.address_text,
+            reference: address.reference ?? '',
+            latitude: address.latitude,
+            longitude: address.longitude,
+          }}
+        />
+      </div>
+      <div className="space-y-1 rounded-2xl border border-border/70 bg-muted/30 p-4">
+        <p className="text-sm font-medium">{address.label || 'Mi dirección'}</p>
+        <p className="text-sm text-muted-foreground">{address.address_text}</p>
+        {address.reference && (
+          <p className="text-sm text-muted-foreground">
+            Referencia: {address.reference}
+          </p>
+        )}
+      </div>
+    </section>
+  ) : (
+    <section className={addressClassName}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <MapPinIcon className="h-4 w-4 text-brand-500" />
+            Dirección de entrega
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Aún no tienes una dirección guardada.
+          </p>
+        </div>
+        <AddressFormDialog mode="create" />
+      </div>
+    </section>
+  )
+
   return (
-    <div className="w-full space-y-8">
+    <div className={isGrid ? 'w-full space-y-6' : 'w-full space-y-8'}>
       {showAccountAvatar && (
         <div className="flex items-center gap-3">
           <Avatar size="lg" className="h-12 w-12">
@@ -110,122 +244,19 @@ export function ProfileForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-base font-semibold">Información personal</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Tus datos de contacto para tus pedidos.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="email">Correo electrónico</Label>
-              <Input id="email" type="email" value={email} disabled />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="fullName">Nombre completo</Label>
-              <Input
-                id="fullName"
-                value={form.fullName}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, fullName: e.target.value }))
-                }
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Celular</Label>
-              <Input
-                id="phone"
-                value={form.phone}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, phone: e.target.value }))
-                }
-                placeholder="987654321"
-              />
-            </div>
-
-            {showDeliveryFields && (
-              <div className="space-y-1.5">
-                <Label htmlFor="documentNumber">N° de documento</Label>
-                <Input
-                  id="documentNumber"
-                  value={form.documentNumber ?? ''}
-                  disabled
-                />
-              </div>
-            )}
-          </div>
-        </section>
-
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="submit"
-            variant="lime"
-            disabled={isPending || !isDirty}
-          >
-            {isPending ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-          {showPasswordModal && <PasswordChangeDialog />}
+      {isGrid ? (
+        // Dos tarjetas compactas lado a lado en desktop; en móvil la misma
+        // pila de antes (datos → dirección). `items-start` para que la corta
+        // (dirección) no se estire al alto del formulario.
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="min-w-0">{personalCard}</div>
+          <div className="min-w-0">{addressCard}</div>
         </div>
-      </form>
-
-      {address && (
-        <section className="space-y-4 border-t pt-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold">
-                <MapPinIcon className="h-4 w-4 text-brand-500" />
-                Dirección de entrega
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Dirección guardada para recibir tus pedidos.
-              </p>
-            </div>
-            <AddressFormDialog
-              mode="edit"
-              initialData={{
-                id: address.id,
-                label: address.label ?? '',
-                addressText: address.address_text,
-                reference: address.reference ?? '',
-                latitude: address.latitude,
-                longitude: address.longitude,
-              }}
-            />
-          </div>
-          <div className="space-y-1 rounded-2xl border border-border/70 bg-muted/30 p-4">
-            <p className="text-sm font-medium">{address.label || 'Mi dirección'}</p>
-            <p className="text-sm text-muted-foreground">{address.address_text}</p>
-            {address.reference && (
-              <p className="text-sm text-muted-foreground">
-                Referencia: {address.reference}
-              </p>
-            )}
-          </div>
-        </section>
-      )}
-
-      {!address && (
-        <section className="space-y-4 border-t pt-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold">
-                <MapPinIcon className="h-4 w-4 text-brand-500" />
-                Dirección de entrega
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Aún no tienes una dirección guardada.
-              </p>
-            </div>
-            <AddressFormDialog mode="create" />
-          </div>
-        </section>
+      ) : (
+        <>
+          {personalCard}
+          {addressCard}
+        </>
       )}
 
       {showPasswordChange && (

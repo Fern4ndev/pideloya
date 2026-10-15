@@ -32,10 +32,14 @@ import {
   ReceiptIcon,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
+import {
+  DELIVERY_SEARCH_TIMEOUT_MS,
+  formatRemainingDeliveryWindow,
+  remainingDeliveryWindowMs,
+} from '@/lib/delivery-window'
 import type { ApiOrder, ApiOrdersMeta } from '@/types/order'
 
 const PAGE_SIZE = 15
-const DELIVERY_SEARCH_TIMEOUT_MS = 5 * 60 * 1000
 
 type OrdersPage = { success: true; data: ApiOrder[]; meta?: ApiOrdersMeta }
 
@@ -59,14 +63,6 @@ const FILTER_CHIPS = [
   { key: 'delivered', label: 'Entregados' },
   { key: 'cancelled', label: 'Cancelados' },
 ] as const satisfies readonly { key: OrderStatusFilter | null; label: string }[]
-
-function formatRemainingDeliveryWindow(ms: number) {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
 
 const EMPTY_STATE_BY_FILTER: Record<
   OrderStatusFilter,
@@ -409,10 +405,7 @@ export function OrdersListClient({ status, profileId }: OrdersListClientProps) {
                   const previewItems = (order.order_items ?? []).slice(0, 3)
                   const remainingMs =
                     order.status === 'PENDING'
-                      ? Math.max(
-                          0,
-                          new Date(order.created_at).getTime() + DELIVERY_SEARCH_TIMEOUT_MS - now,
-                        )
+                      ? remainingDeliveryWindowMs(order.created_at, now)
                       : null
 
                   return (

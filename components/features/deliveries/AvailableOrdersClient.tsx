@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { createClient } from '@/lib/db/client'
 import { DeliveryOrderCard } from '@/components/features/deliveries/DeliveryOrderCard'
 import { SendOfferForm } from '@/components/features/deliveries/SendOfferForm'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useRealtimeInvalidate } from '@/lib/hooks/use-realtime-invalidate'
+import { remainingDeliveryWindowMs } from '@/lib/delivery-window'
 import type { ApiOrder } from '@/types/order'
 
 /**
@@ -71,6 +73,16 @@ export function AvailableOrdersClient({
   // La consulta ya trae SOLO PENDING (y el realtime solo escucha PENDING).
   const orders = data ?? []
 
+  // Reloj local para el contador de 5 minutos de cada pedido: el mismo
+  // vencimiento que ve el cliente en su lista (misma constante, mismo
+  // `created_at`). Sin intervalo, el pill quedaría congelado hasta el próximo
+  // refetch.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   if (isLoading) {
     return (
       <div className="mt-6 space-y-3">
@@ -106,6 +118,7 @@ export function AvailableOrdersClient({
                 itemsSummary={itemsSummary}
                 deliveryAddress={order.addresses?.address_text}
                 total={Number(order.total)}
+                remainingMs={remainingDeliveryWindowMs(order.created_at, now)}
                 footer={
                   <div className="space-y-2">
                     {/* La comida como LÍNEA propia, no sumergida en el total.

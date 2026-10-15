@@ -134,7 +134,6 @@ pideloyaa/
 | `/cliente` | `app/cliente/page.tsx` | Dashboard del cliente |
 | `/cliente/carrito` | `app/cliente/carrito/page.tsx` | Carrito de compras |
 | `/cliente/direcciones` | `app/cliente/direcciones/page.tsx` | Gestión de direcciones |
-| `/cliente/favoritos` | `app/cliente/favoritos/page.tsx` | Restaurantes favoritos |
 | `/cliente/pedidos` | `app/cliente/pedidos/page.tsx` | Historial de pedidos |
 | `/cliente/pedidos/[id]` | `app/cliente/pedidos/[id]/page.tsx` | Detalle de pedido |
 | `/cliente/perfil` | `app/cliente/perfil/page.tsx` | Perfil del cliente |
@@ -590,8 +589,8 @@ Redirige a `/login` si el usuario no está autenticado o no tiene el rol adecuad
 │ carrito │ productos │ disponibles│ pedidos      │
 │ pedidos │ categorías│ historial  │ usuarios     │
 │ direcciones│ horarios│ pedidos   │ restaurantes │
-│ favoritos│ negocio  │ perfil    │ reportes      │
-│ perfil  │ perfil   │ ubicación │ config         │
+│ perfil     │ negocio  │ perfil    │ reportes      │
+│            │ perfil   │ ubicación │ config         │
 └─────────┴──────────┴───────────┴────────────────┘
 ```
 

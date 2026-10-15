@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { PlusIcon, UtensilsCrossedIcon } from 'lucide-react'
 import { useCartStore } from '@/lib/hooks/use-cart'
 import { useRequestFlyToCart } from '@/lib/hooks/use-fly-to-cart'
@@ -23,7 +24,7 @@ export interface FeaturedProduct {
   name: string
   price: number
   imageUrl: string | null
-  restaurant: { id: string; name: string }
+  restaurant: { id: string; name: string; slug?: string }
 }
 
 export function FeaturedProductCard({
@@ -77,31 +78,59 @@ export function FeaturedProductCard({
     notifyAdded()
   }
 
+  const menuHref = product.restaurant.slug
+    ? `/cliente/restaurantes/${product.restaurant.slug}`
+    : null
+
   return (
     <div className="w-40 shrink-0 snap-start sm:w-44">
       <div
         ref={imageRef}
-        className="relative aspect-square w-full overflow-hidden rounded-3xl bg-muted ring-1 ring-black/5 dark:ring-white/10"
+        className="group relative aspect-square w-full overflow-hidden rounded-3xl bg-muted ring-1 ring-black/5 transition-shadow duration-200 hover:shadow-client-card-hover dark:ring-white/10"
       >
-        {product.imageUrl ? (
-          <Image src={product.imageUrl} alt={product.name} fill sizes="176px" className="object-cover" />
+        {menuHref ? (
+          <Link
+            href={menuHref}
+            aria-label={`Ver carta de ${product.restaurant.name} — ${product.name}`}
+            className="block h-full w-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+          >
+            {product.imageUrl ? (
+              <Image
+                src={product.imageUrl}
+                alt={product.name}
+                fill
+                sizes="176px"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-50 text-brand-400">
+                <UtensilsCrossedIcon className="h-8 w-8" />
+              </span>
+            )}
+          </Link>
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-50 text-brand-400">
-            <UtensilsCrossedIcon className="h-8 w-8" />
-          </div>
+          <>
+            {product.imageUrl ? (
+              <Image src={product.imageUrl} alt={product.name} fill sizes="176px" className="object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-50 text-brand-400">
+                <UtensilsCrossedIcon className="h-8 w-8" />
+              </div>
+            )}
+          </>
         )}
         <Button
           type="button"
-          size="icon-sm"
+          size="icon"
           onClick={handleAdd}
           disabled={disabled}
           className={cn(
-            'absolute bottom-2 right-2 rounded-full bg-brand-500 text-white shadow-md transition-transform duration-150 hover:bg-brand-600',
+            'absolute bottom-2 right-2 h-11 w-11 rounded-full bg-brand-500 text-white shadow-md transition-all duration-150 hover:scale-105 hover:bg-brand-600 active:scale-95',
             justAdded && 'animate-add-pulse'
           )}
           aria-label={`Agregar ${product.name} al carrito`}
         >
-          <PlusIcon className="h-4 w-4" />
+          <PlusIcon className="h-5 w-5" />
         </Button>
 
         {/* Confirmación flotante sobre la foto en vez de reemplazar el precio:
@@ -120,8 +149,27 @@ export function FeaturedProductCard({
         </span>
       </div>
       <div className="mt-2">
-        <p className="truncate text-sm font-medium">{product.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{product.restaurant.name}</p>
+        {menuHref ? (
+          <>
+            <Link
+              href={menuHref}
+              className="block cursor-pointer truncate text-sm font-medium transition-colors duration-150 hover:text-brand-700"
+            >
+              {product.name}
+            </Link>
+            <Link
+              href={menuHref}
+              className="block cursor-pointer truncate text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground"
+            >
+              {product.restaurant.name}
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="truncate text-sm font-medium">{product.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{product.restaurant.name}</p>
+          </>
+        )}
         <div className="mt-0.5 flex items-center justify-between">
           <span className="text-sm font-semibold">S/ {product.price.toFixed(2)}</span>
         </div>
@@ -144,7 +192,7 @@ export function FeaturedProductCard({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Conservar mi carrito</AlertDialogCancel>
+            <AlertDialogCancel>Conservar</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleConfirmSwitch}>
               Vaciar y agregar
             </AlertDialogAction>

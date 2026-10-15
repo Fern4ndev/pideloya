@@ -198,7 +198,7 @@ export function ProductOrderCard({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Conservar mi carrito</AlertDialogCancel>
+            <AlertDialogCancel>Conservar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={handleConfirmSwitch}
