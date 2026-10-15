@@ -797,6 +797,10 @@ export type Database = {
           orders_this_week: number
         }[]
       }
+      reject_upfront_payment: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       retract_delivery_offer: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -813,6 +817,10 @@ export type Database = {
         Returns: undefined
       }
       start_route: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
+      verify_upfront_payment: {
         Args: { p_order_id: string }
         Returns: undefined
       }

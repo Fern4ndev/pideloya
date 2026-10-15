@@ -65,16 +65,20 @@ export async function cancelOrder(orderId: string) {
 }
 
 /**
- * El cliente elige CUÁNDO paga el pedido y con esa elección arranca la entrega.
- * Llama a la función SECURITY DEFINER
- * select_delivery_payment(uuid, text, text, text) (migración 20261003100000),
- * que hace la transición AWAITING_PAYMENT -> ASSIGNED de forma atómica en dos
- * tablas, escribe el snapshot `orders.delivery_fee` y guarda el momento elegido
- * (más la ruta del comprobante, solo con pago por adelantado).
+ * El cliente elige CUÁNDO paga el pedido. Llama a la función SECURITY DEFINER
+ * select_delivery_payment(uuid, text, text, text) (migración 20261003100000,
+ * con espera de verificación desde la 20261015120000), que guarda la elección
+ * de forma atómica en dos tablas y escribe el snapshot `orders.delivery_fee`.
  *
- * Es la ÚNICA puerta a ASSIGNED para el cliente, y la elección es DEFINITIVA
+ * Con pago AL RECIBIR, la elección SÍ arranca la entrega (AWAITING_PAYMENT ->
+ * ASSIGNED): no hay nada que verificar por adelantado. Con pago POR ADELANTADO
+ * (Yape + comprobante), el pedido se QUEDA en AWAITING_PAYMENT hasta que el
+ * repartidor verifique el comprobante (verify_upfront_payment) — esa es la
+ * puerta a ASSIGNED para un pago anticipado, no esta acción.
+ *
+ * Es la ÚNICA puerta de elección para el cliente, y la elección es DEFINITIVA
  * (D3): cambiarla después obligaría a reabrir el estado del pedido y a
- * coordinar con un repartidor que ya está en camino. La UI lo avisa antes del
+ * coordinar con un repartidor comprometido. La UI lo avisa antes del
  * clic (PAYMENT_METHOD_LOCK_NOTICE).
  *
  * Con UPFRONT el pago es por Yape y el comprobante es OBLIGATORIO: la función

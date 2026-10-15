@@ -161,8 +161,59 @@ export async function advanceOrderStatus(
   }
 
   // PENDING, AWAITING_PAYMENT, DELIVERED y CANCELLED no se avanzan desde acá:
-  // el salto a ASSIGNED solo lo produce la confirmación del pago del cliente
-  // (select_delivery_payment) y los estados finales son definitivos. Mismo
-  // criterio que la ruta PUT /api/v1/orders/[id]/advance.
+  // el salto a ASSIGNED lo produce la confirmación del pago — con pago al
+  // recibir, select_delivery_payment; con pago por adelantado,
+  // verify_upfront_payment (el repartidor verifica el Yape primero). Los
+  // estados finales son definitivos. Mismo criterio que la ruta
+  // PUT /api/v1/orders/[id]/advance.
   throw new Error('Este pedido no puede avanzar de estado')
+}
+
+/**
+ * El repartidor VERIFICA que el Yape del cliente está bien y recién ahí la
+ * entrega arranca (AWAITING_PAYMENT -> ASSIGNED). Llama a la función SQL
+ * verify_upfront_payment() (migración 20261015120000), que valida por dentro
+ * que el pedido sea su entrega, que siga esperando verificación y que haya un
+ * comprobante confirmado.
+ */
+export async function verifyUpfrontPayment(orderId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('verify_upfront_payment', {
+    p_order_id: orderId,
+  })
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/repartidor/pedidos')
+  revalidatePath(`/repartidor/pedidos/${orderId}`)
+  revalidatePath('/cliente/pedidos')
+  revalidatePath(`/cliente/pedidos/${orderId}`)
+  return { success: true }
+}
+
+/**
+ * El repartidor RECHAZA el comprobante (monto distinto, captura ajena):
+ * borra su oferta y devuelve el pedido a PENDING para que otro repartidor
+ * pueda ofertar. Vía reject_upfront_payment() (migración 20261015120000).
+ *
+ * El archivo del comprobante se limpia best-effort DESPUÉS de la RPC, igual
+ * que en retractDeliveryOffer: la RPC ya borró la fila, así que
+ * `removeUnconfirmedVoucher` ve "sin fila" y borra el archivo sin riesgo.
+ */
+export async function rejectUpfrontPayment(orderId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('reject_upfront_payment', {
+    p_order_id: orderId,
+  })
+  if (error) throw new Error(error.message)
+
+  await removeUnconfirmedVoucher(createServiceRoleClient(), orderId)
+
+  revalidatePath('/repartidor/disponibles')
+  revalidatePath('/repartidor/pedidos')
+  revalidatePath('/cliente/pedidos')
+  revalidatePath(`/cliente/pedidos/${orderId}`)
+  return {
+    success: true,
+    message: 'Comprobante rechazado. El pedido volvió a estar disponible para otros repartidores.',
+  }
 }
