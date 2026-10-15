@@ -19,7 +19,7 @@ import {
   toPaymentTiming,
 } from "@/lib/constants/payment-method";
 import type { OrderStatus } from "@/lib/constants/order-status";
-import { MapPinIcon, StickyNoteIcon } from "lucide-react";
+import { ClockIcon, MapPinIcon, StickyNoteIcon } from "lucide-react";
 
 /**
  * Estados en los que existe una entrega VIVA, es decir en los que tiene sentido
@@ -84,6 +84,10 @@ export default async function OrderDetailPage({
   // recibir"). Pedirlos igual sería traer datos que nadie dibuja.
   let deliveryOffer: DeliveryOffer | null = null;
   let voucherUrl: string | null = null;
+  // Pago por Yape ya confirmado por el cliente, esperando verificación del
+  // repartidor (el pedido sigue en AWAITING_PAYMENT, ver migración
+  // 20261015120000).
+  let paymentConfirmed = false;
 
   if (LIVE_ORDER_STATUSES.includes(order.status)) {
     const { data: offers } = await supabase.rpc("get_delivery_offer_details", {
@@ -102,22 +106,32 @@ export default async function OrderDetailPage({
         // policy ya existente: el cliente de un pedido vivo puede leer SU
         // entrega. Es un snapshot de la oferta: si el repartidor cambia su
         // perfil después, la oferta enviada no cambia.
+        //
+        // De la misma fila sale si el cliente YA confirmó (pago por Yape con
+        // comprobante): en ese caso el pedido sigue en AWAITING_PAYMENT pero
+        // esperando la VERIFICACIÓN del repartidor, y la tarjeta de pago se
+        // reemplaza por un aviso — mostrarla de nuevo invitaría a confirmar
+        // dos veces un pago que la base rechazaría.
         const { data: deliveryRow } = await supabase
           .from("deliveries")
-          .select("allows_pay_on_delivery")
+          .select("allows_pay_on_delivery, payment_confirmed_at")
           .eq("order_id", id)
           .maybeSingle();
 
-        deliveryOffer = {
-          fullName: offer.full_name,
-          avatarUrl: offer.avatar_url,
-          yapeQrUrl: offer.yape_qr_url,
-          phone: offer.phone,
-          deliveryFee: Number(offer.delivery_fee),
-          // Default `true` = el comportamiento de siempre (el pago al recibir
-          // ya existía): un dato ausente no le cierra opciones al cliente.
-          allowsPayOnDelivery: deliveryRow?.allows_pay_on_delivery !== false,
-        };
+        paymentConfirmed = deliveryRow?.payment_confirmed_at != null;
+
+        if (!paymentConfirmed) {
+          deliveryOffer = {
+            fullName: offer.full_name,
+            avatarUrl: offer.avatar_url,
+            yapeQrUrl: offer.yape_qr_url,
+            phone: offer.phone,
+            deliveryFee: Number(offer.delivery_fee),
+            // Default `true` = el comportamiento de siempre (el pago al recibir
+            // ya existía): un dato ausente no le cierra opciones al cliente.
+            allowsPayOnDelivery: deliveryRow?.allows_pay_on_delivery !== false,
+          };
+        }
       }
 
       // Se firma con el cliente DEL USUARIO (no service role): si la RLS de
@@ -265,13 +279,33 @@ export default async function OrderDetailPage({
 
           {/* La acción pendiente va pegada al resumen, donde está el monto que el
               cliente tiene que decidir: `total` viaja para que cada opción
-              muestre lo que le pagará al repartidor (comida + envío, D1). */}
-          {deliveryOffer && (
+              muestre lo que le pagará al repartidor (comida + envío, D1). Si el
+              cliente ya confirmó con Yape, el pedido espera la verificación
+              del repartidor y se muestra un aviso en vez de la tarjeta. */}
+          {deliveryOffer ? (
             <DeliveryPaymentCard
               orderId={order.id}
               total={Number(order.total)}
               deliveryPerson={deliveryOffer}
             />
+          ) : (
+            paymentConfirmed && (
+              <div
+                role="status"
+                className="flex w-full min-w-0 items-start gap-3 rounded-3xl border border-amber-300/60 bg-amber-50/60 p-5 dark:border-amber-500/30 dark:bg-amber-500/10"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                  <ClockIcon className="h-5 w-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Comprobante enviado</p>
+                  <p className="mt-0.5 text-sm text-amber-900 dark:text-amber-100">
+                    Tu repartidor está verificando tu pago por Yape. En cuanto
+                    lo confirme, irá por tu pedido.
+                  </p>
+                </div>
+              </div>
+            )
           )}
 
           {/* Los estados van DEBAJO del resumen y de la acción: responden "¿cómo

@@ -11,7 +11,7 @@ export default async function DeliveryOrderDetailPage({
   const { id } = await params
 
   return (
-    <PageContainer size="md">
+    <PageContainer size="lg">
       <PageHeader
         title="Detalle de la entrega"
         description="Revisa el pedido y avanza su estado."

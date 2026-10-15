@@ -23,7 +23,7 @@ export default async function DeliveryOrdersPage() {
     .maybeSingle()
 
   return (
-    <PageContainer size="md">
+    <PageContainer size="lg">
       <PageHeader
         title="Mi entrega"
         description={
