@@ -47,9 +47,9 @@ export function ProfileForm({
   } | null
   /**
    * `stacked` (default): una columna a lo ancho, como siempre — lo usan todos
-   * los paneles. `grid`: datos personales y dirección en tarjetas compactas
-   * lado a lado en desktop (`lg:grid-cols-2` con `items-start`, cada una solo
-   * su alto), pila en móvil. Solo lo pide `/cliente/perfil`.
+   * los paneles. `grid`: datos personales (3/5) y dirección (2/5) en tarjetas
+   * compactas lado a lado desde tablet (`md:grid-cols-5` con `items-start`,
+   * cada una solo su alto), pila en móvil. Solo lo pide `/cliente/perfil`.
    */
   layout?: 'stacked' | 'grid'
 }) {
@@ -104,26 +104,43 @@ export function ProfileForm({
   // Envoltorio de cada sección: en `grid` son tarjetas compactas (borde +
   // padding propio, sin separador superior porque el grid ya da el aire); en
   // `stacked` se conserva el aspecto de siempre, al píxel.
-  const cardClassName = 'rounded-2xl border p-4 sm:p-5 space-y-4'
+  const cardClassName = 'rounded-2xl border p-4 space-y-3'
   const personalClassName = isGrid ? cardClassName : 'space-y-5'
   const addressClassName = isGrid ? cardClassName : 'space-y-4 border-t pt-6'
+  // Ritmo compacto solo en grid: menos aire entre etiqueta y campo
+  // (`space-y-1`) y entre campos (`gap-3`). En stacked, los originales.
+  const personalInnerClassName = isGrid ? 'space-y-3' : 'space-y-4'
+  const fieldsGridClassName = isGrid
+    ? 'grid gap-3 sm:grid-cols-2'
+    : 'grid gap-4 sm:grid-cols-2'
+  const fieldClassName = isGrid ? 'space-y-1' : 'space-y-1.5'
+  const addressHeaderClassName = isGrid
+    ? 'flex flex-wrap items-start justify-between gap-2'
+    : 'flex items-start justify-between gap-4'
+  // Títulos más compactos solo en grid (la tarjeta ya delimita la sección).
+  const sectionTitleClassName = isGrid
+    ? 'text-sm font-semibold'
+    : 'text-base font-semibold'
+  const sectionDescClassName = isGrid
+    ? 'text-xs text-muted-foreground'
+    : 'mt-1 text-sm text-muted-foreground'
 
   const personalCard = (
     <form onSubmit={handleSubmit} className={personalClassName}>
-      <section className="space-y-4">
+      <section className={personalInnerClassName}>
       <div>
-        <h2 className="text-base font-semibold">Información personal</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h2 className={sectionTitleClassName}>Información personal</h2>
+        <p className={sectionDescClassName}>
           Tus datos de contacto para tus pedidos.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
+      <div className={fieldsGridClassName}>
+        <div className={`${fieldClassName} sm:col-span-2`}>
           <Label htmlFor="email">Correo electrónico</Label>
           <Input id="email" type="email" value={email} disabled />
         </div>
 
-        <div className="space-y-1.5">
+        <div className={fieldClassName}>
           <Label htmlFor="fullName">Nombre completo</Label>
           <Input
             id="fullName"
@@ -135,7 +152,7 @@ export function ProfileForm({
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className={fieldClassName}>
           <Label htmlFor="phone">Celular</Label>
           <Input
             id="phone"
@@ -148,7 +165,7 @@ export function ProfileForm({
         </div>
 
         {showDeliveryFields && (
-          <div className="space-y-1.5">
+          <div className={fieldClassName}>
             <Label htmlFor="documentNumber">N° de documento</Label>
             <Input
               id="documentNumber"
@@ -177,13 +194,13 @@ export function ProfileForm({
 
   const addressCard = address ? (
     <section className={addressClassName}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <MapPinIcon className="h-4 w-4 text-brand-500" />
+      <div className={addressHeaderClassName}>
+        <div className="min-w-0">
+          <h2 className={`flex items-center gap-2 ${sectionTitleClassName}`}>
+            <MapPinIcon className="h-4 w-4 shrink-0 text-brand-500" />
             Dirección de entrega
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className={sectionDescClassName}>
             Dirección guardada para recibir tus pedidos.
           </p>
         </div>
@@ -199,7 +216,7 @@ export function ProfileForm({
           }}
         />
       </div>
-      <div className="space-y-1 rounded-2xl border border-border/70 bg-muted/30 p-4">
+      <div className={`space-y-1 rounded-2xl border border-border/70 bg-muted/30 ${isGrid ? 'p-3' : 'p-4'}`}>
         <p className="text-sm font-medium">{address.label || 'Mi dirección'}</p>
         <p className="text-sm text-muted-foreground">{address.address_text}</p>
         {address.reference && (
@@ -211,13 +228,13 @@ export function ProfileForm({
     </section>
   ) : (
     <section className={addressClassName}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <MapPinIcon className="h-4 w-4 text-brand-500" />
+      <div className={addressHeaderClassName}>
+        <div className="min-w-0">
+          <h2 className={`flex items-center gap-2 ${sectionTitleClassName}`}>
+            <MapPinIcon className="h-4 w-4 shrink-0 text-brand-500" />
             Dirección de entrega
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className={sectionDescClassName}>
             Aún no tienes una dirección guardada.
           </p>
         </div>
@@ -245,12 +262,13 @@ export function ProfileForm({
       )}
 
       {isGrid ? (
-        // Dos tarjetas compactas lado a lado en desktop; en móvil la misma
-        // pila de antes (datos → dirección). `items-start` para que la corta
-        // (dirección) no se estire al alto del formulario.
-        <div className="grid items-start gap-4 lg:grid-cols-2">
-          <div className="min-w-0">{personalCard}</div>
-          <div className="min-w-0">{addressCard}</div>
+        // Datos (3/5) + dirección (2/5) lado a lado desde tablet (`md`): la
+        // dirección es un resumen corto y no necesita media pantalla.
+        // `items-start` para que la corta no se estire al alto del formulario.
+        // En móvil, la misma pila de antes (datos → dirección).
+        <div className="grid items-start gap-4 md:grid-cols-5">
+          <div className="min-w-0 md:col-span-3">{personalCard}</div>
+          <div className="min-w-0 md:col-span-2">{addressCard}</div>
         </div>
       ) : (
         <>

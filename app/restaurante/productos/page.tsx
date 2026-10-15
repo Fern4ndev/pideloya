@@ -1,7 +1,5 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -12,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ProductRowActions } from '@/components/features/products/ProductRowActions'
+import { ProductCreateDialog } from '@/components/features/products/ProductCreateDialog'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { TablePagination } from '@/components/ui/table-pagination'
@@ -19,7 +18,7 @@ import { TableShell } from '@/components/ui/table-shell'
 import { EmptyState } from '@/components/ui/empty-state'
 import { getPagination } from '@/lib/pagination'
 import { withImageKitTransform } from '@/lib/images/imagekit-transform'
-import { PlusIcon, PackageOpenIcon } from 'lucide-react'
+import { PackageOpenIcon } from 'lucide-react'
 
 export default async function RestaurantProductsPage({
   searchParams,
@@ -95,14 +94,10 @@ export default async function RestaurantProductsPage({
         title="Productos"
         description="Lo que ven tus clientes en tu carta."
         action={
-          <Button
-            variant="lime"
-            render={<Link href="/restaurante/productos/nuevo" />}
-            nativeButton={false}
-          >
-            <PlusIcon />
-            Nuevo producto
-          </Button>
+          <ProductCreateDialog
+            categories={categories ?? []}
+            restaurantId={restaurantId}
+          />
         }
       />
 

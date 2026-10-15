@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
 import { CategoryManager } from '@/components/features/categories/CategoryManager'
+import { CategoryCreateDialog } from '@/components/features/categories/CategoryCreateDialog'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
-import { Card, CardContent } from '@/components/ui/card'
 
 export default async function CategoriesPage() {
   const supabase = await createClient()
@@ -39,17 +39,16 @@ export default async function CategoriesPage() {
     .order('sort_order', { ascending: true })
 
   return (
-    <PageContainer size="sm">
+    <PageContainer size="full">
       <PageHeader
         title="Categorías"
         description="Organiza tu carta — ej. Entradas, Platos de fondo, Bebidas."
+        action={<CategoryCreateDialog />}
       />
 
-      <Card className="mt-6">
-        <CardContent>
-          <CategoryManager initialCategories={categories ?? []} />
-        </CardContent>
-      </Card>
+      <div className="mt-6">
+        <CategoryManager initialCategories={categories ?? []} />
+      </div>
     </PageContainer>
   )
 }
