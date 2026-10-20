@@ -2,7 +2,7 @@
 
 ## Resumen General
 
-**PideloYa** es una plataforma de pedidos y delivery de comida para Abancay, Apurímac.
+**PideloYa** es una plataforma de pedidos y delivery de comida para Abancay, Apurímac. El proyecto está orientado a experiencias por rol (cliente, restaurante, repartidor y administrador) y se apoya en Next.js 16 con App Router, Supabase y UI reutilizable basada en shadcn/ui.
 
 | Aspecto | Detalle |
 |---|---|
@@ -10,10 +10,22 @@
 | **Lenguaje** | TypeScript |
 | **Estilos** | Tailwind CSS v4 + shadcn/ui |
 | **Base de Datos** | Supabase (PostgreSQL) |
+| **Autenticación** | Supabase Auth |
 | **Imágenes** | ImageKit |
 | **Estado** | Zustand (carrito) |
 | **Validación** | Zod |
 | **Paquete** | pnpm |
+| **Calidad** | ESLint + TypeScript (`tsc --noEmit`) |
+
+## Convenciones para trabajo con agentes
+
+- Mantener la estructura y patrones ya existentes en `app/`, `components/` y `lib/`.
+- Priorizar cambios pequeños, específicos y alineados con el módulo afectado.
+- Usar Server Components por defecto y añadir `use client` solo cuando sea estrictamente necesario.
+- Reutilizar utilidades y validadores existentes antes de crear duplicados.
+- Respetar permisos, roles y guardas definidas en `proxy.ts` y en los server actions.
+- No introducir dependencias nuevas sin necesidad justificada.
+- Validar cambios con `pnpm lint` y `pnpm typecheck` cuando corresponde.
 
 ---
 
@@ -122,7 +134,6 @@ pideloyaa/
 | `/cliente` | `app/cliente/page.tsx` | Dashboard del cliente |
 | `/cliente/carrito` | `app/cliente/carrito/page.tsx` | Carrito de compras |
 | `/cliente/direcciones` | `app/cliente/direcciones/page.tsx` | Gestión de direcciones |
-| `/cliente/favoritos` | `app/cliente/favoritos/page.tsx` | Restaurantes favoritos |
 | `/cliente/pedidos` | `app/cliente/pedidos/page.tsx` | Historial de pedidos |
 | `/cliente/pedidos/[id]` | `app/cliente/pedidos/[id]/page.tsx` | Detalle de pedido |
 | `/cliente/perfil` | `app/cliente/perfil/page.tsx` | Perfil del cliente |
@@ -578,8 +589,8 @@ Redirige a `/login` si el usuario no está autenticado o no tiene el rol adecuad
 │ carrito │ productos │ disponibles│ pedidos      │
 │ pedidos │ categorías│ historial  │ usuarios     │
 │ direcciones│ horarios│ pedidos   │ restaurantes │
-│ favoritos│ negocio  │ perfil    │ reportes      │
-│ perfil  │ perfil   │ ubicación │ config         │
+│ perfil     │ negocio  │ perfil    │ reportes      │
+│            │ perfil   │ ubicación │ config         │
 └─────────┴──────────┴───────────┴────────────────┘
 ```
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { Icon } from '@iconify-icon/react'
+import { ArrowLeftIcon } from 'lucide-react'
 
 const LEGAL_LINKS = [
   { label: 'Términos y Condiciones', href: '/terminos' },
@@ -23,7 +23,7 @@ export function LegalDocumentLayout({
           href="/"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Icon icon="lucide:arrow-left" width="15" height="15" />
+          <ArrowLeftIcon className="h-[15px] w-[15px]" aria-hidden />
           Volver al inicio
         </Link>
 

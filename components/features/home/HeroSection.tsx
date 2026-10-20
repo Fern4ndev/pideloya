@@ -1,5 +1,6 @@
-import { Icon } from '@iconify-icon/react'
 import { ChevronRightIcon } from '@animateicons/react/huge'
+import { MapPinIcon } from 'lucide-react'
+import { LandingVideo } from './LandingVideo'
 
 export function HeroSection() {
   return (
@@ -34,9 +35,9 @@ export function HeroSection() {
             {/* Barra de búsqueda */}
             <div className="mt-9 flex max-w-[480px] rounded-full border border-white/10 bg-panel p-2 transition-all duration-300 focus-within:border-lime focus-within:shadow-[0_0_0_4px_rgba(216,255,62,0.12)] max-sm:flex-col max-sm:rounded-[20px]">
               <div className="flex min-w-0 flex-1 items-center">
-                <Icon
-                  icon="mdi:map-marker-outline"
-                  className="ml-3 shrink-0 text-xl text-[#9b978c]"
+                <MapPinIcon
+                  className="ml-3 h-5 w-5 shrink-0 text-[#9b978c]"
+                  aria-hidden
                 />
                 <input
                   type="text"
@@ -54,14 +55,7 @@ export function HeroSection() {
 
           {/* Columna derecha — Video */}
           <div className="relative z-10 h-auto w-[140%] -ml-[15%] object-contain [mask-image:linear-gradient(to_right,transparent_0%,black_25%,black_50%,transparent_100%),linear-gradient(to_bottom,transparent_0%,black_20%,black_80%,transparent_100%)] [mask-composite:intersect]">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="h-full w-full object-contain pointer-events-none"
-              src="/videos/landing.mp4"
-            />
+            <LandingVideo />
           </div>
         </div>
       </div>

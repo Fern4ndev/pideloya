@@ -2,13 +2,33 @@
 
 import Image from 'next/image'
 import { UtensilsCrossedIcon } from 'lucide-react'
+import { m } from 'motion/react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProductOrderCard } from '@/components/features/products/ProductOrderCard'
+import { MenuCategoryNav } from '@/components/features/restaurants/MenuCategoryNav'
 import { RestaurantOpenBanner } from '@/components/features/restaurants/RestaurantOpenBanner'
 import { useRestaurantOpen } from '@/lib/hooks/use-restaurant-open'
 import type { RestaurantHourInput } from '@/lib/restaurants/is-open'
+
+/**
+ * Entrada escalonada de la carta: solo los primeros N productos animan para
+ * no lanzar decenas de animaciones a la vez en cartas largas (ver plan de
+ * vuelo al carrito). El resto se renderiza estático.
+ */
+const STAGGER_LIMIT = 8
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+}
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] as const },
+  },
+}
 
 export interface RestaurantMenuData {
   id: string
@@ -16,7 +36,6 @@ export interface RestaurantMenuData {
   description: string | null
   logo_url: string | null
   address_text: string | null
-  whatsapp: string | null
   food_type: string | null
   is_open: boolean
 }
@@ -52,36 +71,41 @@ export function RestaurantMenuView({
 
   const uncategorized = products.filter((p) => !p.category_id)
 
-  const whatsappLink = restaurant.whatsapp
-    ? `https://wa.me/51${restaurant.whatsapp}?text=${encodeURIComponent(
-        `Hola, quiero hacer un pedido en ${restaurant.name} desde PideloYa`
-      )}`
-    : null
+  const navItems = [
+    ...productsByCategory.map(({ category, products: categoryProducts }) => ({
+      id: category.id,
+      name: category.name,
+      count: categoryProducts.length,
+    })),
+    ...(uncategorized.length > 0
+      ? [{ id: 'otros', name: 'Otros', count: uncategorized.length }]
+      : []),
+  ]
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-10 pt-6">
-      {/* Banner "ambient cover": con logo, el logo desenfocado de fondo y un
-          velo de marca encima (no hace falta ningún dato nuevo — el logo ya se
-          trae); sin logo queda el gradiente de marca como fallback. */}
-      <div className="relative h-28 overflow-hidden rounded-[28px] bg-gradient-to-br from-brand-500 via-brand-600 to-violet sm:h-36">
+    <div className="mx-auto max-w-5xl px-4 pb-10 pt-6">
+      {/* Cover neutro piedra: el ambiente lo da el logo desenfocado (si hay)
+          con un velo neutro, nunca el naranja de marca — la portada presenta
+          al negocio, no compite con los CTAs. */}
+      <div className="relative h-40 overflow-hidden rounded-[28px] bg-gradient-to-br from-stone-200 via-stone-100 to-stone-200 sm:h-52 dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800">
         {restaurant.logo_url && (
           <>
             <Image
               src={restaurant.logo_url}
               alt=""
               fill
-              sizes="(min-width: 640px) 768px, 100vw"
+              sizes="(min-width: 640px) 1024px, 100vw"
               className="scale-110 object-cover blur-2xl"
             />
             <div
               aria-hidden="true"
-              className="absolute inset-0 bg-gradient-to-br from-brand-500/70 via-brand-600/70 to-violet/70"
+              className="absolute inset-0 bg-black/10"
             />
           </>
         )}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/15 blur-3xl"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,0,0,0.06),transparent_40rem)]"
         />
       </div>
 
@@ -113,81 +137,137 @@ export function RestaurantMenuView({
             )}
           </div>
         </div>
-
-        {whatsappLink && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4 rounded-full"
-            render={<a href={whatsappLink} target="_blank" rel="noopener noreferrer" />}
-            nativeButton={false}
-          >
-            Pedir por WhatsApp
-          </Button>
-        )}
       </div>
 
       <div className="mt-6">
         <RestaurantOpenBanner isOpen={restaurant.is_open} hours={hours} />
       </div>
 
-      <div className="mt-8 space-y-8">
+      {/* Navegación por categorías: solo aporta con 2+ secciones. */}
+      {navItems.length > 1 && (
+        <div className="mt-6">
+          <MenuCategoryNav items={navItems} />
+        </div>
+      )}
+
+      <div className="mt-8 space-y-10">
         {products.length > 0 ? (
           <>
             {productsByCategory.map(({ category, products: categoryProducts }, index) => (
-              <div key={category.id}>
+              <section
+                key={category.id}
+                id={`cat-${category.id}`}
+                aria-label={category.name}
+                className="scroll-mt-36"
+              >
                 {/* Separador degradado entre secciones consecutivas: la carta
                     se lee como secciones y no como una lista continua. */}
                 {index > 0 && <div className="section-divider mb-6" aria-hidden />}
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {category.name}
-                </h2>
-                <div className="mt-3 space-y-3">
-                  {categoryProducts.map((p) => (
-                    <ProductOrderCard
-                      key={p.id}
-                      product={{
-                        id: p.id,
-                        name: p.name,
-                        description: p.description,
-                        price: Number(p.price),
-                        imageUrl: p.image_url,
-                      }}
-                      restaurant={{ id: restaurant.id, name: restaurant.name }}
-                      disabled={!isOpenNow}
-                    />
-                  ))}
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {category.name}
+                  </h2>
+                  <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-bold tabular-nums text-muted-foreground dark:bg-white/10">
+                    {categoryProducts.length}
+                  </span>
                 </div>
-              </div>
+                <m.div
+                  className="mt-3 grid gap-3 sm:grid-cols-2"
+                  variants={listVariants}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, margin: '-40px' }}
+                >
+                  {categoryProducts.map((p, i) =>
+                    i < STAGGER_LIMIT ? (
+                      <m.div key={p.id} variants={itemVariants}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </m.div>
+                    ) : (
+                      <div key={p.id}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </div>
+                    )
+                  )}
+                </m.div>
+              </section>
             ))}
 
             {uncategorized.length > 0 && (
-              <div>
+              <section id="cat-otros" aria-label="Otros" className="scroll-mt-36">
                 {productsByCategory.length > 0 && (
                   <>
                     <div className="section-divider mb-6" aria-hidden />
-                    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      Otros
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Otros
+                      </h2>
+                      <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-bold tabular-nums text-muted-foreground dark:bg-white/10">
+                        {uncategorized.length}
+                      </span>
+                    </div>
                   </>
                 )}
-                <div className="mt-3 space-y-3">
-                  {uncategorized.map((p) => (
-                    <ProductOrderCard
-                      key={p.id}
-                      product={{
-                        id: p.id,
-                        name: p.name,
-                        description: p.description,
-                        price: Number(p.price),
-                        imageUrl: p.image_url,
-                      }}
-                      restaurant={{ id: restaurant.id, name: restaurant.name }}
-                      disabled={!isOpenNow}
-                    />
-                  ))}
-                </div>
-              </div>
+                <m.div
+                  className="mt-3 grid gap-3 sm:grid-cols-2"
+                  variants={listVariants}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, margin: '-40px' }}
+                >
+                  {uncategorized.map((p, i) =>
+                    i < STAGGER_LIMIT ? (
+                      <m.div key={p.id} variants={itemVariants}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </m.div>
+                    ) : (
+                      <div key={p.id}>
+                        <ProductOrderCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            description: p.description,
+                            price: Number(p.price),
+                            imageUrl: p.image_url,
+                          }}
+                          restaurant={{ id: restaurant.id, name: restaurant.name }}
+                          disabled={!isOpenNow}
+                        />
+                      </div>
+                    )
+                  )}
+                </m.div>
+              </section>
             )}
           </>
         ) : (

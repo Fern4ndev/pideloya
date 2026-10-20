@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/server'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
-import { StoreIcon } from 'lucide-react'
+import { ClockIcon, StoreIcon } from 'lucide-react'
 import { ClienteHomeClient } from '@/components/features/cliente-home/ClienteHomeClient'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { RestaurantCardData } from '@/components/features/restaurants/RestaurantCard'
@@ -14,7 +14,7 @@ export default async function ClienteHomePage() {
   const { data: restaurants, error } = await supabase
     .from('restaurants')
     .select(
-      'id, slug, name, description, logo_url, address_text, food_type, is_open'
+      'id, slug, name, description, logo_url, cover_url, address_text, food_type, is_open'
     )
     .order('name')
 
@@ -34,43 +34,54 @@ export default async function ClienteHomePage() {
     openByRestaurantId.set(r.id, isRestaurantOpenNow(r.is_open, restaurantHours))
   }
 
-  const listedRestaurants: RestaurantCardData[] = (restaurants ?? []).map((r) => ({
-    slug: r.slug,
-    name: r.name,
-    description: r.description,
-    logo_url: r.logo_url,
-    address_text: r.address_text,
-    food_type: r.food_type,
-    isOpen: openByRestaurantId.get(r.id) ?? true,
-  }))
+  // Regla de negocio: los negocios cerrados NO se listan (ni en la grilla ni
+  // en el loop de logos ni en categorías). Solo se muestran los abiertos ahora.
+  const listedRestaurants: RestaurantCardData[] = (restaurants ?? [])
+    .filter((r) => openByRestaurantId.get(r.id) ?? true)
+    .map((r) => ({
+      slug: r.slug,
+      name: r.name,
+      description: r.description,
+      logo_url: r.logo_url,
+      cover_url: r.cover_url,
+      address_text: r.address_text,
+      food_type: r.food_type,
+      isOpen: true,
+    }))
 
-  const closedRestaurantIds = (restaurants ?? [])
-    .filter((r) => !(openByRestaurantId.get(r.id) ?? true))
-    .map((r) => r.id)
+  const hasRestaurantsButAllClosed =
+    (restaurants ?? []).length > 0 && listedRestaurants.length === 0
 
   // "Platos populares": últimos productos disponibles, con el restaurante
-  // embebido para poder agregarlos al carrito directo desde la home.
+  // embebido (id + nombre + slug) para agregarlos al carrito directo desde la
+  // home y para navegar a la carta del negocio al tocar la tarjeta.
   // Requiere las policies "products_select_customer" /
   // "categories_select_customer" — ver migración 20260920100000.
   const { data: popularProductsRaw } = await supabase
     .from('products')
-    .select('id, name, price, image_url, restaurants(id, name)')
+    .select('id, name, price, image_url, restaurants(id, name, slug)')
     .eq('available', true)
     .order('created_at', { ascending: false })
     .limit(12)
 
+  // Los platos de negocios cerrados tampoco se muestran.
   const popularProducts: FeaturedProduct[] = (popularProductsRaw ?? [])
     .filter((p) => p.restaurants)
     .map((p) => {
-      const restaurant = p.restaurants as unknown as { id: string; name: string }
+      const restaurant = p.restaurants as unknown as {
+        id: string
+        name: string
+        slug: string
+      }
       return {
         id: p.id,
         name: p.name,
         price: Number(p.price),
         imageUrl: p.image_url,
-        restaurant: { id: restaurant.id, name: restaurant.name },
+        restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug },
       }
     })
+    .filter((p) => openByRestaurantId.get(p.restaurant.id) ?? true)
 
   return (
     <div>
@@ -89,12 +100,21 @@ export default async function ClienteHomePage() {
         />
       )}
 
-      {!error && restaurants && restaurants.length > 0 && (
+      {!error && hasRestaurantsButAllClosed && (
+        <EmptyState
+          icon={ClockIcon}
+          title="Todos los negocios están cerrados ahora"
+          description="Vuelve en horario de atención para ver la carta y los platos populares."
+          className="mt-10 rounded-3xl"
+        />
+      )}
+
+      {!error && listedRestaurants.length > 0 && (
         <ClienteHomeClient
           greeting={limaGreeting()}
           restaurants={listedRestaurants}
           popularProducts={popularProducts}
-          closedRestaurantIds={closedRestaurantIds}
+          closedRestaurantIds={[]}
         />
       )}
     </div>

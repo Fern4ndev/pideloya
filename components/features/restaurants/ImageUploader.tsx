@@ -23,6 +23,8 @@ const SIZE_CLASSES = {
   sm: 'h-20 w-20',
   md: 'h-28 w-28',
   lg: 'h-40 w-40 sm:h-48 sm:w-48',
+  // Apaisado para portadas (16/10 aprox.): solo lo usa CoverUploader.
+  wide: 'h-32 w-full max-w-xs sm:h-36',
 } as const
 
 export function ImageUploader({

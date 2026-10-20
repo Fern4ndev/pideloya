@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/server'
+import { getSessionContext } from '@/lib/auth/session'
 import {
   Table,
   TableBody,
@@ -15,21 +16,6 @@ import { TablePagination } from '@/components/ui/table-pagination'
 import { getPagination } from '@/lib/pagination'
 import { HistoryIcon } from 'lucide-react'
 import type { OrderStatus } from '@/lib/constants/order-status'
-
-async function getMyProfileId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  return (profile?.id as string) ?? null
-}
 
 type DeliveryRow = {
   id: string
@@ -59,7 +45,10 @@ type DeliveryRow = {
  */
 export async function DeliveryHistoryTable({ page }: { page?: string }) {
   const supabase = await createClient()
-  const profileId = await getMyProfileId(supabase)
+  // La cadena de identidad (getUser + profiles) vive en lib/auth/session.ts
+  // con cache() de React: compartida con el resto del request.
+  const session = await getSessionContext()
+  const profileId = session?.profileId ?? null
 
   if (!profileId) return null
 

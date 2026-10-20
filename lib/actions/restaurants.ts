@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
+import { revalidatePublicRestaurants } from '@/lib/db/public'
+import { getMyRestaurantIdOrNull } from '@/lib/auth/session'
 import {
   restaurantSchema,
   type RestaurantInput,
@@ -11,32 +13,15 @@ import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
 /**
  * Resuelve el restaurant_id que administra el usuario actual.
  * Si el usuario es RESTAURANT y es miembro, devuelve el id.
+ *
+ * La cadena de identidad (getUser + profiles) vive en lib/auth/session.ts
+ * con cache() de React: 1 vez por request en vez de 2 consultas por action.
  */
 async function getMyRestaurantId() {
+  const restaurantId = await getMyRestaurantIdOrNull()
+  if (!restaurantId) throw new Error('No administras ningún restaurante todavía')
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('No autenticado')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile) throw new Error('Perfil no encontrado')
-
-  const { data: member } = await supabase
-    .from('restaurant_members')
-    .select('restaurant_id')
-    .eq('user_id', profile.id)
-    .single()
-
-  if (!member) throw new Error('No administras ningún restaurante todavía')
-
-  return { supabase, restaurantId: member.restaurant_id as string }
+  return { supabase, restaurantId }
 }
 
 export async function updateRestaurant(input: RestaurantInput) {
@@ -90,6 +75,7 @@ export async function updateRestaurant(input: RestaurantInput) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath(`/restaurantes/${slug}`)
   revalidatePath('/restaurante')
   return { success: true }
@@ -118,6 +104,7 @@ export async function setRestaurantOpen(isOpen: boolean) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath(`/restaurantes/${restaurant.slug}`)
   revalidatePath(`/cliente/restaurantes/${restaurant.slug}`)
   revalidatePath('/restaurante/negocio')
@@ -144,7 +131,49 @@ export async function saveRestaurantLogo(image: { url: string; fileId: string })
 
   await deleteImageKitFileSafe(current?.logo_file_id)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/negocio')
   revalidatePath('/restaurantes')
+  return { success: true }
+}
+
+/**
+ * Guarda la portada del negocio (foto principal de la tarjeta).
+ * Espejo de `saveRestaurantLogo()`: actualiza `cover_url/cover_file_id`,
+ * borra la imagen anterior de ImageKit y revalida las superficies que
+ * muestran la card (listados público/cliente y cartas por slug).
+ */
+export async function saveRestaurantCover(image: { url: string; fileId: string }) {
+  const { supabase, restaurantId } = await getMyRestaurantId()
+
+  const { data: current } = await supabase
+    .from('restaurants')
+    .select('cover_file_id')
+    .eq('id', restaurantId)
+    .single()
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({ cover_url: image.url, cover_file_id: image.fileId })
+    .eq('id', restaurantId)
+
+  if (error) throw new Error(error.message)
+
+  await deleteImageKitFileSafe(current?.cover_file_id)
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('slug')
+    .eq('id', restaurantId)
+    .single()
+
+  revalidatePublicRestaurants()
+  revalidatePath('/restaurante/negocio')
+  revalidatePath('/restaurantes')
+  revalidatePath('/cliente')
+  if (restaurant) {
+    revalidatePath(`/restaurantes/${restaurant.slug}`)
+    revalidatePath(`/cliente/restaurantes/${restaurant.slug}`)
+  }
   return { success: true }
 }

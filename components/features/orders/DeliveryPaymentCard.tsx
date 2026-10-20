@@ -141,6 +141,11 @@ export function DeliveryPaymentCard({
    * negociable: la función SQL rechaza la confirmación si el archivo no existe
    * en Storage.
    *
+   * Confirmar NO arranca la entrega: el pedido se queda en AWAITING_PAYMENT
+   * hasta que el repartidor verifique el comprobante (migración
+   * 20261015120000). El toast lo dice así para no prometer "ya va por tu
+   * pedido" cuando todavía falta la verificación.
+   *
    * El archivo sube DIRECTO del navegador a Storage con la sesión del cliente
    * (RLS aplicada): las Server Actions tienen un límite de cuerpo de 1 MB y un
    * comprobante no siempre cabe. Si algo falla, el archivo ELEGIDO se conserva
@@ -175,7 +180,7 @@ export function DeliveryPaymentCard({
 
       setPhase('confirming')
       await confirmDeliveryPayment(orderId, 'UPFRONT')
-      success('Listo. Tu repartidor va por tu pedido.')
+      success('Comprobante enviado. Tu repartidor lo verificará antes de ir por tu pedido.')
       router.refresh()
     } catch (err) {
       error('No se pudo confirmar', err instanceof Error ? err.message : undefined)

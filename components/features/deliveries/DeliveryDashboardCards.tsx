@@ -16,59 +16,31 @@ interface DeliveryStats {
 async function fetchDeliveryStats(): Promise<DeliveryStats> {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Los 4 conteos en UNA consulta: delivery_stats() (migración 20261003120600,
+  // SECURITY INVOKER). Antes: getUser + profiles y 4 counts 'exact' en
+  // Promise.all — y "entregadas hoy" usaba la medianoche del RELOJ DEL
+  // NAVEGADOR (setHours(0,0,0,0) local): un repartidor con el celular en otra
+  // zona horaria veía el conteo de "hoy" equivocado. La RPC ancla "hoy" a
+  // Lima siempre.
+  const { data, error } = await supabase.rpc('delivery_stats')
+  if (error) throw new Error(error.message)
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user?.id ?? '')
-    .maybeSingle()
-
-  const profileId = profile?.id
-
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-
-  const [
-    { count: availableOrders },
-    { count: activeDeliveries },
-    { count: deliveredToday },
-    { count: deliveredTotal },
-  ] = await Promise.all([
-    supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'PENDING'),
-    supabase
-      .from('deliveries')
-      .select('*', { count: 'exact', head: true })
-      .eq('delivery_person_id', profileId ?? '')
-      .is('delivered_at', null),
-    supabase
-      .from('deliveries')
-      .select('*', { count: 'exact', head: true })
-      .eq('delivery_person_id', profileId ?? '')
-      .gte('delivered_at', todayStart.toISOString()),
-    supabase
-      .from('deliveries')
-      .select('*', { count: 'exact', head: true })
-      .eq('delivery_person_id', profileId ?? '')
-      .not('delivered_at', 'is', null),
-  ])
+  const stats = data?.[0]
 
   return {
-    availableOrders: availableOrders ?? 0,
-    activeDeliveries: activeDeliveries ?? 0,
-    deliveredToday: deliveredToday ?? 0,
-    deliveredTotal: deliveredTotal ?? 0,
+    availableOrders: Number(stats?.available_orders ?? 0),
+    activeDeliveries: Number(stats?.active_deliveries ?? 0),
+    deliveredToday: Number(stats?.delivered_today ?? 0),
+    deliveredTotal: Number(stats?.delivered_total ?? 0),
   }
 }
 
 export function DeliveryDashboardCards() {
   const { data, mutate } = useSWR<DeliveryStats>('delivery-dashboard-stats', fetchDeliveryStats, {
-    revalidateOnFocus: true,
+    // Fase 2 (anti-churn de consultas): el foco de la pestaña ya NO dispara
+    // consulta. El realtime de abajo invalida al detectar cambios reales en
+    // orders/deliveries — esa es la señal que importa, no el alt-tab.
+    revalidateOnFocus: false,
   })
 
   useRealtimeInvalidate(

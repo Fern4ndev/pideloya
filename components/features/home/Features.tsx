@@ -1,10 +1,10 @@
-import { Icon } from '@iconify-icon/react'
+import { BellIcon, ClockIcon, HeartIcon, ShieldCheckIcon, type LucideIcon } from 'lucide-react'
 
 const FEATURES = [
   {
     title: 'Entrega ultrarrápida',
     description: 'Repartidores locales que conocen Abancay. Tu pedido llega en minutos, no en horas.',
-    icon: 'lucide:clock',
+    icon: ClockIcon,
     gradient: 'from-brand-50 to-orange-50',
     border: 'border-brand-100',
     iconBg: 'bg-brand-500',
@@ -12,7 +12,7 @@ const FEATURES = [
   {
     title: 'Seguro y confiable',
     description: 'Paga con confianza. Tus datos están protegidos y cada repartidor es verificado.',
-    icon: 'lucide:shield-check',
+    icon: ShieldCheckIcon,
     gradient: 'from-blue-50 to-indigo-50',
     border: 'border-blue-100',
     iconBg: 'bg-blue-500',
@@ -20,7 +20,7 @@ const FEATURES = [
   {
     title: 'Apoya lo local',
     description: 'Cada pedido fortalece los negocios de tu comunidad. Compra local, consume con propósito.',
-    icon: 'lucide:heart',
+    icon: HeartIcon,
     gradient: 'from-purple-50 to-pink-50',
     border: 'border-purple-100',
     iconBg: 'bg-purple-500',
@@ -28,12 +28,12 @@ const FEATURES = [
   {
     title: 'Notificaciones en tiempo real',
     description: 'Sabes exactamente dónde está tu pedido. Desde el restaurante hasta tu puerta.',
-    icon: 'lucide:bell',
+    icon: BellIcon,
     gradient: 'from-emerald-50 to-teal-50',
     border: 'border-emerald-100',
     iconBg: 'bg-emerald-500',
   },
-]
+] satisfies { title: string; description: string; icon: LucideIcon; gradient: string; border: string; iconBg: string }[]
 
 export function Features() {
   return (
@@ -55,7 +55,7 @@ export function Features() {
               <div
                 className={`w-12 h-12 rounded-xl ${feature.iconBg} flex items-center justify-center mb-5`}
               >
-                <Icon icon={feature.icon} width="24" height="24" className="text-white" />
+                <feature.icon className="h-6 w-6 text-white" aria-hidden />
               </div>
               <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
               <p className="text-muted-foreground leading-relaxed">{feature.description}</p>

@@ -19,11 +19,12 @@ const NEXT_STATUS: Partial<
   // al UPDATE de abajo.
   ON_THE_WAY: { next: 'DELIVERED', stamp: 'delivered_at' },
   // Ni PENDING ni AWAITING_PAYMENT se avanzan desde acá: el salto a ASSIGNED
-  // solo lo produce la elección del método de pago (RPC
-  // select_delivery_payment). AWAITING_PAYMENT queda en self-map para que la
-  // guarda responda 400 "no puede avanzar"; PENDING salió del mapa porque un
-  // PENDING no tiene repartidor — era el bypass por el que el admin podía
-  // crear un ASSIGNED sin entrega ni tarifa (Hallazgo 1 de la Fase 8).
+  // solo lo produce la elección del pago (RPC select_delivery_payment con pago
+  // al recibir, o verify_upfront_payment con Yape ya verificado).
+  // AWAITING_PAYMENT queda en self-map para que la guarda responda 400 "no
+  // puede avanzar"; PENDING salió del mapa porque un PENDING no tiene
+  // repartidor — era el bypass por el que el admin podía crear un ASSIGNED sin
+  // entrega ni tarifa (Hallazgo 1 de la Fase 8).
   AWAITING_PAYMENT: { next: 'AWAITING_PAYMENT' },
   DELIVERED: { next: 'DELIVERED' },
   CANCELLED: { next: 'CANCELLED' },

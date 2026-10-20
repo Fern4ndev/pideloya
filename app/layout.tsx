@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Toaster } from '@/components/ui/toast'
+import { SwrProvider } from '@/components/providers/swr-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -21,11 +21,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="font-sans antialiased">
-        <Script
-          src="https://cdn.jsdelivr.net/npm/iconify-icon@3/dist/iconify-icon.min.js"
-          strategy="beforeInteractive"
-        />
-        {children}
+        {/* Script de iconify eliminado (Fase 4): todos los iconos son ahora
+            lucide-react inline — un request de CDN menos y cero flash de
+            iconos vacíos en primera pintura. */}
+        <SwrProvider>{children}</SwrProvider>
         <Toaster position="top-right" />
       </body>
     </html>

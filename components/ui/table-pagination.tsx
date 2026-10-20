@@ -74,9 +74,9 @@ export function TablePagination({
           />
         </PaginationItem>
 
-        {items.map((item) =>
+        {items.map((item, index) =>
           item === 'ellipsis' ? (
-            <PaginationItem key={`ellipsis-${page}`}>
+            <PaginationItem key={`ellipsis-${index}`}>
               <PaginationEllipsis />
             </PaginationItem>
           ) : (

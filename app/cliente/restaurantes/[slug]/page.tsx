@@ -13,7 +13,7 @@ export default async function ClienteRestaurantMenuPage({
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select(
-      'id, name, description, logo_url, address_text, whatsapp, food_type, is_open'
+      'id, name, description, logo_url, address_text, food_type, is_open'
     )
     .eq('slug', slug)
     .eq('is_approved', true)

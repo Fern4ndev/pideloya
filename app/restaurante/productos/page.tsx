@@ -1,7 +1,5 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/db/server'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -12,13 +10,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ProductRowActions } from '@/components/features/products/ProductRowActions'
+import { ProductCreateDialog } from '@/components/features/products/ProductCreateDialog'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { TablePagination } from '@/components/ui/table-pagination'
 import { TableShell } from '@/components/ui/table-shell'
 import { EmptyState } from '@/components/ui/empty-state'
 import { getPagination } from '@/lib/pagination'
-import { PlusIcon, PackageOpenIcon } from 'lucide-react'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
+import { PackageOpenIcon } from 'lucide-react'
 
 export default async function RestaurantProductsPage({
   searchParams,
@@ -94,14 +94,10 @@ export default async function RestaurantProductsPage({
         title="Productos"
         description="Lo que ven tus clientes en tu carta."
         action={
-          <Button
-            variant="lime"
-            render={<Link href="/restaurante/productos/nuevo" />}
-            nativeButton={false}
-          >
-            <PlusIcon />
-            Nuevo producto
-          </Button>
+          <ProductCreateDialog
+            categories={categories ?? []}
+            restaurantId={restaurantId}
+          />
         }
       />
 
@@ -133,10 +129,16 @@ export default async function RestaurantProductsPage({
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted">
                         {product.imageUrl ? (
+                          // Miniatura 36×36: con `?tr=` ImageKit la sirve ya
+                          // reducida (Fase 4) en vez de bajar el original.
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={product.imageUrl}
+                            src={withImageKitTransform(product.imageUrl, 96)}
                             alt={product.name}
+                            width={36}
+                            height={36}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                           />
                         ) : null}

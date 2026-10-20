@@ -17,6 +17,17 @@ const NEXT_LABEL: Record<string, string> = {
 }
 
 /**
+ * Etiquetas cortas del mismo botón para pantallas pequeñas: en la tarjeta de
+ * "Mi entrega" el botón comparte fila con el badge y "Marcar como recogido"
+ * no cabe en 375 px. Desde `sm` se muestra la completa.
+ */
+const NEXT_SHORT_LABEL: Record<string, string> = {
+  ASSIGNED: 'Recogido',
+  PICKED_UP: 'En camino',
+  ON_THE_WAY: 'Finalizar',
+}
+
+/**
  * Avanza el pedido al siguiente estado del flujo de entrega.
  *
  * El último paso de un pedido que se paga AL RECIBIR es UN TOQUE: antes el
@@ -60,6 +71,7 @@ export function AdvanceStatusButton({
   const [pickupOpen, setPickupOpen] = useState(false)
   const [incidentOpen, setIncidentOpen] = useState(false)
   const label = NEXT_LABEL[currentStatus]
+  const shortLabel = NEXT_SHORT_LABEL[currentStatus] ?? label
   const { success, error } = useToast()
 
   if (!label) return null
@@ -91,7 +103,14 @@ export function AdvanceStatusButton({
   return (
     <div className="flex flex-col items-end gap-1">
       <Button size="sm" variant="lime" disabled={isPending} onClick={handleClick}>
-        {isPending ? 'Actualizando…' : label}
+        {isPending ? (
+          'Actualizando…'
+        ) : (
+          <>
+            <span className="sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:inline">{label}</span>
+          </>
+        )}
       </Button>
 
       {canReportIncident && (

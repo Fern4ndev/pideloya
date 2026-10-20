@@ -93,6 +93,7 @@ function Carousel({
       setCanScrollPrev(api.canScrollPrev())
       setCanScrollNext(api.canScrollNext())
     }
+    handleSelect()
     api.on("reInit", handleSelect)
     api.on("select", handleSelect)
 

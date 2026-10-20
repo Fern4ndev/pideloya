@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import useSWRInfinite from 'swr/infinite'
 import { createClient } from '@/lib/db/client'
 import { OrderStatusBadge } from '@/components/features/orders/OrderStatusBadge'
@@ -11,11 +11,32 @@ import {
   ORDER_STATUS_GROUPS,
   type OrderStatusFilter,
 } from '@/lib/constants/order-status'
+import { cancelOrder } from '@/lib/actions/orders'
 import { addDays, dayParts, limaDayKey, MONTHS_FULL } from '@/lib/dates'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ChevronRightIcon, ClockIcon, QrCodeIcon, ReceiptIcon } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  CheckCircle2,
+  ChevronRightIcon,
+  Clock3Icon,
+  QrCodeIcon,
+  ReceiptIcon,
+} from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
+import {
+  DELIVERY_SEARCH_TIMEOUT_MS,
+  formatRemainingDeliveryWindow,
+  remainingDeliveryWindowMs,
+} from '@/lib/delivery-window'
 import type { ApiOrder, ApiOrdersMeta } from '@/types/order'
 
 const PAGE_SIZE = 15
@@ -67,11 +88,26 @@ function matchesFilter(orderStatus: string, filter: OrderStatusFilter) {
 
 type OrdersListClientProps = {
   status?: OrderStatusFilter
+  /** profileId del cliente (resuelto en el servidor con la sesión): filtra el
+   *  canal de realtime por SU propietario. Sin filtro, cada cliente recibía
+   *  eventos de TODOS los pedidos del sistema (RLS de realtime no filtra
+   *  postgres_changes por fila sin filtro explícito) y cada cambio ajeno
+   *  disparaba un refetch del listado completo. */
+  profileId: string
 }
 
-export function OrdersListClient({ status }: OrdersListClientProps) {
+export function OrdersListClient({ status, profileId }: OrdersListClientProps) {
   const router = useRouter()
   const activeFilter = status ?? null
+  const [now, setNow] = useState(() => Date.now())
+  const [acceptedOrderId, setAcceptedOrderId] = useState<string | null>(null)
+  const autoCancelOrderIdsRef = useRef<Set<string>>(new Set())
+  const seenPendingOrderIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const {
     data,
@@ -93,11 +129,20 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
       return `/api/v1/orders?${params}`
     },
     fetchOrders,
-    { revalidateOnFocus: true }
+    {
+      // Fase 2 (anti-churn): el foco de la pestaña ya NO dispara consulta —
+      // el realtime filtrado de abajo invalida cuando algo REAL cambia.
+      revalidateOnFocus: false,
+    }
   )
 
   useRealtimeInvalidate(
-    { channelName: 'customer-orders', table: 'orders', event: '*' },
+    {
+      channelName: 'customer-orders',
+      table: 'orders',
+      event: '*',
+      filter: `customer_id=eq.${profileId}`,
+    },
     () => mutate()
   )
 
@@ -150,6 +195,53 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
     [orders, activeFilter]
   )
 
+  const pendingSearchOrders = useMemo(
+    () => orders.filter((order) => order.status === 'PENDING'),
+    [orders]
+  )
+
+  const activePendingOrder = pendingSearchOrders[0] ?? null
+  const activePendingDeadline = activePendingOrder
+    ? new Date(activePendingOrder.created_at).getTime() + DELIVERY_SEARCH_TIMEOUT_MS
+    : null
+  const activePendingRemainingMs = activePendingDeadline
+    ? Math.max(0, activePendingDeadline - now)
+    : null
+
+  useEffect(() => {
+    for (const order of pendingSearchOrders) {
+      const expiresAt = new Date(order.created_at).getTime() + DELIVERY_SEARCH_TIMEOUT_MS
+      if (now >= expiresAt && !autoCancelOrderIdsRef.current.has(order.id)) {
+        autoCancelOrderIdsRef.current.add(order.id)
+        void cancelOrder(order.id).catch(() => {
+          autoCancelOrderIdsRef.current.delete(order.id)
+        })
+      }
+    }
+  }, [now, pendingSearchOrders])
+
+  useEffect(() => {
+    const pendingIds = new Set(pendingSearchOrders.map((order) => order.id))
+    const newlyAccepted = orders.filter(
+      (order) =>
+        order.status !== 'PENDING' &&
+        order.status !== 'CANCELLED' &&
+        seenPendingOrderIdsRef.current.has(order.id)
+    )
+
+    if (newlyAccepted.length > 0) {
+      const acceptedOrder = newlyAccepted[0]
+      setAcceptedOrderId(acceptedOrder.id)
+      const redirectTimer = window.setTimeout(() => {
+        router.push(`/cliente/pedidos/${acceptedOrder.id}`)
+      }, 1800)
+
+      return () => window.clearTimeout(redirectTimer)
+    }
+
+    seenPendingOrderIdsRef.current = pendingIds
+  }, [orders, pendingSearchOrders, router])
+
   // Agrupa por día de Lima preservando el orden desc de la API. Corre solo con
   // datos ya llegados (el SSR renderiza el skeleton), así que no hay riesgo de
   // hydration mismatch por calcular "hoy" en el cliente.
@@ -183,6 +275,47 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
 
   return (
     <>
+      <Dialog
+        open={Boolean(acceptedOrderId)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setAcceptedOrderId(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/80 dark:border-emerald-900/60 dark:from-emerald-950 dark:via-neutral-950 dark:to-emerald-950/80">
+          <div className="flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm shadow-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+          </div>
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-2xl font-semibold text-emerald-900 dark:text-emerald-100">
+              Tu pedido fue aceptado
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Un repartidor ya tomó tu pedido. Te estamos llevando al detalle para que sigas el progreso en tiempo real.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+            Redirigiendo al pedido en <span className="font-semibold">2 segundos</span>
+          </div>
+
+          <DialogFooter className="sm:justify-center">
+            <Button
+              type="button"
+              className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={() => {
+                if (acceptedOrderId) {
+                  router.push(`/cliente/pedidos/${acceptedOrderId}`)
+                }
+              }}
+            >
+              Ver pedido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {showChips && !error && (
         <section
           aria-label="Filtrar pedidos"
@@ -243,28 +376,6 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
         </Link>
       )}
 
-      {pendingCount > 0 && (!activeFilter || activeFilter === 'active') && (
-        <div className="mt-2 flex items-center gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 backdrop-blur-sm">
-          {/* Mismo reloj con "tic" que la carta cerrada y el carrito con el
-              negocio cerrado: un solo lenguaje visual para "esperando". */}
-          {/* Mismo ajuste de contraste que el banner de arriba: este subtítulo
-              estaba en amber-600 (3.11:1 sobre este fondo) y necesita 4.5:1.
-              Se corrige acá también para que los dos banners, que se ven
-              juntos, no queden con tonos distintos. */}
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-            <ClockIcon className="h-4 w-4 animate-clock-tick" />
-          </span>
-          <div>
-            <p className="text-sm font-medium text-amber-800">
-              {pendingCount} {pendingCount === 1 ? 'pedido buscando' : 'pedidos buscando'} repartidor
-            </p>
-            <p className="text-xs text-amber-700">
-              Te avisaremos cuando un repartidor te ofrezca el envío
-            </p>
-          </div>
-        </div>
-      )}
-
       {error && (
         <p className="mt-6 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
           No se pudieron cargar tus pedidos.
@@ -292,6 +403,11 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                     ?.map((i) => `${i.quantity}x ${i.product_name}`)
                     .join(', ') ?? ''
                   const previewItems = (order.order_items ?? []).slice(0, 3)
+                  const remainingMs =
+                    order.status === 'PENDING'
+                      ? remainingDeliveryWindowMs(order.created_at, now)
+                      : null
+
                   return (
                     <Link
                       key={order.id}
@@ -310,9 +426,11 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                                   {item.image_url ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
-                                      src={item.image_url}
+                                      src={withImageKitTransform(item.image_url, 160)}
                                       alt={item.product_name ?? ''}
                                       className="h-full w-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
                                     />
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
@@ -328,13 +446,20 @@ export function OrdersListClient({ status }: OrdersListClientProps) {
                             </span>)}
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{itemsSummary}</p>
-                            {/* Solo hora: la fecha ya está en el encabezado del grupo. */}
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {new Date(order.created_at).toLocaleTimeString('es-PE', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span>
+                                {new Date(order.created_at).toLocaleTimeString('es-PE', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                              {remainingMs !== null && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                                  <Clock3Icon className="h-3 w-3" />
+                                  {formatRemainingDeliveryWindow(remainingMs)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">

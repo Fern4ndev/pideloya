@@ -1,19 +1,10 @@
 import { createClient } from '@/lib/db/server'
 import { DeliveryDashboardCards } from '@/components/features/deliveries/DeliveryDashboardCards'
-import {
-  DeliveryDashboardCharts,
-  type DashboardDelivery,
-} from '@/components/features/deliveries/DeliveryDashboardCharts'
+import { DeliveryDashboardChartsLazy } from '@/components/features/deliveries/DeliveryDashboardChartsLazy'
+import type { DashboardDelivery } from '@/components/features/deliveries/DeliveryDashboardCharts'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageContainer } from '@/components/layout/PageContainer'
-import { RANGE_MAX_DAYS, addDays, limaDayKey } from '@/lib/dates'
-
-/**
- * Tope de filas del payload. El dashboard trae hasta `RANGE_MAX_DAYS` (366) de
- * entregas y filtra/agrega en el cliente, igual que /admin y /restaurante. Con
- * `.order('delivered_at', desc)` el tope recorta lo más viejo, nunca lo reciente.
- */
-const DELIVERIES_LIMIT = 5000
+import { RANGE_MAX_DAYS, limaDayKey } from '@/lib/dates'
 
 export default async function RepartidorHomePage() {
   const supabase = await createClient()
@@ -23,37 +14,27 @@ export default async function RepartidorHomePage() {
   // hay hydration mismatch por fecha (ver lib/dates.ts).
   const todayKey = limaDayKey(new Date())
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user!.id)
-    .single()
-
-  const profileId = profile?.id ?? null
-
-  // Ventana en medianoche de Lima, derivada de `todayKey` (no de Date.now():
-  // la regla react-hooks/purity rechaza leer el reloj dentro del componente).
-  // Solo entregas ya completadas dentro del rango: los gráficos son históricos.
-  const since = new Date(`${addDays(todayKey, -RANGE_MAX_DAYS)}T00:00:00-05:00`).toISOString()
-
+  // UNA consulta: delivery_chart_rows(p_days) (migración 20261003120600)
+  // trae las entregas completadas del repartidor (delivered_at, delivery_fee
+  // y el estado del pedido para descartar las no completadas), con tope
+  // interno 20000 y json como transporte (NO pasa por max_rows de PostgREST,
+  // que truncaba silenciosamente a 1000 filas). Antes: getUser + profiles +
+  // 5000 filas con embed. La pertenencia la resuelve la RPC con
+  // current_profile_id() (SECURITY INVOKER: RLS aplicando).
+  //
   // `delivery_fee` es lo que el repartidor GANÓ por esa entrega; `orders.total`
-  // es el precio de la comida, que nunca fue suyo. El gráfico de ingresos se
-  // alimenta del primero: traer `total` era justo lo que producía el número
-  // equivocado (ver la corrección en DeliveryDashboardCharts). `orders(status)`
-  // se sigue necesitando para descartar entregas de pedidos no completados.
-  const deliveries: DashboardDelivery[] = profileId
-    ? ((await supabase
-        .from('deliveries')
-        .select('delivered_at, delivery_fee, orders(status)')
-        .eq('delivery_person_id', profileId)
-        .gte('delivered_at', since)
-        .order('delivered_at', { ascending: false })
-        .limit(DELIVERIES_LIMIT)).data ?? [])
-    : []
+  // es el precio de la comida, que nunca fue suyo (ver la corrección en
+  // DeliveryDashboardCharts).
+  const { data: rows, error } = await supabase.rpc('delivery_chart_rows', {
+    p_days: RANGE_MAX_DAYS,
+  })
+  if (error) throw new Error(error.message)
+
+  const deliveries: DashboardDelivery[] = (rows ?? []).map((row) => ({
+    delivered_at: row.delivered_at,
+    delivery_fee: row.delivery_fee,
+    orders: { status: row.status ?? '' },
+  }))
 
   return (
     // "full" como /admin y /restaurante: los gráficos a dos columnas no deben
@@ -66,7 +47,7 @@ export default async function RepartidorHomePage() {
 
       <div className="mt-6 space-y-6">
         <DeliveryDashboardCards />
-        <DeliveryDashboardCharts deliveries={deliveries} todayKey={todayKey} />
+        <DeliveryDashboardChartsLazy deliveries={deliveries} todayKey={todayKey} />
       </div>
     </PageContainer>
   )

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
+import { revalidatePublicRestaurants } from '@/lib/db/public'
+import { getMyRestaurantIdOrNull } from '@/lib/auth/session'
 import { productSchema, type ProductInput } from '@/lib/validations/product'
 import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
 
@@ -10,32 +12,15 @@ import { deleteImageKitFileSafe } from '@/lib/imagekit-server'
  * No hace falta validar el rol aquí: la policy RLS "products_*_owner"
  * ya rechaza cualquier insert/update/delete fuera de restaurant_members,
  * así que esto es solo para saber el restaurant_id al crear.
+ *
+ * La cadena de identidad (getUser + profiles) vive en lib/auth/session.ts
+ * con cache() de React: 1 vez por request en vez de 2 consultas por action.
  */
 async function getMyRestaurantId() {
+  const restaurantId = await getMyRestaurantIdOrNull()
+  if (!restaurantId) throw new Error('No administras ningún restaurante todavía')
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('No autenticado')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile) throw new Error('Perfil no encontrado')
-
-  const { data: member } = await supabase
-    .from('restaurant_members')
-    .select('restaurant_id')
-    .eq('user_id', profile.id)
-    .single()
-
-  if (!member) throw new Error('No administras ningún restaurante todavía')
-
-  return { supabase, restaurantId: member.restaurant_id }
+  return { supabase, restaurantId }
 }
 
 export async function createProduct(input: ProductInput) {
@@ -55,6 +40,7 @@ export async function createProduct(input: ProductInput) {
 
   if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/productos')
   return { success: true }
 }
@@ -92,6 +78,7 @@ export async function updateProduct(productId: string, input: ProductInput) {
     await deleteImageKitFileSafe(current.image_file_id)
   }
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/productos')
   return { success: true }
 }
@@ -122,6 +109,7 @@ export async function deleteProduct(productId: string) {
 
   await deleteImageKitFileSafe(current.image_file_id)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/productos')
   // El producto también se muestra en la carta pública, en el home del
   // cliente y en su página de detalle: si no se revalidan, el producto

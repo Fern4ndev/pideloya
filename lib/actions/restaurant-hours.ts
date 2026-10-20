@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/server'
+import { revalidatePublicRestaurants } from '@/lib/db/public'
+import { getMyRestaurantIdOrNull } from '@/lib/auth/session'
 
 type DayHours = {
   dayOfWeek: number
@@ -10,45 +12,17 @@ type DayHours = {
   isClosed: boolean
 }
 
-async function getMyRestaurantId() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('No autenticado')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!profile) throw new Error('Perfil no encontrado')
-
-  const { data: member } = await supabase
-    .from('restaurant_members')
-    .select('restaurant_id')
-    .eq('user_id', profile.id)
-    .single()
-
-  if (!member) throw new Error('No administras ningún restaurante todavía')
-
-  return { supabase, restaurantId: member.restaurant_id as string }
-}
-
 export async function updateRestaurantHours(hours: DayHours[]) {
-  const { supabase, restaurantId } = await getMyRestaurantId()
+  const restaurantId = await getMyRestaurantIdOrNull()
+  if (!restaurantId) throw new Error('No administras ningún restaurante todavía')
 
-  // Eliminar horarios existentes
-  const { error: deleteError } = await supabase
-    .from('restaurant_hours')
-    .delete()
-    .eq('restaurant_id', restaurantId)
+  const supabase = await createClient()
 
-  if (deleteError) throw new Error(deleteError.message)
-
-  // Insertar nuevos horarios
+  // Upsert por la UNIQUE (restaurant_id, day_of_week) en lugar de
+  // delete-all + insert: la versión anterior dejaba el negocio SIN horarios
+  // si fallaba a mitad (is_open + tabla vacía = "sin atención" para el
+  // cliente). El formulario siempre manda los 7 días, así que el upsert
+  // cubre exactamente el mismo caso.
   const rows = hours.map((h) => ({
     restaurant_id: restaurantId,
     day_of_week: h.dayOfWeek,
@@ -57,12 +31,13 @@ export async function updateRestaurantHours(hours: DayHours[]) {
     is_closed: h.isClosed,
   }))
 
-  const { error: insertError } = await supabase
+  const { error } = await supabase
     .from('restaurant_hours')
-    .insert(rows)
+    .upsert(rows, { onConflict: 'restaurant_id,day_of_week' })
 
-  if (insertError) throw new Error(insertError.message)
+  if (error) throw new Error(error.message)
 
+  revalidatePublicRestaurants()
   revalidatePath('/restaurante/horarios')
   return { success: true }
 }

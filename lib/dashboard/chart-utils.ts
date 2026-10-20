@@ -88,6 +88,44 @@ export function aggregateOrders<T extends { created_at: string; total: number }>
 }
 
 /**
+ * Agrupa filas YA pre-agregadas por día (`day` = `YYYY-MM-DD` de Lima, `n` =
+ * conteo del día) en buckets de la granularidad pedida. Es el complemento de
+ * `aggregateOrders` para cuando la agregación corre en la base (RPCs
+ * admin_dashboard/delivery_chart_rows, migración 20261003120600): el cliente
+ * ya no recibe una fila por pedido sino una por día, así que aquí se SUMA `n`
+ * en vez de contar filas.
+ */
+export function aggregateDailyCounts<T extends { day: string; n: number }>(
+  rows: T[],
+  granularity: Granularity
+): Bucket[] {
+  const counts = new Map<string, { count: number; total: number }>()
+  for (const row of rows) {
+    // Mediodía de Lima: el día es una fecha sin hora, y `bucketKeyFor` solo
+    // usa la parte de fecha — el `-05:00` fijo evita que un UTC renderice el
+    // día anterior.
+    const key = bucketKeyFor(`${row.day}T12:00:00-05:00`, granularity)
+    const current = counts.get(key) ?? { count: 0, total: 0 }
+    current.count += Number(row.n)
+    counts.set(key, current)
+  }
+  return buildBuckets(granularity, counts)
+}
+
+/**
+ * Filtra filas pre-agregadas por día dentro del rango `[dateFrom, dateTo]`
+ * inclusive. Comparación de strings `YYYY-MM-DD`: es lexicográficamente
+ * equivalente a la comparación de fechas para ese formato.
+ */
+export function filterDailyByRange<T extends { day: string }>(
+  rows: T[],
+  dateFrom: string,
+  dateTo: string
+): T[] {
+  return rows.filter((row) => row.day >= dateFrom && row.day <= dateTo)
+}
+
+/**
  * Valida un rango de fechas `YYYY-MM-DD` (claves de día en Lima).
  * El límite duro es `RANGE_MAX_DAYS` para que el cliente nunca tenga que
  * renderizar más de un año de datos de una sola vez.

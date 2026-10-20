@@ -33,6 +33,15 @@ export function addDays(key: string, days: number): string {
   return limaDayKey(new Date(new Date(`${key}T12:00:00-05:00`).getTime() + days * DAY_MS))
 }
 
+/**
+ * Clave YYYY-MM-DD del lunes de la semana (semana ISO, lunes=0 … domingo=6)
+ * que contiene `key`. Todo en claves de Lima: no depende de la timezone del
+ * servidor ni de la del navegador.
+ */
+export function weekStartKey(key: string): string {
+  return addDays(key, -dayParts(key).weekday)
+}
+
 export function formatFullDate(key: string): string {
   const [year, month, day] = key.split('-')
   return `${day}/${month}/${year}`

@@ -1,9 +1,8 @@
 'use client'
 
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CalendarIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DashboardDateRangePicker } from '@/components/features/dashboard/DashboardDateRangePicker'
 import {
   GRANULARITY_OPTIONS,
   RANGE_ERROR_TEXT,
@@ -40,10 +39,7 @@ export function DashboardRangeFilterBar({
   rangeError: RangeError
   children?: React.ReactNode
 }) {
-  const fromInvalid =
-    rangeError === 'empty-from' || rangeError === 'inverted' || rangeError === 'too-long'
-  const toInvalid =
-    rangeError === 'empty-to' || rangeError === 'inverted' || rangeError === 'too-long'
+  const rangeInvalid = Boolean(rangeError)
 
   return (
     <div className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-2xl border bg-muted/30 p-4">
@@ -72,41 +68,14 @@ export function DashboardRangeFilterBar({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="filter-from" className="text-xs font-medium">
-          Desde
-        </Label>
-        <div className="relative">
-          <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="filter-from"
-            type="date"
-            className="w-40 pl-8"
-            value={dateFrom}
-            max={dateTo || undefined}
-            aria-invalid={fromInvalid}
-            onChange={(event) => onDateFromChange(event.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="filter-to" className="text-xs font-medium">
-          Hasta
-        </Label>
-        <div className="relative">
-          <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="filter-to"
-            type="date"
-            className="w-40 pl-8"
-            value={dateTo}
-            min={dateFrom || undefined}
-            aria-invalid={toInvalid}
-            onChange={(event) => onDateToChange(event.target.value)}
-          />
-        </div>
-      </div>
+      <DashboardDateRangePicker
+        id="filter-range"
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={onDateFromChange}
+        onDateToChange={onDateToChange}
+        invalid={rangeInvalid}
+      />
 
       {children}
 

@@ -243,45 +243,13 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes hero-gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 @layer utilities {
   .float-1 { animation: float1 6s ease-in-out infinite; }
   .float-2 { animation: float2 7s ease-in-out infinite; }
   .float-3 { animation: float3 5s ease-in-out infinite; }
   .animate-fade-up { animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-  .hero-gradient {
-    background: linear-gradient(135deg, #ff6b35 0%, #f7431e 25%, #ea580c 50%, #c2410c 75%, #9c27b0 100%);
-    background-size: 200% 200%;
-  }
-  .hero-gradient::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.15) 0%, transparent 60%),
-                radial-gradient(ellipse at 70% 80%, rgba(0,0,0,0.1) 0%, transparent 60%);
-  }
-  .glass {
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.12);
-  }
-  .btn-brand {
-    background: linear-gradient(135deg, #ff6b35 0%, #ea580c 100%);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .btn-brand:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 25px rgba(249,115,22,0.4);
-  }
-  .btn-brand:active {
-    transform: translateY(0);
-  }
+  /* Limpieza Fase 4: .hero-gradient, .glass y .btn-brand se eliminaron
+     tras comprobar por búsqueda que ningún componente los usaba. */
   .button-lime {
     display: inline-flex;
     align-items: center;
@@ -302,28 +270,6 @@
   .button-lime:hover {
     transform: translateY(-2px) rotate(-2deg);
     box-shadow: 0 10px 30px rgba(216, 255, 62, 0.35);
-  }
-  .button-coral {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: none;
-    border-radius: 999px;
-    background: var(--coral);
-    color: white;
-    padding: 12px 26px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition:
-      transform 0.25s ease,
-      background 0.25s ease;
-  }
-  .button-coral:hover {
-    background: var(--lime);
-    color: var(--panel);
-    transform: rotate(-2deg) scale(1.04);
   }
   .section-divider {
     height: 1px;
@@ -380,44 +326,8 @@
   box-shadow: 0 0 50px rgba(216, 255, 62, 0.18);
 }
 
-.join-form input,
-.join-form [role='combobox'] {
-  border-color: rgb(39 39 42 / 0.9);
-  background-color: rgb(24 24 27 / 0.7);
-  color: #f4f4f5;
-}
-
-.join-form input::placeholder {
-  color: rgb(161 161 170 / 0.7);
-}
-
-.join-form input:focus,
-.join-form [role='combobox']:focus {
-  border-color: rgb(250 204 21 / 0.7);
-  box-shadow: 0 0 0 3px rgb(250 204 21 / 0.12);
-}
-
-.join-form label {
-  color: rgb(212 212 216);
-}
-
-.join-form .text-muted-foreground {
-  color: rgb(161 161 170);
-}
-
-.join-form [class*='bg-muted'] {
-  background-color: rgb(24 24 27 / 0.7);
-}
-
-.join-form [class*='border-border'] {
-  border-color: rgb(39 39 42 / 0.9);
-}
-
-  .join-form [class*='bg-red-50'] {
-    border-color: rgb(248 113 113 / 0.3);
-    background-color: rgb(127 29 29 / 0.25);
-    color: rgb(252 165 165);
-  }
+  /* Limpieza Fase 4: los estilos .join-form se eliminaron tras comprobar
+     por búsqueda que ningún componente usa la clase. */
 
   .mask-fade {
     -webkit-mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, black 0%, transparent 100%);

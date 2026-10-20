@@ -1,15 +1,32 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { FlameIcon, ClockIcon, SearchIcon } from 'lucide-react'
 import { RestaurantCard, type RestaurantCardData } from '@/components/features/restaurants/RestaurantCard'
 import { FeaturedProductCard, type FeaturedProduct } from '@/components/features/products/FeaturedProductCard'
-import { LogoLoop, type LogoItem } from '@/components/LogoLoop'
+import type { LogoItem } from '@/components/LogoLoop'
 import { useSearchStore } from '@/lib/hooks/use-search'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel'
-import { useState } from 'react'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from '@/components/ui/carousel'
+
+// Fase 4: el loop animado (requestAnimationFrame constante) se carga SOLO si
+// la sección llega a entrar en viewport — ssr:false saca su JS del HTML
+// inicial y del hidratado, y el IntersectionObserver pospone incluso el
+// import del chunk hasta que haga falta (rootMargin 200px lo precarga antes
+// de que sea visible).
+const LogoLoop = dynamic(() => import('@/components/LogoLoop').then((m) => m.LogoLoop), {
+  ssr: false,
+  loading: () => <div className="h-16" aria-hidden="true" />,
+})
 
 export function ClienteHomeClient({
   greeting,
@@ -26,6 +43,25 @@ export function ClienteHomeClient({
   // aquí solo lo leemos para filtrar la lista de negocios.
   const search = useSearchStore((s) => s.query)
   const [activeType, setActiveType] = useState<string | null>(null)
+
+  // Fase 4: montar el LogoLoop solo cuando su sección se acerca al viewport.
+  const loopSectionRef = useRef<HTMLElement | null>(null)
+  const [loopMounted, setLoopMounted] = useState(false)
+  useEffect(() => {
+    const el = loopSectionRef.current
+    if (!el || loopMounted) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setLoopMounted(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '200px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [loopMounted])
 
   const foodTypes = useMemo(() => {
     const set = new Set<string>()
@@ -64,9 +100,11 @@ export function ClienteHomeClient({
               r.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={r.logo_url}
+                  src={withImageKitTransform(r.logo_url, 160)}
                   alt={r.name}
                   className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <span className="text-sm font-semibold text-muted-foreground">
@@ -109,16 +147,22 @@ export function ClienteHomeClient({
       </section>
 
       {restaurantLogos.length > 0 && (
-        <section className="-mx-1">
-          <LogoLoop
-            logos={restaurantLogos}
-            logoHeight={56}
-            gap={24}
-            speed={35}
-            fadeOut
-            pauseOnHover
-            ariaLabel="Restaurantes en PideloYa"
-          />
+        <section ref={loopSectionRef} className="-mx-1">
+          {/* Reserva de alto para que el layout no salte mientras el chunk
+              carga (el placeholder del dynamic() mide lo mismo). */}
+          <div className="min-h-16">
+            {loopMounted && (
+              <LogoLoop
+                logos={restaurantLogos}
+                logoHeight={56}
+                gap={24}
+                speed={35}
+                fadeOut
+                pauseOnHover
+                ariaLabel="Restaurantes en PideloYa"
+              />
+            )}
+          </div>
         </section>
       )}
 
@@ -164,15 +208,11 @@ export function ClienteHomeClient({
             <FlameIcon className="h-4 w-4 text-brand-500" />
             <h2 className="text-lg font-semibold tracking-tight">Platos populares</h2>
           </div>
-          {/* El mask insinúa que hay más platos a la derecha sin agregar
-              flechas: el gesto nativo de swipe sigue siendo el control.
-              Embla (Carousel de shadcn) captura el arrastre sin scrollbar
-              nativo, así que el borde inferior queda limpio. */}
           <Carousel
             opts={{ align: 'start' }}
-            className="w-full [mask-image:linear-gradient(to_right,black_86%,transparent_100%)]"
+            className="w-full"
           >
-            <CarouselContent className="-ml-4 select-none">
+            <CarouselContent className="select-none">
               {popularProducts.map((product) => (
                 <CarouselItem key={product.id} className="basis-auto pl-4">
                   <FeaturedProductCard
@@ -182,6 +222,14 @@ export function ClienteHomeClient({
                 </CarouselItem>
               ))}
             </CarouselContent>
+            <CarouselPrevious
+              size="icon"
+              className="hidden h-10 w-10 rounded-full bg-background shadow-sm xl:flex"
+            />
+            <CarouselNext
+              size="icon"
+              className="hidden h-10 w-10 rounded-full bg-background shadow-sm xl:flex"
+            />
           </Carousel>
         </section>
       )}

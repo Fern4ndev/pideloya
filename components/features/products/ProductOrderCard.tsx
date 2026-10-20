@@ -1,9 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import { useCartStore } from '@/lib/hooks/use-cart'
+import { useRequestFlyToCart } from '@/lib/hooks/use-fly-to-cart'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 export interface OrderableProduct {
@@ -25,10 +36,31 @@ export function ProductOrderCard({
 }) {
   const [quantity, setQuantity] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
+  const imageRef = useRef<HTMLDivElement>(null)
+  const requestFly = useRequestFlyToCart()
+  // El conflicto de "otro negocio en el carrito" se pregunta con AlertDialog
+  // (Fase 4, accesible) y no con confirm(): el estado guarda el ítem pendiente
+  // y el diálogo lo confirma o descarta.
+  const [conflictPending, setConflictPending] = useState<{
+    item: Parameters<ReturnType<typeof useCartStore.getState>['addItem']>[1]
+  } | null>(null)
   const addItem = useCartStore((state) => state.addItem)
   const switchRestaurantAndAdd = useCartStore(
     (state) => state.switchRestaurantAndAdd
   )
+
+  function markAdded() {
+    setQuantity(1)
+    setJustAdded(true)
+    // El vuelo se dispara tras actualizar el store para que el pop del
+    // badge coincida con el aterrizaje; si hay reduced-motion o el destino
+    // no es medible, el hook no hace nada y queda el feedback existente.
+    requestFly(imageRef.current, {
+      imageUrl: product.imageUrl,
+      productName: product.name,
+    })
+    setTimeout(() => setJustAdded(false), 1200)
+  }
 
   function handleAdd() {
     const item = {
@@ -41,21 +73,26 @@ export function ProductOrderCard({
     const result = addItem(restaurant, item, quantity)
 
     if (result === 'conflict') {
-      const confirmSwitch = confirm(
-        `Tu carrito tiene productos de otro negocio. ¿Vaciarlo y agregar "${product.name}" de ${restaurant.name}?`
-      )
-      if (!confirmSwitch) return
-      switchRestaurantAndAdd(restaurant, item, quantity)
+      setConflictPending({ item })
+      return
     }
 
-    setQuantity(1)
-    setJustAdded(true)
-    setTimeout(() => setJustAdded(false), 1200)
+    markAdded()
+  }
+
+  function handleConfirmSwitch() {
+    if (!conflictPending) return
+    switchRestaurantAndAdd(restaurant, conflictPending.item, quantity)
+    setConflictPending(null)
+    markAdded()
   }
 
   return (
-    <div className="group relative flex gap-4 rounded-3xl p-3.5 shadow-client-card">
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
+    <div className="group relative flex h-full gap-4 rounded-3xl p-3.5 shadow-client-card">
+      <div
+        ref={imageRef}
+        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted"
+      >
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -85,18 +122,24 @@ export function ProductOrderCard({
         </span>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-semibold">{product.name}</h3>
-        {product.description && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-            {product.description}
-          </p>
-        )}
-        <p className="mt-1 text-sm font-medium">
-          S/ {product.price.toFixed(2)}
+      <div className="flex min-w-0 flex-1 flex-col self-stretch">
+        <h3 className="truncate text-sm font-semibold">{product.name}</h3>
+        {/* La descripción siempre reserva 2 líneas (`min-h-10`): con o sin
+            texto el precio arranca a la misma altura y las cards del grid no
+            se deforman entre sí. */}
+        <p
+          aria-hidden={product.description ? undefined : true}
+          className="mt-0.5 line-clamp-2 min-h-10 text-sm text-muted-foreground"
+        >
+          {product.description ?? ''}
         </p>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-auto pt-2">
+          <p className="text-sm font-bold tabular-nums">
+            S/ {product.price.toFixed(2)}
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
           {/* Stepper unificado (un control con fondo propio en vez de dos
               botones sueltos con un número en medio). Los botones van a 40px
               para cumplir el objetivo táctil mínimo de 40×40. */}
@@ -134,8 +177,37 @@ export function ProductOrderCard({
           >
             Agregar
           </Button>
+          </div>
         </div>
       </div>
+
+      {/* Conflicto de carrito: AlertDialog accesible en vez de confirm(). */}
+      <AlertDialog
+        open={conflictPending !== null}
+        onOpenChange={(open) => {
+          if (!open) setConflictPending(null)
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Vaciar tu carrito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tu carrito tiene productos de otro negocio. Si continúas, se
+              vaciará y se agregarán {quantity} × &quot;{product.name}&quot; de{' '}
+              {restaurant.name}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Conservar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleConfirmSwitch}
+            >
+              Vaciar y agregar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

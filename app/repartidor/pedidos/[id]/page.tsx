@@ -11,20 +11,27 @@ export default async function DeliveryOrderDetailPage({
   const { id } = await params
 
   return (
-    <PageContainer size="md">
+    <PageContainer size="lg">
       <PageHeader
         title="Detalle de la entrega"
         description="Revisa el pedido y avanza su estado."
       />
+      {/* Filtros por fila (Fase 2): sin ellos el repartidor recibía eventos de
+          TODOS los pedidos/entregas del sistema y cada cambio ajeno refrescaba
+          esta pantalla. RLS limita la LECTURA, no la emisión de postgres_changes. */}
       <RealtimeRefresh
         channelName="delivery-order-detail"
         table="orders"
+        event="*"
+        filter={`id=eq.${id}`}
         syncOnSubscribe
         refreshOnFocus
       />
       <RealtimeRefresh
         channelName="delivery-order-detail-deliveries"
         table="deliveries"
+        event="*"
+        filter={`order_id=eq.${id}`}
         syncOnSubscribe
         refreshOnFocus
       />

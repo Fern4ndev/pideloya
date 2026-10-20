@@ -1,5 +1,5 @@
-import { withApi, successResponse, errorResponse } from '@/lib/api/response'
-import { authenticateRequest, adminClient } from '@/lib/api/auth'
+import { withApi, successResponse, errorResponse, rpcErrorResponse } from '@/lib/api/response'
+import { authenticateRequest, adminClient, userClient } from '@/lib/api/auth'
 import { isRestaurantOpenNow } from '@/lib/restaurants/is-open'
 import {
   ORDER_STATUS_GROUPS,
@@ -73,53 +73,54 @@ export const GET = withApi(async (request: Request) => {
         ? ORDER_STATUS_GROUPS[statusRaw as OrderStatusFilter]
         : null
 
-    const countOrders = async (
-      statuses?: readonly (typeof ORDER_STATUS_GROUPS)[OrderStatusFilter][number][]
-    ) => {
-      let q = client
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('customer_id', context.profileId)
-      if (statuses) q = q.in('status', statuses)
-      const { count, error } = await q
-      if (error) throw error
-      return count ?? 0
-    }
-
     let query = client
       .from('orders')
       .select('*, order_items(*), addresses(*)')
       .eq('customer_id', context.profileId)
     if (statusGroup) query = query.in('status', [...statusGroup])
 
-    const [page, all, active, delivered, cancelled, pending] = await Promise.all([
+    // Los 5 conteos que alimentan chips/banners van en UNA consulta:
+    // my_order_counts() (migración 20261003120600, SECURITY INVOKER — la RLS
+    // sigue aplicando). Antes eran 5 consultas count 'exact' en Promise.all
+    // POR CADA página del scroll infinito. userClient() y no adminClient():
+    // la función resuelve identidad con auth.uid() via current_profile_id().
+    const [page, countsResult] = await Promise.all([
       query
         .order('created_at', { ascending: false })
         .order('id', { ascending: false }) // desempate para offsets estables
         .range(offset, offset + limit - 1),
-      countOrders(),
-      countOrders(ORDER_STATUS_GROUPS.active),
-      countOrders(ORDER_STATUS_GROUPS.delivered),
-      countOrders(ORDER_STATUS_GROUPS.cancelled),
-      countOrders(['PENDING']),
+      userClient(request).rpc('my_order_counts'),
     ])
     if (page.error) throw page.error
+    if (countsResult.error) throw countsResult.error
 
+    const countsRow = countsResult.data?.[0]
     return successResponse(page.data, 200, {
-      counts: { all, active, delivered, cancelled, pending },
+      counts: {
+        all: Number(countsRow?.all_orders ?? 0),
+        active: Number(countsRow?.active ?? 0),
+        delivered: Number(countsRow?.delivered ?? 0),
+        cancelled: Number(countsRow?.cancelled ?? 0),
+        pending: Number(countsRow?.pending ?? 0),
+      },
       limit,
       offset,
     })
   }
 
   // DELIVERY: asignados a él o disponibles (PENDING).
-  // restaurants se expande para pickupAddress (dirección de recojo) —
-  // adminClient salta RLS, así funciona aunque el restaurante esté
-  // desactivado. El nombre de la tarjeta usa el snapshot restaurant_name.
+  // userClient() y no adminClient() (Hallazgo H3): la RLS hace el filtro que
+  // antes se repetía en JavaScript — orders_select_delivery limita a PENDING
+  // (disponibles para cualquier repartidor) + pedidos con entrega asignada a
+  // MÍ. El filtro en JS era redundante y obligaba a leer con service role
+  // (menor privilegio violado). Consecuencia esperada: `addresses` solo se
+  // expande para pedidos ASIGNADOS (addresses_select_assigned_delivery); para
+  // PENDING llega null, que es lo correcto — la dirección del cliente no se
+  // revela antes de que nadie acepte el pedido.
   // AWAITING_PAYMENT va en la lista para que el repartidor vea su oferta
   // esperando el pago en "Mis entregas" (y pueda retirarla).
   if (context.role === 'DELIVERY') {
-    const { data, error } = await client
+    const { data, error } = await userClient(request)
       .from('orders')
       .select(
         // latitude/longitude del restaurante ya NO viajan: el repartidor fija
@@ -136,12 +137,7 @@ export const GET = withApi(async (request: Request) => {
       ])
       .order('created_at', { ascending: false })
     if (error) throw error
-    const filtered = (data ?? []).filter(
-      (o) =>
-        o.status === 'PENDING' ||
-        o.deliveries?.delivery_person_id === context.profileId
-    )
-    return successResponse(filtered)
+    return successResponse(data ?? [])
   }
 
   return errorResponse('Acción no permitida', 403)
@@ -156,10 +152,14 @@ export const POST = withApi(async (request: Request) => {
   const body = await request.json().catch(() => null)
   if (!body) return errorResponse('Cuerpo inválido', 400)
 
-  const { address_id: addressId, notes, items } = body as {
+  const { address_id: addressId, notes, items, client_request_id: clientRequestId } = body as {
     address_id?: string
     notes?: string
     items?: { product_id: string; quantity: number }[]
+    // Opcional: los consumidores de la API pueden mandarlo para que un
+    // reintento de red no cree dos pedidos (idempotencia, migración
+    // 20261003120700). La Server Action del navegador SIEMPRE lo manda.
+    client_request_id?: string
   }
 
   if (!addressId || !items || items.length === 0) {
@@ -172,36 +172,18 @@ export const POST = withApi(async (request: Request) => {
 
   const client = adminClient()
 
-  // Snapshot del cliente: nombre/teléfono "al momento del pedido", igual
-  // que product_name en order_items. Si el cliente se elimina después
-  // (customer_id → null), el historial conserva quién hizo el pedido.
-  const { data: customerProfile } = await client
-    .from('profiles')
-    .select('full_name, phone')
-    .eq('id', context.profileId)
-    .maybeSingle()
-
-  // Verifica que la dirección pertenece al cliente.
-  const { data: addr } = await client
-    .from('addresses')
-    .select('id')
-    .eq('id', addressId)
-    .eq('customer_id', context.profileId)
-    .maybeSingle()
-  if (!addr) return errorResponse('Dirección inválida', 400)
-
-  // Trae los productos reales y recalcula el total en servidor.
+  // Guard de atención (la RPC NO valida horario — decisión documentada en la
+  // migración 20261003120700; portarla a SQL es Fase 5). Se deriva del
+  // restaurante REAL de los productos pedidos, nunca de un campo que viaje
+  // desde el cliente.
   const productIds = items.map((i) => i.product_id)
   const { data: products, error: productsError } = await client
     .from('products')
-    .select('id, name, price, available, restaurant_id, image_url, restaurants(name)')
+    .select('restaurant_id')
     .in('id', productIds)
 
   if (productsError) throw productsError
   if (!products || products.length !== productIds.length) {
-    return errorResponse('Alguno de los productos ya no está disponible', 400)
-  }
-  if (products.some((p) => !p.available)) {
     return errorResponse('Alguno de los productos ya no está disponible', 400)
   }
 
@@ -210,9 +192,6 @@ export const POST = withApi(async (request: Request) => {
     return errorResponse('No puedes pedir de más de un restaurante a la vez', 400)
   }
 
-  // Guard de atención: el restaurante debe estar aprobado, activo y dentro
-  // del horario (is_open + restaurant_hours). La API usa service role y
-  // salta RLS, por eso la validación es explícita aquí.
   const restaurantId = Array.from(restaurantIds)[0]
   const { data: restaurant } = await client
     .from('restaurants')
@@ -234,51 +213,20 @@ export const POST = withApi(async (request: Request) => {
     )
   }
 
-  const total = items.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.product_id)!
-    return sum + Number(product.price) * item.quantity
-  }, 0)
-
-  const { data: order, error: orderError } = await client
-    .from('orders')
-    .insert({
-      customer_id: context.profileId,
-      customer_name: customerProfile?.full_name ?? null,
-      customer_phone: customerProfile?.phone ?? null,
-      address_id: addressId,
-      status: 'PENDING',
-      total,
-      notes: notes || null,
-    })
-    .select('id')
-    .single()
-
-  if (orderError || !order) {
-    throw orderError ?? new Error('No se pudo crear el pedido')
-  }
-
-  const orderItems = items.map((item) => {
-    const product = products.find((p) => p.id === item.product_id)!
-    return {
-      order_id: order.id,
-      product_id: item.product_id,
-      product_name: product.name,
-      image_url: product.image_url,
-      restaurant_id: product.restaurant_id,
-      restaurant_name:
-        (product.restaurants as unknown as { name: string } | { name: string }[] | null) instanceof Array
-          ? (product.restaurants as unknown as { name: string }[])[0]?.name ?? null
-          : (product.restaurants as unknown as { name: string } | null)?.name ?? null,
-      quantity: item.quantity,
-      unit_price: product.price,
-    }
+  // create_order() (migración 20261003120700): pedido + ítems en UNA
+  // transacción, total SIEMPRE recalculado en servidor, snapshot del cliente
+  // congelado, dirección/productos/rol validados por dentro, tope de 3
+  // pedidos activos e IDEMPOTENCIA por client_request_id (reintento con el
+  // mismo id devuelve el MISMO pedido). userClient() y no adminClient(): la
+  // función resuelve identidad con auth.uid() (con service role no hay
+  // usuario y rechazaría con 'No autenticado' — comportamiento buscado).
+  const { data: orderId, error } = await userClient(request).rpc('create_order', {
+    p_address_id: addressId,
+    p_notes: notes || null,
+    p_items: items,
+    p_client_request_id: clientRequestId ?? null,
   })
+  if (error) return rpcErrorResponse(error)
 
-  const { error: itemsError } = await client.from('order_items').insert(orderItems)
-  if (itemsError) {
-    await client.from('orders').delete().eq('id', order.id)
-    throw itemsError
-  }
-
-  return successResponse({ orderId: order.id }, 201)
+  return successResponse({ orderId }, 201)
 })

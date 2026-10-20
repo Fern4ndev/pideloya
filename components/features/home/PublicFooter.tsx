@@ -1,6 +1,51 @@
-import { Icon } from '@iconify-icon/react'
 import Image from 'next/image'
 import Link from 'next/link'
+
+// lucide-react ya no exporta iconos de marca (Facebook/Instagram se quitaron
+// del paquete): al igual que TikTok, se dibujan aquí como SVG propio y
+// heredan currentColor.
+
+// TikTok no existe en lucide-react: SVG oficial simplificado (trazo del
+// glifo, hereda currentColor como los iconos lucide de al lado).
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden
+    >
+      <path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.77a5.76 5.76 0 0 0-.78-.05 5.66 5.66 0 1 0 5.66 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.22-1.48Z" />
+    </svg>
+  )
+}
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+    </svg>
+  )
+}
 
 const PRODUCT_LINKS = [
   { label: 'Cómo funciona', href: '/#como-funciona' },
@@ -21,9 +66,9 @@ const LEGAL_LINKS = [
 ]
 
 const SOCIAL_LINKS = [
-  { label: 'Instagram', href: '#', icon: 'mdi:instagram' },
-  { label: 'Facebook', href: '#', icon: 'mdi:facebook' },
-  { label: 'TikTok', href: '#', icon: 'ic:baseline-tiktok' },
+  { label: 'Instagram', href: '#', Icon: InstagramIcon },
+  { label: 'Facebook', href: '#', Icon: FacebookIcon },
+  { label: 'TikTok', href: '#', Icon: TikTokIcon },
 ]
 
 export function PublicFooter() {
@@ -115,7 +160,7 @@ export function PublicFooter() {
               rel="noopener noreferrer"
               className="transition-colors hover:text-lime"
             >
-              <Icon icon={social.icon} width="18" height="18" />
+              <social.Icon className="h-[18px] w-[18px]" />
             </a>
           ))}
         </div>

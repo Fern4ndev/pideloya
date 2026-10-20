@@ -120,6 +120,18 @@ export const useCartStore = create<CartState>()(
       // medio pedido, no pierde lo que ya había elegido.
       name: 'pideloya-cart',
       storage: createJSONStorage(() => localStorage),
+      // Versionado (Fase 4): si mañana cambia la forma del estado (nuevos
+      // campos, items anidados…), se incrementa `version` y `migrate` convierte
+      // el estado viejo. Sin versión, un cambio de forma rompía en silencio el
+      // carrito persistido (campos undefined) hasta que el usuario limpiara
+      // storage a mano.
+      version: 1,
+      migrate: (persisted, version) => {
+        // v0 → v1: la forma actual es la primera versionada; los estados
+        // previos (sin versión) ya coinciden con ella.
+        if (version === 0) return persisted as CartState
+        return persisted as CartState
+      },
     }
   )
 )

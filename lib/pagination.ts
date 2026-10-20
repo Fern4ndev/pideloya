@@ -33,21 +33,32 @@ export function getPagination(
 
 export type PageItem = number | 'ellipsis'
 
+/**
+ * Ventana de paginación con ANCHO ESTABLE: máximo 4 números, sea cual sea
+ * el total de páginas (antes crecía hasta 7 números + 2 ellipsis y el control
+ * se ensanchaba con los datos).
+ *
+ *   pageCount <= 4  → todos: 1 2 3 4
+ *   resto           → {primera, última, actual, un vecinto hacia el interior
+ *                      (la mitad en la que está la página)} con '…' en cada
+ *                      hueco de ≥1 página oculta:
+ *     p=1, N=10 → 1 2 … 10        p=5, N=10 → 1 … 5 6 … 10
+ *     p=9, N=10 → 1 … 8 9 10      p=3, N=6  → 1 … 3 4 … 6
+ */
 export function buildPageItems(page: number, pageCount: number): PageItem[] {
-  if (pageCount <= 7) {
+  if (pageCount <= 4) {
     return Array.from({ length: pageCount }, (_, i) => i + 1)
   }
 
-  const items: PageItem[] = [1]
+  const neighbor = page <= pageCount / 2 ? page + 1 : page - 1
+  const numbers = [...new Set([1, pageCount, page, neighbor])]
+    .filter((n) => n >= 1 && n <= pageCount)
+    .sort((a, b) => a - b)
 
-  if (page > 3) items.push('ellipsis')
-
-  const start = Math.max(2, page - 1)
-  const end = Math.min(pageCount - 1, page + 1)
-  for (let p = start; p <= end; p++) items.push(p)
-
-  if (page < pageCount - 2) items.push('ellipsis')
-  items.push(pageCount)
-
+  const items: PageItem[] = []
+  for (const [index, n] of numbers.entries()) {
+    if (index > 0 && n - numbers[index - 1] > 1) items.push('ellipsis')
+    items.push(n)
+  }
   return items
 }

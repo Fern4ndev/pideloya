@@ -3,7 +3,9 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { AnimatePresence, m } from 'motion/react'
 import { useCartStore, cartTotal } from '@/lib/hooks/use-cart'
+import { withImageKitTransform } from '@/lib/images/imagekit-transform'
 import { createOrder, getRestaurantCheckoutState } from '@/lib/actions/orders'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -71,6 +73,11 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
       try {
         await createOrder({
           addressId: address.id,
+          // Idempotencia (migración 20261003120700): un reintento de red o un
+          // doble clic con este MISMO uuid devuelve el pedido ya creado en vez
+          // de crear otro. La RPC lo valida contra el índice único
+          // (customer_id, client_request_id).
+          clientRequestId: crypto.randomUUID(),
           notes,
           items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         })
@@ -139,18 +146,26 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
             Pedido de {restaurantName}
           </h2>
           <div className="mt-3 space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.productId}
-                className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3.5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
-              >
+            <AnimatePresence initial={false}>
+              {items.map((item) => (
+                <m.div
+                  key={item.productId}
+                  layout
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex items-center gap-3 rounded-3xl border border-black/5 bg-white/70 p-3.5 shadow-client-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+                >
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-2xl bg-muted shadow-sm">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={item.imageUrl}
+                      src={withImageKitTransform(item.imageUrl, 160)}
                       alt={item.name}
                       className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
@@ -199,8 +214,9 @@ export function CartClient({ addresses }: { addresses: AddressOption[] }) {
                 >
                   <Trash2Icon className="h-4 w-4" />
                 </Button>
-              </div>
-            ))}
+                </m.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
 

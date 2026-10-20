@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceRoleClient } from '@/lib/db/server'
+import { revalidatePublicRestaurants } from '@/lib/db/public'
 import { removeRestaurant } from '@/lib/admin/remove-restaurant'
 import {
   getActiveDelivery,
@@ -134,6 +135,7 @@ export async function approveRestaurant(restaurantId: string) {
     targetId: restaurantId,
   })
 
+  revalidatePublicRestaurants()
   revalidatePath('/admin/restaurantes')
   revalidatePath('/admin')
   return { success: true, message: 'Restaurante activado' }
@@ -195,6 +197,7 @@ export async function approveRestaurantsBulk(ids: string[]) {
     })
   }
 
+  if (affected.length > 0) revalidatePublicRestaurants()
   revalidatePath('/admin/restaurantes')
   revalidatePath('/admin')
 
@@ -294,6 +297,7 @@ export async function deleteRestaurant(restaurantId: string) {
     metadata: { softDeleted: result.softDeleted },
   })
 
+  revalidatePublicRestaurants()
   revalidatePath('/admin/restaurantes')
   revalidatePath('/admin')
   return result
@@ -376,6 +380,7 @@ export async function updateRestaurant(
     metadata: { previous, changes: data },
   })
 
+  revalidatePublicRestaurants()
   revalidatePath('/admin/restaurantes')
   return { success: true }
 }
